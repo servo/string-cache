@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use static_atoms::StaticAtom;
+use static_atoms::atom::StaticAtom;
 use std::fmt;
 use std::hash::{Hash, Hasher, sip};
 use std::mem;
@@ -310,7 +310,7 @@ impl TotalOrd for Atom {
 mod tests {
     use std::task::spawn;
     use super::{Atom, Static, Inline, Dynamic};
-    use static_atoms::{DivAtom};
+    use static_atoms::atom;
     use test::Bencher;
 
     #[test]
@@ -447,10 +447,10 @@ mod tests {
     #[test]
     fn test_equiv() {
         let s0 = Atom::from_slice("div");
-        assert!(s0.equiv(&DivAtom));
+        assert!(s0.equiv(&atom::Div));
 
         let s1 = Atom::from_slice("Div");
-        assert!(!s1.equiv(&DivAtom));
+        assert!(!s1.equiv(&atom::Div));
     }
 
     #[test]
