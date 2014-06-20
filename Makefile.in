@@ -1,0 +1,26 @@
+VPATH=%VPATH%
+
+RUSTC ?= rustc
+RUSTFLAGS += -L ../../phf/rust-phf
+EXT_DEPS ?=
+
+RUST_SRC=$(shell find $(VPATH)/. -type f -name '*.rs')
+
+.PHONY: all
+all: 	libstring-cache.dummy
+
+.PHONY: libstring-cache.dummy
+libstring-cache.dummy: lib.rs $(RUST_SRC) $(EXT_DEPS)
+	$(RUSTC) $(RUSTFLAGS) $< --out-dir .
+	touch $@
+
+string-cache-test: lib.rs $(RUST_SRC)
+	$(RUSTC) $(RUSTFLAGS) $< -o $@ --test
+
+.PHONY: check
+check: string-cache-test
+	./string-cache-test $(TEST)
+
+.PHONY: clean
+clean:
+	rm -f *.o *.a *.so *.dylib *.rlib *.dll *.dummy *-test
