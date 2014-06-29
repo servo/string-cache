@@ -14,7 +14,7 @@ pub mod atom {
     use std::from_str::FromStr;
 
     #[repr(u32)]
-    #[deriving(Eq, TotalEq)]
+    #[deriving(Eq, PartialEq)]
     pub enum StaticAtom {
         EmptyString,
         Id,

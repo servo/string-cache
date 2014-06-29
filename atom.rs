@@ -22,34 +22,34 @@ use std::rt::heap;
 
 static mut global_string_cache_ptr: *mut StringCache = 0 as *mut StringCache;
 
-static INLINE_SHIFT_BITS: uint = 32;
+static STATIC_SHIFT_BITS: uint = 32;
 static ENTRY_ALIGNMENT: uint = 16;
 
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
 #[repr(u8)]
-#[deriving(Eq, TotalEq)]
+#[deriving(Eq, PartialEq)]
 enum AtomType {
-    Inline = 0,
-    Dynamic = 1,
+    Dynamic = 0,
+    Inline = 1,
     Static = 2,
 }
 
 struct StringCache {
     hasher: sip::SipHasher,
-    buckets: [*StringCacheEntry, ..4096],
+    buckets: [*mut StringCacheEntry, ..4096],
     lock: Mutex,
 }
 
 struct StringCacheEntry {
-    next_in_bucket: *StringCacheEntry,
+    next_in_bucket: *mut StringCacheEntry,
     hash: u64,
     ref_count: AtomicInt,
     string: String,
 }
 
 impl StringCacheEntry {
-    fn new(next: *StringCacheEntry, hash: u64, string_to_add: &str) -> StringCacheEntry {
+    fn new(next: *mut StringCacheEntry, hash: u64, string_to_add: &str) -> StringCacheEntry {
         StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
@@ -75,7 +75,7 @@ impl StringCache {
         let bucket_index = (hash & (self.buckets.len()-1) as u64) as uint;
         let mut ptr = self.buckets[bucket_index];
 
-        while ptr != ptr::null() {
+        while ptr != ptr::mut_null() {
             let value = unsafe { &*ptr };
             if value.hash == hash && value.string.as_slice() == string_to_add {
                 break;
@@ -83,27 +83,28 @@ impl StringCache {
             ptr = value.next_in_bucket;
         }
 
-        if ptr == ptr::null() {
+        if ptr == ptr::mut_null() {
             unsafe {
                 ptr = heap::allocate(mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT)
-                        as *StringCacheEntry;
-                mem::overwrite(ptr as *mut StringCacheEntry,
+                        as *mut StringCacheEntry;
+                ptr::write(ptr,
                             StringCacheEntry::new(self.buckets[bucket_index], hash, string_to_add));
             }
             self.buckets[bucket_index] = ptr;
         } else {
-            let value: &mut StringCacheEntry = unsafe { mem::transmute(ptr) };
-            value.ref_count.fetch_add(1, SeqCst);
+            unsafe {
+                (*ptr).ref_count.fetch_add(1, SeqCst);
+            }
         }
 
-        assert!(ptr != ptr::null());
+        assert!(ptr != ptr::mut_null());
         ptr as u64
     }
 
     fn remove(&mut self, key: u64) {
         let _guard = self.lock.lock();
 
-        let ptr = key as *StringCacheEntry;
+        let ptr = key as *mut StringCacheEntry;
         let value: &mut StringCacheEntry = unsafe { mem::transmute(ptr) };
 
         if value.ref_count.fetch_sub(1, SeqCst) == 1 {
@@ -112,7 +113,7 @@ impl StringCache {
             let mut current = self.buckets[bucket_index];
             let mut prev: *mut StringCacheEntry = ptr::mut_null();
 
-            while current != ptr::null() {
+            while current != ptr::mut_null() {
                 if current == ptr {
                     if prev != ptr::mut_null() {
                         unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
@@ -121,21 +122,21 @@ impl StringCache {
                     }
                     break;
                 }
-                prev = current as *mut StringCacheEntry;
+                prev = current;
                 unsafe { current = (*current).next_in_bucket };
             }
-            assert!(current != ptr::null());
+            assert!(current != ptr::mut_null());
 
             unsafe {
                 ptr::read(ptr as *StringCacheEntry);
-                heap::deallocate(ptr as *mut StringCacheEntry as *mut u8,
+                heap::deallocate(ptr as *mut u8,
                     mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT);
             }
         }
     }
 }
 
-#[deriving(Eq, TotalEq)]
+#[deriving(Eq, PartialEq)]
 pub struct Atom {
     data: u64
 }
@@ -143,12 +144,8 @@ pub struct Atom {
 impl Atom {
     pub fn from_static(atom_id: StaticAtom) -> Atom {
         Atom {
-            data: (atom_id as u64 << INLINE_SHIFT_BITS) | (Static as u64)
+            data: (atom_id as u64 << STATIC_SHIFT_BITS) | (Static as u64)
         }
-    }
-
-    pub fn from_string(string_to_add: &String) -> Atom {
-        Atom::from_slice(string_to_add.as_slice())
     }
 
     pub fn from_slice(string_to_add: &str) -> Atom {
@@ -169,12 +166,11 @@ impl Atom {
     #[inline]
     fn from_inline(string: &str) -> Atom {
         assert!(string.len() < 8);
-        let mut data = (Inline as u64) | (string.len() as u64 << 4);
-        let ptr = &mut data as *mut u64 as *mut u8;
-        unsafe { slice::raw::mut_buf_as_slice(ptr.offset(1), 7,
+        let mut string_data: u64 = 0;
+        unsafe { slice::raw::mut_buf_as_slice(&mut string_data as *mut u64 as *mut u8, 7,
                                     |b| bytes::copy_memory(b, string.as_bytes())) };
         Atom {
-            data: data
+            data: (Inline as u64) | (string.len() as u64 << 4) | (string_data << 8),
         }
     }
 
@@ -210,11 +206,6 @@ impl Atom {
         };
         (atom_type, len)
     }
-
-    #[inline]
-    fn to_ptr_address(&self) -> u64 {
-        self.data & !(Dynamic as u64)
-    }
 }
 
 impl Clone for Atom {
@@ -222,7 +213,7 @@ impl Clone for Atom {
         let atom_type = self.get_type();
         match atom_type {
             Dynamic => {
-                let hash_value = unsafe { &mut *(self.to_ptr_address() as *mut StringCacheEntry) };
+                let hash_value = unsafe { &mut *(self.data as *mut StringCacheEntry) };
                 hash_value.ref_count.fetch_add(1, SeqCst);
             }
             _ => {}
@@ -235,18 +226,17 @@ impl Clone for Atom {
 
 impl Equiv<StaticAtom> for Atom {
     fn equiv(&self, atom_id: &StaticAtom) -> bool {
-        self.get_type() == Static && self.data >> INLINE_SHIFT_BITS == *atom_id as u64
+        self.get_type() == Static && self.data >> STATIC_SHIFT_BITS == *atom_id as u64
     }
 }
 
 impl Drop for Atom {
     fn drop(&mut self) {
-        let atom_type = self.get_type();
-        match atom_type {
+        match self.get_type() {
             Dynamic => {
                 unsafe {
                     let string_cache: &mut StringCache = &mut *global_string_cache_ptr;
-                    string_cache.remove(self.to_ptr_address());
+                    string_cache.remove(self.data);
                 }
             },
             _ => {}
@@ -272,11 +262,11 @@ impl Str for Atom {
                 }
             },
             Static => {
-                let key: StaticAtom = unsafe { mem::transmute((self.data >> INLINE_SHIFT_BITS) as u32) };
+                let key: StaticAtom = unsafe { mem::transmute((self.data >> STATIC_SHIFT_BITS) as u32) };
                 key.as_slice()
             },
             Dynamic => {
-                let hash_value = unsafe { &*(self.to_ptr_address() as *StringCacheEntry) };
+                let hash_value = unsafe { &*(self.data as *StringCacheEntry) };
                 hash_value.string.as_slice()
             }
         }
@@ -287,13 +277,9 @@ impl StrAllocating for Atom {
     fn into_string(self) -> String {
         self.as_slice().to_string()
     }
-
-    fn into_owned(self) -> String {
-        self.as_slice().to_string()
-    }
 }
 
-impl Ord for Atom {
+impl PartialOrd for Atom {
     fn lt(&self, other: &Atom) -> bool {
         if self.data == other.data {
             return false;
@@ -302,7 +288,7 @@ impl Ord for Atom {
     }
 }
 
-impl TotalOrd for Atom {
+impl Ord for Atom {
     fn cmp(&self, other: &Atom) -> Ordering {
         if self.data == other.data {
             return Equal;

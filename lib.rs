@@ -20,7 +20,7 @@ extern crate debug;
 #[cfg(test)]
 extern crate test;
 
-#[phase(syntax)]
+#[phase(plugin)]
 extern crate phf_mac;
 extern crate phf;
 
