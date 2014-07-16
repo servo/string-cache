@@ -20,6 +20,13 @@ use sync::mutex::Mutex;
 use sync::one::{Once, ONCE_INIT};
 use std::rt::heap;
 
+
+// Inline atoms are probably buggy on big-endian architectures.
+#[allow(dead_code)]
+#[static_assert]
+static IS_LITTLE_ENDIAN: bool = cfg!(target_endian = "little");
+
+
 static mut global_string_cache_ptr: *mut StringCache = 0 as *mut StringCache;
 
 static STATIC_SHIFT_BITS: uint = 32;
