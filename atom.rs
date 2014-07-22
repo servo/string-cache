@@ -16,7 +16,7 @@ use std::slice;
 use std::slice::bytes;
 use std::str;
 use std::sync::atomics::{AtomicInt, SeqCst};
-use sync::mutex::Mutex;
+use sync::Mutex;
 use sync::one::{Once, ONCE_INIT};
 use std::rt::heap;
 
@@ -27,7 +27,7 @@ use std::rt::heap;
 static IS_LITTLE_ENDIAN: bool = cfg!(target_endian = "little");
 
 
-static mut global_string_cache_ptr: *mut StringCache = 0 as *mut StringCache;
+static mut global_string_cache_ptr: *mut Mutex<StringCache> = 0 as *mut _;
 
 static STATIC_SHIFT_BITS: uint = 32;
 static ENTRY_ALIGNMENT: uint = 16;
@@ -45,7 +45,6 @@ enum AtomType {
 struct StringCache {
     hasher: sip::SipHasher,
     buckets: [*mut StringCacheEntry, ..4096],
-    lock: Mutex,
 }
 
 struct StringCacheEntry {
@@ -71,13 +70,10 @@ impl StringCache {
         StringCache {
             hasher: sip::SipHasher::new(),
             buckets: unsafe { mem::zeroed() },
-            lock: Mutex::new(),
         }
     }
 
     fn add(&mut self, string_to_add: &str) -> u64 {
-        let _guard = self.lock.lock();
-
         let hash = self.hasher.hash(&string_to_add);
         let bucket_index = (hash & (self.buckets.len()-1) as u64) as uint;
         let mut ptr = self.buckets[bucket_index];
@@ -109,8 +105,6 @@ impl StringCache {
     }
 
     fn remove(&mut self, key: u64) {
-        let _guard = self.lock.lock();
-
         let ptr = key as *mut StringCacheEntry;
         let value: &mut StringCacheEntry = unsafe { mem::transmute(ptr) };
 
@@ -187,12 +181,12 @@ impl Atom {
 
         unsafe {
             START.doit(|| {
-                let cache = box StringCache::new();
+                let cache = box Mutex::new(StringCache::new());
                 global_string_cache_ptr = mem::transmute(cache);
             });
         }
 
-        let string_cache: &mut StringCache = unsafe { &mut *global_string_cache_ptr };
+        let mut string_cache = unsafe { &*global_string_cache_ptr }.lock();
         let hash_value_address = string_cache.add(string);
         Atom {
             data: hash_value_address | Dynamic as u64
@@ -241,10 +235,8 @@ impl Drop for Atom {
     fn drop(&mut self) {
         match self.get_type() {
             Dynamic => {
-                unsafe {
-                    let string_cache: &mut StringCache = &mut *global_string_cache_ptr;
-                    string_cache.remove(self.data);
-                }
+                let mut string_cache = unsafe { &*global_string_cache_ptr }.lock();
+                string_cache.remove(self.data);
             },
             _ => {}
         }
