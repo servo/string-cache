@@ -9,7 +9,6 @@ RUST_SRC=$(shell find $(VPATH)/. -type f -name '*.rs')
 .PHONY: all
 all: 	libstring-cache.dummy
 
-.PHONY: libstring-cache.dummy
 libstring-cache.dummy: lib.rs $(RUST_SRC) $(EXT_DEPS)
 	$(RUSTC) $(RUSTFLAGS) $< --out-dir .
 	touch $@

@@ -7,9 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_id = "github.com/mozilla-servo/string-cache#string_cache:0.1"]
-#![crate_type = "lib"]
-#![crate_type = "dylib"]
+#![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
 #![feature(phase, macro_rules)]
