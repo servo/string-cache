@@ -202,7 +202,7 @@ impl Atom {
         let atom_type = self.get_type();
         let len = match atom_type {
             Static | Dynamic => 0,
-            Inline => unsafe { mem::transmute((self.data & 0xf0) >> 4) }
+            Inline => ((self.data & 0xf0) >> 4) as uint
         };
         (atom_type, len)
     }
