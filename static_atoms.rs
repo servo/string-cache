@@ -33,7 +33,7 @@ pub mod atom {
         Div,
     }
 
-    static STATIC_ATOMS: PhfOrderedMap<StaticAtom> = phf_ordered_map!(
+    static STATIC_ATOMS: PhfOrderedMap<&'static str, StaticAtom> = phf_ordered_map!(
         "" => EmptyString,
         "id" => Id,
         "class" => Class,
@@ -54,7 +54,7 @@ pub mod atom {
     impl FromStr for StaticAtom {
         #[inline]
         fn from_str(string: &str) -> Option<StaticAtom> {
-            match STATIC_ATOMS.find(&string) {
+            match STATIC_ATOMS.find_equiv(&string) {
                 None => None,
                 Some(&k) => Some(k)
             }
@@ -63,7 +63,7 @@ pub mod atom {
 
     impl StaticAtom {
         pub fn as_slice(&self) -> &'static str {
-            let (string, _) = STATIC_ATOMS.entries().idx(*self as uint).unwrap();
+            let &(string, _) = STATIC_ATOMS.entries().idx(*self as uint).unwrap();
             string
         }
     }
