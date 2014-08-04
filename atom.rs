@@ -137,7 +137,7 @@ impl StringCache {
     }
 }
 
-#[deriving(Eq, PartialEq)]
+#[deriving(Eq, Hash, PartialEq)]
 pub struct Atom {
     data: u64
 }
