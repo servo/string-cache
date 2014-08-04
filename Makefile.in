@@ -3,6 +3,9 @@ VPATH=%VPATH%
 RUSTC ?= rustc
 RUSTFLAGS += -L ../../phf/rust-phf
 EXT_DEPS ?=
+RUSTDOC ?= rustdoc
+RUSTDOC_FLAGS ?=
+RUSTDOC_TARGET ?= doc
 
 RUST_SRC=$(shell find $(VPATH)/. -type f -name '*.rs')
 
@@ -19,6 +22,12 @@ string-cache-test: lib.rs $(RUST_SRC)
 .PHONY: check
 check: string-cache-test
 	./string-cache-test $(TEST)
+
+.PHONY: doc
+doc: $(RUSTDOC_TARGET)/string_cache/index.html
+
+$(RUSTDOC_TARGET)/string_cache/index.html: lib.rs $(RUST_SRC) $(EXT_DEPS)
+	$(RUSTDOC) $(RUSTDOC_FLAGS) $< -o $(RUSTDOC_TARGET)
 
 .PHONY: clean
 clean:
