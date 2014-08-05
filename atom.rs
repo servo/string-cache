@@ -164,6 +164,27 @@ impl Atom {
         }
     }
 
+    pub fn as_slice<'t>(&'t self) -> &'t str {
+        let (atom_type, string_len) = self.get_type_and_inline_len();
+        let ptr = self as *const Atom as *const u8;
+        match atom_type {
+            Inline => {
+                unsafe {
+                    let data = ptr.offset(1) as *const [u8, ..7];
+                    str::raw::from_utf8((*data).slice_to(string_len))
+                }
+            },
+            Static => {
+                let key: StaticAtom = unsafe { mem::transmute((self.data >> STATIC_SHIFT_BITS) as u32) };
+                key.as_slice()
+            },
+            Dynamic => {
+                let hash_value = unsafe { &*(self.data as *const StringCacheEntry) };
+                hash_value.string.as_slice()
+            }
+        }
+    }
+
     #[inline]
     fn from_inline(string: &str) -> Atom {
         assert!(string.len() < 8);
@@ -246,35 +267,6 @@ impl Drop for Atom {
 impl fmt::Show for Atom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Atom('{:s}' type={:?})", self.as_slice(), self.get_type())
-    }
-}
-
-impl Str for Atom {
-    fn as_slice<'t>(&'t self) -> &'t str {
-        let (atom_type, string_len) = self.get_type_and_inline_len();
-        let ptr = self as *const Atom as *const u8;
-        match atom_type {
-            Inline => {
-                unsafe {
-                    let data = ptr.offset(1) as *const [u8, ..7];
-                    str::raw::from_utf8((*data).slice_to(string_len))
-                }
-            },
-            Static => {
-                let key: StaticAtom = unsafe { mem::transmute((self.data >> STATIC_SHIFT_BITS) as u32) };
-                key.as_slice()
-            },
-            Dynamic => {
-                let hash_value = unsafe { &*(self.data as *const StringCacheEntry) };
-                hash_value.string.as_slice()
-            }
-        }
-    }
-}
-
-impl StrAllocating for Atom {
-    fn into_string(self) -> String {
-        self.as_slice().to_string()
     }
 }
 
