@@ -7,16 +7,16 @@ RUSTDOC ?= rustdoc
 RUSTDOC_FLAGS ?=
 RUSTDOC_TARGET ?= doc
 
-RUST_SRC=$(shell find $(VPATH)/. -type f -name '*.rs')
+RUST_SRC=$(shell find $(VPATH)/src -type f -name '*.rs')
 
 .PHONY: all
 all: 	libstring-cache.dummy
 
-libstring-cache.dummy: lib.rs $(RUST_SRC) $(EXT_DEPS)
+libstring-cache.dummy: src/lib.rs $(RUST_SRC) $(EXT_DEPS)
 	$(RUSTC) $(RUSTFLAGS) $< --out-dir .
 	touch $@
 
-string-cache-test: lib.rs $(RUST_SRC)
+string-cache-test: src/lib.rs $(RUST_SRC)
 	$(RUSTC) $(RUSTFLAGS) $< -o $@ --test
 
 .PHONY: check
@@ -26,7 +26,7 @@ check: string-cache-test
 .PHONY: doc
 doc: $(RUSTDOC_TARGET)/string_cache/index.html
 
-$(RUSTDOC_TARGET)/string_cache/index.html: lib.rs $(RUST_SRC) $(EXT_DEPS)
+$(RUSTDOC_TARGET)/string_cache/index.html: src/lib.rs $(RUST_SRC) $(EXT_DEPS)
 	$(RUSTDOC) $(RUSTDOC_FLAGS) $< -o $(RUSTDOC_TARGET)
 
 .PHONY: clean

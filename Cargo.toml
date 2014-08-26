@@ -1,0 +1,10 @@
+[package]
+
+name = "string_cache"
+version = "0.0.0"
+authors = [ "The Servo Project Developers" ]
+
+[dependencies.phf]
+git = "https://github.com/sfackler/rust-phf"
+[dependencies.phf_mac]
+git = "https://github.com/sfackler/rust-phf"

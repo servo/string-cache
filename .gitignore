@@ -1,1 +1,4 @@
 /doc
+/Makefile
+/Cargo.lock
+/target
