@@ -25,6 +25,8 @@ extern crate phf;
 #[phase(plugin)]
 extern crate string_cache_macros;
 
+pub use atom::Atom;
+
 pub mod atom;
 
 // A private module so that macro-expanded idents like
