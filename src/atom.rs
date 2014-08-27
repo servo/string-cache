@@ -7,7 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use static_atoms::atom::StaticAtom;
+use phf::PhfMap;
+
 use std::fmt;
 use std::hash::{Hash, Hasher, sip};
 use std::mem;
@@ -20,6 +21,8 @@ use sync::Mutex;
 use sync::one::{Once, ONCE_INIT};
 use std::rt::heap;
 
+#[path="../shared/static_atom.rs"]
+mod static_atom;
 
 // Inline atoms are probably buggy on big-endian architectures.
 #[allow(dead_code)]
@@ -29,8 +32,11 @@ static IS_LITTLE_ENDIAN: bool = cfg!(target_endian = "little");
 
 static mut global_string_cache_ptr: *mut Mutex<StringCache> = 0 as *mut _;
 
-static STATIC_SHIFT_BITS: uint = 32;
 static ENTRY_ALIGNMENT: uint = 16;
+
+// Macro-generated tables for static atoms.
+static static_atom_map: PhfMap<&'static str, u32> = static_atom_map!();
+static static_atom_array: &'static [&'static str] = static_atom_array!();
 
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
@@ -39,7 +45,7 @@ static ENTRY_ALIGNMENT: uint = 16;
 enum AtomType {
     Dynamic = 0,
     Inline = 1,
-    Static = 2,
+    Static = static_atom::STATIC_TAG,
 }
 
 struct StringCache {
@@ -139,19 +145,21 @@ impl StringCache {
 
 #[deriving(Eq, Hash, PartialEq)]
 pub struct Atom {
-    data: u64
+    /// This field is public so that the `atom!()` macro can use it.
+    /// You should not otherwise access this field.
+    pub data: u64,
 }
 
 impl Atom {
-    pub fn from_static(atom_id: StaticAtom) -> Atom {
+    pub fn from_static(atom_id: u32) -> Atom {
         Atom {
-            data: (atom_id as u64 << STATIC_SHIFT_BITS) | (Static as u64)
+            data: static_atom::add_tag(atom_id),
         }
     }
 
     pub fn from_slice(string_to_add: &str) -> Atom {
-        match from_str::<StaticAtom>(string_to_add) {
-            Some(atom_id) => {
+        match static_atom_map.find_equiv(&string_to_add) {
+            Some(&atom_id) => {
                 Atom::from_static(atom_id)
             },
             None => {
@@ -175,8 +183,8 @@ impl Atom {
                 }
             },
             Static => {
-                let key: StaticAtom = unsafe { mem::transmute((self.data >> STATIC_SHIFT_BITS) as u32) };
-                key.as_slice()
+                *static_atom_array.get(static_atom::remove_tag(self.data) as uint)
+                    .expect("bad static atom")
             },
             Dynamic => {
                 let hash_value = unsafe { &*(self.data as *const StringCacheEntry) };
@@ -246,12 +254,6 @@ impl Clone for Atom {
     }
 }
 
-impl Equiv<StaticAtom> for Atom {
-    fn equiv(&self, atom_id: &StaticAtom) -> bool {
-        self.get_type() == Static && self.data >> STATIC_SHIFT_BITS == *atom_id as u64
-    }
-}
-
 impl Drop for Atom {
     fn drop(&mut self) {
         match self.get_type() {
@@ -296,7 +298,6 @@ impl Ord for Atom {
 mod tests {
     use std::task::spawn;
     use super::{Atom, Static, Inline, Dynamic};
-    use static_atoms::atom;
     use test::Bencher;
 
     #[test]
@@ -328,7 +329,11 @@ mod tests {
         let s1 = Atom::from_slice("id");
         assert!(s1.get_type_and_inline_len() == (Static, 0));
 
-        let i0 = Atom::from_slice("z");
+        let s1 = Atom::from_slice("body");
+        assert!(s1.get_type_and_inline_len() == (Static, 0));
+
+        // "z" is a static atom
+        let i0 = Atom::from_slice("c");
         assert!(i0.get_type_and_inline_len() == (Inline, 1));
 
         let i1 = Atom::from_slice("zz");
@@ -431,15 +436,6 @@ mod tests {
     }
 
     #[test]
-    fn test_equiv() {
-        let s0 = Atom::from_slice("div");
-        assert!(s0.equiv(&atom::Div));
-
-        let s1 = Atom::from_slice("Div");
-        assert!(!s1.equiv(&atom::Div));
-    }
-
-    #[test]
     fn test_threads() {
         for _ in range(0u32, 100u32) {
             spawn(proc() {
@@ -488,6 +484,34 @@ mod tests {
                     eq_count += 1;
                 }
             }
+        });
+    }
+
+    #[test]
+    fn atom_macro() {
+        assert_eq!(atom!(body), Atom::from_slice("body"));
+        assert_eq!(atom!("body"), Atom::from_slice("body"));
+        assert_eq!(atom!("font-weight"), Atom::from_slice("font-weight"));
+    }
+
+    #[test]
+    fn match_atom() {
+        assert_eq!(2u, match Atom::from_slice("head") {
+            atom!(br) => 1u,
+            atom!(html) | atom!(head) => 2u,
+            _ => 3u,
+        });
+
+        assert_eq!(3u, match Atom::from_slice("body") {
+            atom!(br) => 1u,
+            atom!(html) | atom!(head) => 2u,
+            _ => 3u,
+        });
+
+        assert_eq!(3u, match Atom::from_slice("zzzzzz") {
+            atom!(br) => 1u,
+            atom!(html) | atom!(head) => 2u,
+            _ => 3u,
         });
     }
 }

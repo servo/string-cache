@@ -1,0 +1,10 @@
+[package]
+
+name = "string_cache_macros"
+version = "0.0.0"
+authors = [ "The Servo Project Developers" ]
+
+[lib]
+
+name = "string_cache_macros"
+plugin = true
