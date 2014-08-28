@@ -7,19 +7,22 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use core::prelude::*;
+
 use phf::PhfMap;
 
-use std::fmt;
-use std::hash::{Hash, Hasher, sip};
-use std::mem;
-use std::ptr;
-use std::slice;
-use std::slice::bytes;
-use std::str;
-use std::sync::atomics::{AtomicInt, SeqCst};
+use core::fmt;
+use core::mem;
+use core::ptr;
+use core::slice;
+use core::slice::bytes;
+use core::str;
+use core::atomic::{AtomicInt, SeqCst};
+use alloc::heap;
+use collections::string::String;
+use collections::hash::{Hash, Hasher, sip};
 use sync::Mutex;
 use sync::one::{Once, ONCE_INIT};
-use std::rt::heap;
 
 #[path="../shared/static_atom.rs"]
 mod static_atom;
@@ -66,7 +69,7 @@ impl StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
             ref_count: AtomicInt::new(1),
-            string: string_to_add.to_string(),
+            string: String::from_str(string_to_add),
         }
     }
 }
@@ -296,9 +299,13 @@ impl Ord for Atom {
 
 #[cfg(test)]
 mod tests {
+    use core::prelude::*;
+
     use std::task::spawn;
     use super::{Atom, Static, Inline, Dynamic};
     use test::Bencher;
+    use collections::MutableSeq;
+    use collections::vec::Vec;
 
     #[test]
     fn test_as_slice() {
@@ -447,8 +454,8 @@ mod tests {
 
     #[bench]
     fn bench_strings(b: &mut Bencher) {
-        let mut strings0 = vec!();
-        let mut strings1 = vec!();
+        let mut strings0 = Vec::new();
+        let mut strings1 = Vec::new();
 
         for _ in range(0u32, 1000u32) {
             strings0.push("a");
@@ -468,8 +475,8 @@ mod tests {
 
     #[bench]
     fn bench_atoms(b: &mut Bencher) {
-        let mut atoms0 = vec!();
-        let mut atoms1 = vec!();
+        let mut atoms0 = Vec::new();
+        let mut atoms1 = Vec::new();
 
         for _ in range(0u32, 1000u32) {
             atoms0.push(Atom::from_slice("a"));
