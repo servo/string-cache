@@ -9,7 +9,7 @@
 
 use core::prelude::*;
 
-use phf::PhfMap;
+use phf::PhfOrderedSet;
 
 use core::fmt;
 use core::mem;
@@ -37,9 +37,8 @@ static mut global_string_cache_ptr: *mut Mutex<StringCache> = 0 as *mut _;
 
 static ENTRY_ALIGNMENT: uint = 16;
 
-// Macro-generated tables for static atoms.
-static static_atom_map: PhfMap<&'static str, u32> = static_atom_map!();
-static static_atom_array: &'static [&'static str] = static_atom_array!();
+// Macro-generated table for static atoms.
+static static_atom_set: PhfOrderedSet<&'static str> = static_atom_set!();
 
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
@@ -161,9 +160,9 @@ impl Atom {
     }
 
     pub fn from_slice(string_to_add: &str) -> Atom {
-        match static_atom_map.find_equiv(&string_to_add) {
-            Some(&atom_id) => {
-                Atom::from_static(atom_id)
+        match static_atom_set.find_index_equiv(&string_to_add) {
+            Some(atom_id) => {
+                Atom::from_static(atom_id as u32)
             },
             None => {
                 if string_to_add.len() < 8 {
@@ -186,7 +185,7 @@ impl Atom {
                 }
             },
             Static => {
-                *static_atom_array.get(static_atom::remove_tag(self.data) as uint)
+                *static_atom_set.iter().idx(static_atom::remove_tag(self.data) as uint)
                     .expect("bad static atom")
             },
             Dynamic => {

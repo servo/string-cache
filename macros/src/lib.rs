@@ -48,29 +48,15 @@ macro_rules! expect ( ($cx:expr, $sp:expr, $e:expr, $msg:expr) => (
     }
 ))
 
-fn all_atoms<'a>() -> Chain<Items<'a, &'static str>, Items<'a, &'static str>> {
-    data::fast_set_atoms.iter().chain(data::other_atoms.iter())
-}
-
-// Build a PhfMap yielding static atom IDs.
+// Build a PhfOrderedSet of static atoms.
 // Takes no arguments.
-fn expand_static_atom_map(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
+fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
     bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_map!()");
-    let tts: Vec<TokenTree> = all_atoms().enumerate().flat_map(|(i, k)| {
-        let i = i as u32;
-        (quote_tokens!(&mut *cx, $k => $i,)).move_iter()
+    let all_atoms = data::fast_set_atoms.iter().chain(data::other_atoms.iter());
+    let tts: Vec<TokenTree> = all_atoms.flat_map(|k| {
+        (quote_tokens!(&mut *cx, $k,)).move_iter()
     }).collect();
-    MacExpr::new(quote_expr!(&mut *cx, phf_map!($tts)))
-}
-
-// Build the array to convert IDs back to strings.
-// FIXME: share storage with the PhfMap keys.
-fn expand_static_atom_array(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
-    bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_array!()");
-    let tts: Vec<TokenTree> = all_atoms().flat_map(|k|
-        quote_tokens!(&mut *cx, $k,).move_iter()
-    ).collect();
-    MacExpr::new(quote_expr!(&mut *cx, &[$tts]))
+    MacExpr::new(quote_expr!(&mut *cx, phf_ordered_set!($tts)))
 }
 
 fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
@@ -126,7 +112,6 @@ fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'s
 // NB: This needs to be public or we get a linker error.
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_macro("static_atom_map", expand_static_atom_map);
-    reg.register_macro("static_atom_array", expand_static_atom_array);
+    reg.register_macro("static_atom_set", expand_static_atom_set);
     reg.register_macro("atom", expand_atom);
 }
