@@ -7,15 +7,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-// The first 64 atoms are special: we can quickly check membership
-// in sets of these, using a bitmask.  This includes every tag that
-// appears in more than one set in the tree builder spec, plus a
-// few others (arbitrarily chosen).
-//
-// FIXME(kmc): check if this is really true with the packed tag bits
-//
-// This list must remain sorted.
-pub static fast_set_atoms: [&'static str, ..64] = [
+pub static atoms: &'static [&'static str] = &[
+
+    // The first 64 atoms are special: we can quickly check membership
+    // in sets of these, using a bitmask.  This includes every tag that
+    // appears in more than one set in the tree builder spec, plus a
+    // few others (arbitrarily chosen).
+    //
+    // FIXME(kmc): check if this is really true with the packed tag bits
+
     "a",
     "address",
     "applet",
@@ -80,12 +80,9 @@ pub static fast_set_atoms: [&'static str, ..64] = [
     "tr",
     "track",
     "xmp",
-];
 
-// The rest.
-//
-// This list must remain sorted.
-pub static other_atoms: &'static [&'static str] = &[
+    // End of first 64 atoms.
+
     "",
     "abbr",
     "abs",

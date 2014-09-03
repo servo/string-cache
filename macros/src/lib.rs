@@ -10,11 +10,14 @@
 #![crate_name="string_cache_macros"]
 #![crate_type="dylib"]
 
-#![feature(macro_rules, plugin_registrar, quote, managed_boxes)]
+#![feature(macro_rules, plugin_registrar, quote, managed_boxes, phase)]
 #![allow(unused_imports)]  // for quotes
 
 extern crate syntax;
 extern crate rustc;
+
+#[phase(plugin)]
+extern crate lazy_static;
 
 use rustc::plugin::Registry;
 use syntax::codemap::Span;
@@ -24,8 +27,8 @@ use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 use syntax::parse::token::{get_ident, InternedString, LIT_STR, IDENT};
 
 use std::iter::Chain;
-use std::slice::Items;
 use std::gc::Gc;
+use std::collections::HashMap;
 
 mod data;
 
@@ -52,8 +55,7 @@ macro_rules! expect ( ($cx:expr, $sp:expr, $e:expr, $msg:expr) => (
 // Takes no arguments.
 fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
     bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_map!()");
-    let all_atoms = data::fast_set_atoms.iter().chain(data::other_atoms.iter());
-    let tts: Vec<TokenTree> = all_atoms.flat_map(|k| {
+    let tts: Vec<TokenTree> = data::atoms.iter().flat_map(|k| {
         (quote_tokens!(&mut *cx, $k,)).move_iter()
     }).collect();
     MacExpr::new(quote_expr!(&mut *cx, phf_ordered_set!($tts)))
@@ -67,12 +69,15 @@ fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
     }))
 }
 
-fn find_atom(name: InternedString) -> Option<uint> {
-    // Use bsearch instead of bsearch_elem because of type mismatch
-    // between &'t str and &'static str.
-    data::fast_set_atoms.bsearch(|&x| x.cmp(&name.get())).or_else(||
-        data::other_atoms.bsearch(|&x| x.cmp(&name.get())).map(|i| i+64))
-
+// Build a map from atoms to IDs for use in implementing the atom!() macro.
+lazy_static! {
+    static ref STATIC_ATOM_MAP: HashMap<&'static str, uint> = {
+        let mut m = HashMap::new();
+        for (i, x) in data::atoms.iter().enumerate() {
+            m.insert(*x, i);
+        }
+        m
+    };
 }
 
 struct AtomResult {
@@ -98,10 +103,10 @@ fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'s
         _ => bail!(cx, sp, usage),
     };
 
-    let i = expect!(cx, sp, find_atom(name.clone()),
+    let i = expect!(cx, sp, STATIC_ATOM_MAP.find_equiv(&name.get()),
         format!("Unknown static atom {:s}", name.get()).as_slice());
 
-    let data = static_atom::add_tag(i as u32);
+    let data = static_atom::add_tag(*i as u32);
 
     box AtomResult {
         expr: quote_expr!(&mut *cx, ::string_cache::atom::Atom { data: $data }),
