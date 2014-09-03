@@ -520,4 +520,21 @@ mod tests {
             _ => 3u,
         });
     }
+
+    #[test]
+    fn ns_macro() {
+        assert_eq!(ns!(html), atom!("http://www.w3.org/1999/xhtml"));
+        assert_eq!(ns!(xml), atom!("http://www.w3.org/XML/1998/namespace"));
+        assert_eq!(ns!(xmlns), atom!("http://www.w3.org/2000/xmlns/"));
+        assert_eq!(ns!(xlink), atom!("http://www.w3.org/1999/xlink"));
+        assert_eq!(ns!(svg), atom!("http://www.w3.org/2000/svg"));
+        assert_eq!(ns!(mathml), atom!("http://www.w3.org/1998/Math/MathML"));
+
+        assert_eq!(ns!(HtMl), atom!("http://www.w3.org/1999/xhtml"));
+        assert_eq!(ns!(xMl), atom!("http://www.w3.org/XML/1998/namespace"));
+        assert_eq!(ns!(XmLnS), atom!("http://www.w3.org/2000/xmlns/"));
+        assert_eq!(ns!(xLiNk), atom!("http://www.w3.org/1999/xlink"));
+        assert_eq!(ns!(SvG), atom!("http://www.w3.org/2000/svg"));
+        assert_eq!(ns!(mAtHmL), atom!("http://www.w3.org/1998/Math/MathML"));
+    }
 }
