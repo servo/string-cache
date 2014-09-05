@@ -10,7 +10,7 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(phase, macro_rules)]
+#![feature(phase, macro_rules, default_type_params)]
 
 extern crate sync;
 extern crate debug;
