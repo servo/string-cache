@@ -6,8 +6,10 @@ authors = [ "The Servo Project Developers" ]
 
 [dependencies.phf]
 git = "https://github.com/sfackler/rust-phf"
+rev = "fa5d803428dd760287330571c919c7c5e11b2e1b"
 [dependencies.phf_mac]
 git = "https://github.com/sfackler/rust-phf"
+rev = "fa5d803428dd760287330571c919c7c5e11b2e1b"
 
 [dependencies.string_cache_macros]
 path = "macros"
