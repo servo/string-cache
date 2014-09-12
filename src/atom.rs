@@ -114,31 +114,31 @@ impl StringCache {
         let ptr = key as *mut StringCacheEntry;
         let value: &mut StringCacheEntry = unsafe { mem::transmute(ptr) };
 
-        if value.ref_count.fetch_sub(1, SeqCst) == 1 {
-            let bucket_index = (value.hash & (self.buckets.len()-1) as u64) as uint;
+        debug_assert!(value.ref_count.load(SeqCst) == 0);
 
-            let mut current = self.buckets[bucket_index];
-            let mut prev: *mut StringCacheEntry = ptr::mut_null();
+        let bucket_index = (value.hash & (self.buckets.len()-1) as u64) as uint;
 
-            while current != ptr::mut_null() {
-                if current == ptr {
-                    if prev != ptr::mut_null() {
-                        unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
-                    } else {
-                        unsafe { self.buckets[bucket_index] = (*current).next_in_bucket };
-                    }
-                    break;
+        let mut current = self.buckets[bucket_index];
+        let mut prev: *mut StringCacheEntry = ptr::mut_null();
+
+        while current != ptr::mut_null() {
+            if current == ptr {
+                if prev != ptr::mut_null() {
+                    unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
+                } else {
+                    unsafe { self.buckets[bucket_index] = (*current).next_in_bucket };
                 }
-                prev = current;
-                unsafe { current = (*current).next_in_bucket };
+                break;
             }
-            assert!(current != ptr::mut_null());
+            prev = current;
+            unsafe { current = (*current).next_in_bucket };
+        }
+        assert!(current != ptr::mut_null());
 
-            unsafe {
-                ptr::read(ptr as *const StringCacheEntry);
-                heap::deallocate(ptr as *mut u8,
-                    mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT);
-            }
+        unsafe {
+            ptr::read(ptr as *const StringCacheEntry);
+            heap::deallocate(ptr as *mut u8,
+                mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT);
         }
     }
 }
@@ -239,6 +239,7 @@ impl Atom {
 }
 
 impl Clone for Atom {
+    #[inline]
     fn clone(&self) -> Atom {
         let atom_type = self.get_type();
         match atom_type {
@@ -255,11 +256,23 @@ impl Clone for Atom {
 }
 
 impl Drop for Atom {
+    #[inline]
     fn drop(&mut self) {
+        // Out of line to guide inlining.
+        fn drop_slow(this: &mut Atom) {
+            let mut string_cache = unsafe {
+                &*global_string_cache_ptr
+            }.lock();
+            string_cache.remove(this.data);
+        }
+
         match self.get_type() {
             Dynamic => {
-                let mut string_cache = unsafe { &*global_string_cache_ptr }.lock();
-                string_cache.remove(self.data);
+                let ptr = self.data as *mut StringCacheEntry;
+                let value: &mut StringCacheEntry = unsafe { mem::transmute(ptr) };
+                if value.ref_count.fetch_sub(1, SeqCst) == 1 {
+                    drop_slow(self);
+                }
             },
             _ => {}
         }
