@@ -263,7 +263,18 @@ impl Drop for Atom {
             let mut string_cache = unsafe {
                 &*global_string_cache_ptr
             }.lock();
-            string_cache.remove(this.data);
+
+            // Note that we need a second check here. The problem we are trying to defend against
+            // is thus:
+            //
+            // 1. Thread B calls Atom::new() and takes mutex.
+            // 2. Thread A calls drop(), ref count drops to 0.
+            // 3. Thread B bumps ref count to 1.
+            //
+            // In this case we need thread A to perform a separate check.
+            if value.ref_count.fetch(SeqCst) == 0 {
+                string_cache.remove(this.data);
+            }
         }
 
         match self.get_type() {
