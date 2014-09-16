@@ -8,3 +8,6 @@ authors = [ "The Servo Project Developers" ]
 
 name = "string_cache_macros"
 plugin = true
+
+[dependencies.lazy_static]
+git = "https://github.com/Kimundi/lazy-static.rs"

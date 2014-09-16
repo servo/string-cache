@@ -7,19 +7,22 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use phf::PhfMap;
+use core::prelude::*;
 
-use std::fmt;
-use std::hash::{Hash, Hasher, sip};
-use std::mem;
-use std::ptr;
-use std::slice;
-use std::slice::bytes;
-use std::str;
-use std::sync::atomics::{AtomicInt, SeqCst};
+use phf::PhfOrderedSet;
+
+use core::fmt;
+use core::mem;
+use core::ptr;
+use core::slice;
+use core::slice::bytes;
+use core::str;
+use core::atomic::{AtomicInt, SeqCst};
+use alloc::heap;
+use collections::string::String;
+use collections::hash::{Hash, Hasher, sip};
 use sync::Mutex;
 use sync::one::{Once, ONCE_INIT};
-use std::rt::heap;
 
 #[path="../shared/static_atom.rs"]
 mod static_atom;
@@ -34,9 +37,8 @@ static mut global_string_cache_ptr: *mut Mutex<StringCache> = 0 as *mut _;
 
 static ENTRY_ALIGNMENT: uint = 16;
 
-// Macro-generated tables for static atoms.
-static static_atom_map: PhfMap<&'static str, u32> = static_atom_map!();
-static static_atom_array: &'static [&'static str] = static_atom_array!();
+// Macro-generated table for static atoms.
+static static_atom_set: PhfOrderedSet<&'static str> = static_atom_set!();
 
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
@@ -66,7 +68,7 @@ impl StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
             ref_count: AtomicInt::new(1),
-            string: string_to_add.to_string(),
+            string: String::from_str(string_to_add),
         }
     }
 }
@@ -158,9 +160,9 @@ impl Atom {
     }
 
     pub fn from_slice(string_to_add: &str) -> Atom {
-        match static_atom_map.find_equiv(&string_to_add) {
-            Some(&atom_id) => {
-                Atom::from_static(atom_id)
+        match static_atom_set.find_index_equiv(&string_to_add) {
+            Some(atom_id) => {
+                Atom::from_static(atom_id as u32)
             },
             None => {
                 if string_to_add.len() < 8 {
@@ -183,7 +185,7 @@ impl Atom {
                 }
             },
             Static => {
-                *static_atom_array.get(static_atom::remove_tag(self.data) as uint)
+                *static_atom_set.iter().idx(static_atom::remove_tag(self.data) as uint)
                     .expect("bad static atom")
             },
             Dynamic => {
@@ -320,9 +322,13 @@ impl Ord for Atom {
 
 #[cfg(test)]
 mod tests {
+    use core::prelude::*;
+
     use std::task::spawn;
     use super::{Atom, Static, Inline, Dynamic};
     use test::Bencher;
+    use collections::MutableSeq;
+    use collections::vec::Vec;
 
     #[test]
     fn test_as_slice() {
@@ -471,8 +477,8 @@ mod tests {
 
     #[bench]
     fn bench_strings(b: &mut Bencher) {
-        let mut strings0 = vec!();
-        let mut strings1 = vec!();
+        let mut strings0 = Vec::new();
+        let mut strings1 = Vec::new();
 
         for _ in range(0u32, 1000u32) {
             strings0.push("a");
@@ -492,8 +498,8 @@ mod tests {
 
     #[bench]
     fn bench_atoms(b: &mut Bencher) {
-        let mut atoms0 = vec!();
-        let mut atoms1 = vec!();
+        let mut atoms0 = Vec::new();
+        let mut atoms1 = Vec::new();
 
         for _ in range(0u32, 1000u32) {
             atoms0.push(Atom::from_slice("a"));
@@ -537,5 +543,22 @@ mod tests {
             atom!(html) | atom!(head) => 2u,
             _ => 3u,
         });
+    }
+
+    #[test]
+    fn ns_macro() {
+        assert_eq!(ns!(html), atom!("http://www.w3.org/1999/xhtml"));
+        assert_eq!(ns!(xml), atom!("http://www.w3.org/XML/1998/namespace"));
+        assert_eq!(ns!(xmlns), atom!("http://www.w3.org/2000/xmlns/"));
+        assert_eq!(ns!(xlink), atom!("http://www.w3.org/1999/xlink"));
+        assert_eq!(ns!(svg), atom!("http://www.w3.org/2000/svg"));
+        assert_eq!(ns!(mathml), atom!("http://www.w3.org/1998/Math/MathML"));
+
+        assert_eq!(ns!(HtMl), atom!("http://www.w3.org/1999/xhtml"));
+        assert_eq!(ns!(xMl), atom!("http://www.w3.org/XML/1998/namespace"));
+        assert_eq!(ns!(XmLnS), atom!("http://www.w3.org/2000/xmlns/"));
+        assert_eq!(ns!(xLiNk), atom!("http://www.w3.org/1999/xlink"));
+        assert_eq!(ns!(SvG), atom!("http://www.w3.org/2000/svg"));
+        assert_eq!(ns!(mAtHmL), atom!("http://www.w3.org/1998/Math/MathML"));
     }
 }

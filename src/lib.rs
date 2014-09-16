@@ -10,13 +10,25 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(phase, macro_rules, default_type_params)]
+#![feature(phase, macro_rules, default_type_params, globs)]
+#![no_std]
 
+#[phase(plugin, link)]
+extern crate core;
+
+extern crate alloc;
+extern crate collections;
 extern crate sync;
 extern crate debug;
 
 #[cfg(test)]
 extern crate test;
+
+#[cfg(test)]
+extern crate native;
+
+#[cfg(test)]
+extern crate std;
 
 #[phase(plugin)]
 extern crate phf_mac;
@@ -36,4 +48,11 @@ pub mod atom;
 #[doc(hidden)]
 mod string_cache {
     pub use atom;
+}
+
+// For macros and deriving.
+#[cfg(not(test))]
+mod std {
+    pub use core::{cmp, fmt};
+    pub use collections::hash;
 }
