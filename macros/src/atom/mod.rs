@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use syntax::ptr::P;
 use syntax::codemap::Span;
 use syntax::ast::{TokenTree, TTTok};
 use syntax::ast;
@@ -15,7 +16,6 @@ use syntax::parse::token::{get_ident, InternedString, LIT_STR, IDENT};
 
 use std::iter::Chain;
 use std::slice::{Items, Found, NotFound};
-use std::gc::Gc;
 use std::collections::HashMap;
 use std::ascii::AsciiExt;
 
@@ -54,16 +54,16 @@ lazy_static! {
 }
 
 struct AtomResult {
-    expr: Gc<ast::Expr>,
-    pat: Gc<ast::Pat>,
+    expr: P<ast::Expr>,
+    pat: P<ast::Pat>,
 }
 
 impl MacResult for AtomResult {
-    fn make_expr(&self) -> Option<Gc<ast::Expr>> {
+    fn make_expr(self: Box<AtomResult>) -> Option<P<ast::Expr>> {
         Some(self.expr)
     }
 
-    fn make_pat(&self) -> Option<Gc<ast::Pat>> {
+    fn make_pat(self: Box<AtomResult>) -> Option<P<ast::Pat>> {
         Some(self.pat)
     }
 }
