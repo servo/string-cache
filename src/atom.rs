@@ -94,7 +94,24 @@ impl StringCache {
             ptr = value.next_in_bucket;
         }
 
-        if ptr == ptr::mut_null() {
+        let mut should_add = false;
+        if ptr != ptr::mut_null() {
+            unsafe {
+                if (*ptr).ref_count.fetch_add(1, SeqCst) == 0 {
+                    // Uh-oh. The pointer's reference count was zero, which means someone may try
+                    // to free it. (Naive attempts to defend against this, for example having the
+                    // destructor check to see whether the reference count is indeed zero, don't
+                    // work due to ABA.) Thus we need to temporarily add a duplicate string to the
+                    // list.
+                    should_add = true;
+                    (*ptr).ref_count.fetch_sub(1, SeqCst);
+                }
+            }
+        } else {
+            should_add = true
+        }
+
+        if should_add {
             unsafe {
                 ptr = heap::allocate(mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT)
                         as *mut StringCacheEntry;
@@ -102,10 +119,6 @@ impl StringCache {
                             StringCacheEntry::new(self.buckets[bucket_index], hash, string_to_add));
             }
             self.buckets[bucket_index] = ptr;
-        } else {
-            unsafe {
-                (*ptr).ref_count.fetch_add(1, SeqCst);
-            }
         }
 
         assert!(ptr != ptr::mut_null());
@@ -217,7 +230,9 @@ impl Atom {
             });
         }
 
-        let mut string_cache = unsafe { &*global_string_cache_ptr }.lock();
+        let mut string_cache = unsafe {
+            (&*global_string_cache_ptr).lock()
+        };
         let hash_value_address = string_cache.add(string);
         Atom {
             data: hash_value_address | Dynamic as u64
@@ -263,20 +278,9 @@ impl Drop for Atom {
         // Out of line to guide inlining.
         fn drop_slow(this: &mut Atom) {
             let mut string_cache = unsafe {
-                &*global_string_cache_ptr
-            }.lock();
-
-            // Note that we need a second check here. The problem we are trying to defend against
-            // is thus:
-            //
-            // 1. Thread B calls Atom::new() and takes mutex.
-            // 2. Thread A calls drop(), ref count drops to 0.
-            // 3. Thread B bumps ref count to 1.
-            //
-            // In this case we need thread A to perform a separate check.
-            if value.ref_count.fetch(SeqCst) == 0 {
-                string_cache.remove(this.data);
-            }
+                (&*global_string_cache_ptr).lock()
+            };
+            string_cache.remove(this.data);
         }
 
         match self.get_type() {
