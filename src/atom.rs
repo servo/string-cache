@@ -86,7 +86,7 @@ impl StringCache {
         let bucket_index = (hash & (self.buckets.len()-1) as u64) as uint;
         let mut ptr = self.buckets[bucket_index];
 
-        while ptr != ptr::mut_null() {
+        while ptr != ptr::null_mut() {
             let value = unsafe { &*ptr };
             if value.hash == hash && value.string.as_slice() == string_to_add {
                 break;
@@ -95,7 +95,7 @@ impl StringCache {
         }
 
         let mut should_add = false;
-        if ptr != ptr::mut_null() {
+        if ptr != ptr::null_mut() {
             unsafe {
                 if (*ptr).ref_count.fetch_add(1, SeqCst) == 0 {
                     // Uh-oh. The pointer's reference count was zero, which means someone may try
@@ -121,7 +121,7 @@ impl StringCache {
             self.buckets[bucket_index] = ptr;
         }
 
-        assert!(ptr != ptr::mut_null());
+        assert!(ptr != ptr::null_mut());
         ptr as u64
     }
 
@@ -134,11 +134,11 @@ impl StringCache {
         let bucket_index = (value.hash & (self.buckets.len()-1) as u64) as uint;
 
         let mut current = self.buckets[bucket_index];
-        let mut prev: *mut StringCacheEntry = ptr::mut_null();
+        let mut prev: *mut StringCacheEntry = ptr::null_mut();
 
-        while current != ptr::mut_null() {
+        while current != ptr::null_mut() {
             if current == ptr {
-                if prev != ptr::mut_null() {
+                if prev != ptr::null_mut() {
                     unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
                 } else {
                     unsafe { self.buckets[bucket_index] = (*current).next_in_bucket };
@@ -148,7 +148,7 @@ impl StringCache {
             prev = current;
             unsafe { current = (*current).next_in_bucket };
         }
-        assert!(current != ptr::mut_null());
+        assert!(current != ptr::null_mut());
 
         unsafe {
             ptr::read(ptr as *const StringCacheEntry);
