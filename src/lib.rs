@@ -38,8 +38,10 @@ extern crate phf;
 extern crate string_cache_macros;
 
 pub use atom::Atom;
+pub use namespace::{Namespace, QualName};
 
 pub mod atom;
+pub mod namespace;
 
 // A private module so that macro-expanded idents like
 // `::string_cache::atom::Atom` will also work in this crate.
@@ -48,11 +50,12 @@ pub mod atom;
 #[doc(hidden)]
 mod string_cache {
     pub use atom;
+    pub use namespace;
 }
 
 // For macros and deriving.
 #[cfg(not(test))]
 mod std {
-    pub use core::{cmp, fmt};
+    pub use core::{cmp, fmt, clone, option};
     pub use collections::hash;
 }
