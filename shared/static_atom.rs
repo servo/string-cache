@@ -12,9 +12,9 @@
 
 #![allow(dead_code)]
 
-pub static STATIC_TAG: u8 = 2;
+pub const STATIC_TAG: u8 = 2;
 
-static STATIC_SHIFT_BITS: uint = 32;
+const STATIC_SHIFT_BITS: uint = 32;
 
 #[inline(always)]
 pub fn add_tag(atom_id: u32) -> u64 {

@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(non_uppercase_statics)]
+
 use core::prelude::*;
 
 use phf::PhfOrderedSet;
@@ -30,12 +32,12 @@ mod static_atom;
 // Inline atoms are probably buggy on big-endian architectures.
 #[allow(dead_code)]
 #[static_assert]
-static IS_LITTLE_ENDIAN: bool = cfg!(target_endian = "little");
+const IS_LITTLE_ENDIAN: bool = cfg!(target_endian = "little");
 
 
 static mut global_string_cache_ptr: *mut Mutex<StringCache> = 0 as *mut _;
 
-static ENTRY_ALIGNMENT: uint = 16;
+const ENTRY_ALIGNMENT: uint = 16;
 
 // Macro-generated table for static atoms.
 static static_atom_set: PhfOrderedSet<&'static str> = static_atom_set!();
