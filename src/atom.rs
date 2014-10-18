@@ -45,7 +45,7 @@ static static_atom_set: PhfOrderedSet<&'static str> = static_atom_set!();
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
 #[repr(u8)]
-#[deriving(Eq, PartialEq)]
+#[deriving(Eq, PartialEq, Show)]
 enum AtomType {
     Dynamic = 0,
     Inline = 1,
@@ -300,7 +300,7 @@ impl Drop for Atom {
 
 impl fmt::Show for Atom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Atom('{:s}' type={:?})", self.as_slice(), self.get_type())
+        write!(f, "Atom('{:s}' type={})", self.as_slice(), self.get_type())
     }
 }
 
