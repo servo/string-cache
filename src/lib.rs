@@ -19,7 +19,6 @@ extern crate core;
 extern crate alloc;
 extern crate collections;
 extern crate sync;
-extern crate debug;
 
 #[cfg(test)]
 extern crate test;
