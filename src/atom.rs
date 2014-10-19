@@ -326,6 +326,7 @@ impl Ord for Atom {
 mod tests {
     use core::prelude::*;
 
+    use std::fmt;
     use std::task::spawn;
     use super::{Atom, Static, Inline, Dynamic};
     use test::Bencher;
@@ -466,6 +467,52 @@ mod tests {
         assert!(s0 != i0);
         assert!(s0 != d0);
         assert!(i0 != d0);
+    }
+
+    macro_rules! assert_eq_fmt (($fmt:expr, $x:expr, $y:expr) => ({
+        let x = $x;
+        let y = $y;
+        if x != y {
+            fail!("assertion failed: {} != {}",
+                format_args!(fmt::format, $fmt, x).as_slice(),
+                format_args!(fmt::format, $fmt, y).as_slice());
+        }
+    }))
+
+    #[test]
+    fn repr() {
+        fn check(s: &str, data: u64) {
+            assert_eq_fmt!("0x{:016X}", Atom::from_slice(s).data, data);
+        }
+
+        fn check_static(s: &str, x: Atom, data: u64) {
+            check(s, data);
+            assert_eq_fmt!("0x{:016X}", x.data, data);
+        }
+
+        // This test is here to make sure we don't change atom representation
+        // by accident.  It may need adjusting if there are changes to the
+        // static atom table, the tag values, etc.
+
+        // Static atoms
+        check_static("a",       atom!(a),       0x0000_0000_0000_0002);
+        check_static("address", atom!(address), 0x0000_0001_0000_0002);
+        check_static("area",    atom!(area),    0x0000_0003_0000_0002);
+
+        // Inline atoms
+        check("e",       0x0000_0000_0000_6511);
+        check("xyzzy",   0x0000_797A_7A79_7851);
+        check("xyzzy01", 0x3130_797A_7A79_7871);
+
+        // Dynamic atoms. This is a pointer so we can't verify every bit.
+        assert_eq!(0x00, Atom::from_slice("a dynamic string").data & 0xf);
+    }
+
+    #[test]
+    fn assert_entry_size() {
+        // Guard against accidental changes to the size of StringCacheEntry.
+        use core::mem;
+        assert_eq!(48, mem::size_of::<super::StringCacheEntry>());
     }
 
     #[test]
