@@ -26,7 +26,7 @@ use collections::hash::{Hash, Hasher, sip};
 use sync::Mutex;
 use sync::one::{Once, ONCE_INIT};
 
-#[path="../shared/static_atom.rs"]
+#[path="../../shared/static_atom.rs"]
 mod static_atom;
 
 // Inline atoms are probably buggy on big-endian architectures.
@@ -323,15 +323,15 @@ impl Ord for Atom {
 }
 
 #[cfg(test)]
+mod bench;
+
+#[cfg(test)]
 mod tests {
     use core::prelude::*;
 
     use std::fmt;
     use std::task::spawn;
     use super::{Atom, Static, Inline, Dynamic};
-    use test::Bencher;
-    use collections::MutableSeq;
-    use collections::vec::Vec;
 
     #[test]
     fn test_as_slice() {
@@ -523,48 +523,6 @@ mod tests {
                 let _ = Atom::from_slice("another string");
             });
         }
-    }
-
-    #[bench]
-    fn bench_strings(b: &mut Bencher) {
-        let mut strings0 = Vec::new();
-        let mut strings1 = Vec::new();
-
-        for _ in range(0u32, 1000u32) {
-            strings0.push("a");
-            strings1.push("b");
-        }
-
-        let mut eq_count = 0u32;
-
-        b.iter(|| {
-            for (s0, s1) in strings0.iter().zip(strings1.iter()) {
-                if s0 == s1 {
-                    eq_count += 1;
-                }
-            }
-        });
-    }
-
-    #[bench]
-    fn bench_atoms(b: &mut Bencher) {
-        let mut atoms0 = Vec::new();
-        let mut atoms1 = Vec::new();
-
-        for _ in range(0u32, 1000u32) {
-            atoms0.push(Atom::from_slice("a"));
-            atoms1.push(Atom::from_slice("b"));
-        }
-
-        let mut eq_count = 0u32;
-
-        b.iter(|| {
-            for (a0, a1) in atoms0.iter().zip(atoms1.iter()) {
-                if a0 == a1 {
-                    eq_count += 1;
-                }
-            }
-        });
     }
 
     #[test]
