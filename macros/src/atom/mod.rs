@@ -21,8 +21,8 @@ use std::ascii::AsciiExt;
 
 mod data;
 
-#[path="../../../shared/static_atom.rs"]
-mod static_atom;
+#[path="../../../shared/repr.rs"]
+mod repr;
 
 // Build a PhfOrderedSet of static atoms.
 // Takes no arguments.
@@ -75,7 +75,8 @@ fn make_atom_result(cx: &mut ExtCtxt, sp: Span, name: &str) -> Option<AtomResult
         None => return None,
     };
 
-    let data = static_atom::add_tag(*i as u32);
+    // In the case of static atoms, the call to pack() doesn't use any unsafe code.
+    let data = unsafe { repr::Static(*i as u32).pack() };
 
     Some(AtomResult {
         expr: quote_expr!(&mut *cx, ::string_cache::atom::Atom { data: $data }),

@@ -39,7 +39,7 @@ macro_rules! check_type (($name:ident, $x:expr, $p:pat) => (
     // NB: "cargo bench" does not run these!
     #[test]
     fn $name() {
-        match $x.get_type() {
+        match unsafe { $x.unpack() } {
             $p => (),
             _ => fail!("atom has wrong type"),
         }
@@ -62,12 +62,12 @@ macro_rules! bench_tiny_op (($name:ident, $op:ident, $ctor_x:expr, $ctor_y:expr)
 ))
 
 macro_rules! bench_one (
-    (x_static   $x:expr, $y:expr) => (check_type!(check_type_x, $x, Static));
-    (x_inline   $x:expr, $y:expr) => (check_type!(check_type_x, $x, Inline));
-    (x_dynamic  $x:expr, $y:expr) => (check_type!(check_type_x, $x, Dynamic));
-    (y_static   $x:expr, $y:expr) => (check_type!(check_type_y, $y, Static));
-    (y_inline   $x:expr, $y:expr) => (check_type!(check_type_y, $y, Inline));
-    (y_dynamic  $x:expr, $y:expr) => (check_type!(check_type_y, $y, Dynamic));
+    (x_static   $x:expr, $y:expr) => (check_type!(check_type_x, $x, Static(..)));
+    (x_inline   $x:expr, $y:expr) => (check_type!(check_type_x, $x, Inline(..)));
+    (x_dynamic  $x:expr, $y:expr) => (check_type!(check_type_x, $x, Dynamic(..)));
+    (y_static   $x:expr, $y:expr) => (check_type!(check_type_y, $y, Static(..)));
+    (y_inline   $x:expr, $y:expr) => (check_type!(check_type_y, $y, Inline(..)));
+    (y_dynamic  $x:expr, $y:expr) => (check_type!(check_type_y, $y, Dynamic(..)));
     (is_static  $x:expr, $y:expr) => (bench_one!(x_static  $x, $y) bench_one!(y_static  $x, $y));
     (is_inline  $x:expr, $y:expr) => (bench_one!(x_inline  $x, $y) bench_one!(y_inline  $x, $y));
     (is_dynamic $x:expr, $y:expr) => (bench_one!(x_dynamic $x, $y) bench_one!(y_dynamic $x, $y));
@@ -136,7 +136,8 @@ macro_rules! bench_all (
             use test::{Bencher, black_box};
             use std::to_string::ToString;
 
-            use atom::{Atom, Static, Inline, Dynamic};
+            use atom::Atom;
+            use atom::repr::{Static, Inline, Dynamic};
 
             use super::mk;
 
