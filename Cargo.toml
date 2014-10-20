@@ -14,3 +14,6 @@ git = "https://github.com/sfackler/rust-phf"
 
 [dependencies.lazy_static]
 git = "https://github.com/Kimundi/lazy-static.rs"
+
+[dependencies.xxhash]
+git = "https://github.com/Jurily/rust-xxhash"

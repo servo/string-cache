@@ -36,6 +36,8 @@ extern crate phf;
 #[phase(plugin)]
 extern crate lazy_static;
 
+extern crate xxhash;
+
 #[phase(plugin)]
 extern crate string_cache_macros;
 

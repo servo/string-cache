@@ -12,6 +12,7 @@
 use core::prelude::*;
 
 use phf::PhfOrderedSet;
+use xxhash::XXHasher;
 
 use core::fmt;
 use core::mem;
@@ -22,7 +23,7 @@ use core::atomic::{AtomicInt, SeqCst};
 use alloc::heap;
 use alloc::boxed::Box;
 use collections::string::String;
-use collections::hash::{Hash, Hasher, sip};
+use collections::hash::{Hash, Hasher};
 use sync::Mutex;
 
 use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
@@ -37,7 +38,7 @@ const ENTRY_ALIGNMENT: uint = 16;
 static static_atom_set: PhfOrderedSet<&'static str> = static_atom_set!();
 
 struct StringCache {
-    hasher: sip::SipHasher,
+    hasher: XXHasher,
     buckets: [*mut StringCacheEntry, ..4096],
 }
 
@@ -66,7 +67,7 @@ impl StringCacheEntry {
 impl StringCache {
     fn new() -> StringCache {
         StringCache {
-            hasher: sip::SipHasher::new(),
+            hasher: XXHasher::new(),
             buckets: unsafe { mem::zeroed() },
         }
     }
