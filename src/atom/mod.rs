@@ -163,6 +163,7 @@ impl StringCache {
 
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
+#[unsafe_no_drop_flag]
 #[deriving(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
@@ -242,13 +243,16 @@ impl Drop for Atom {
 
         unsafe {
             match repr::from_packed_dynamic(self.data) {
-                Some(entry) => {
+                // We use #[unsafe_no_drop_flag] so that Atom will be only 64
+                // bits.  That means we need to ignore a NULL pointer here,
+                // which represents a value that was moved out.
+                Some(entry) if entry.is_not_null() => {
                     let entry = entry as *mut StringCacheEntry;
                     if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
                         drop_slow(self);
                     }
                 }
-                None => (),
+                _ => (),
             }
         }
     }
@@ -457,9 +461,10 @@ mod tests {
     }
 
     #[test]
-    fn assert_entry_size() {
-        // Guard against accidental changes to the size of StringCacheEntry.
+    fn assert_sizes() {
+        // Guard against accidental changes to the sizes of things.
         use core::mem;
+        assert_eq!(8, mem::size_of::<super::Atom>());
         assert_eq!(48, mem::size_of::<super::StringCacheEntry>());
     }
 
