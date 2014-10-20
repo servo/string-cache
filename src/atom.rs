@@ -306,14 +306,10 @@ impl fmt::Show for Atom {
 
 impl PartialOrd for Atom {
     fn partial_cmp(&self, other: &Atom) -> Option<Ordering> {
-        self.data.partial_cmp(&other.data)
-    }
-
-    fn lt(&self, other: &Atom) -> bool {
         if self.data == other.data {
-            return false;
+            return Some(Equal);
         }
-        self.as_slice() < other.as_slice()
+        self.as_slice().partial_cmp(&other.as_slice())
     }
 }
 
@@ -430,6 +426,7 @@ mod tests {
         fn check(x: &str, y: &str) {
             assert_eq!(x < y, Atom::from_slice(x) < Atom::from_slice(y));
             assert_eq!(x.cmp(&y), Atom::from_slice(x).cmp(&Atom::from_slice(y)));
+            assert_eq!(x.partial_cmp(&y), Atom::from_slice(x).partial_cmp(&Atom::from_slice(y)));
         }
 
         check("a", "body");
