@@ -4,10 +4,13 @@ name = "string_cache"
 version = "0.0.0"
 authors = [ "The Servo Project Developers" ]
 
+[dependencies.string_cache_macros]
+path = "macros"
+
 [dependencies.phf]
 git = "https://github.com/sfackler/rust-phf"
 [dependencies.phf_mac]
 git = "https://github.com/sfackler/rust-phf"
 
-[dependencies.string_cache_macros]
-path = "macros"
+[dependencies.lazy_static]
+git = "https://github.com/Kimundi/lazy-static.rs"

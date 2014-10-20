@@ -34,6 +34,9 @@ extern crate phf_mac;
 extern crate phf;
 
 #[phase(plugin)]
+extern crate lazy_static;
+
+#[phase(plugin)]
 extern crate string_cache_macros;
 
 pub use atom::Atom;
@@ -55,6 +58,10 @@ mod string_cache {
 // For macros and deriving.
 #[cfg(not(test))]
 mod std {
-    pub use core::{cmp, fmt, clone, option};
+    pub use core::{cmp, fmt, clone, option, mem};
     pub use collections::hash;
+
+    pub mod sync {
+        pub use sync::one::{Once, ONCE_INIT};
+    }
 }

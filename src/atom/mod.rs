@@ -20,10 +20,10 @@ use core::slice::bytes;
 use core::str;
 use core::atomic::{AtomicInt, SeqCst};
 use alloc::heap;
+use alloc::boxed::Box;
 use collections::string::String;
 use collections::hash::{Hash, Hasher, sip};
-use sync::{Mutex, MutexGuard};
-use sync::one::{Once, ONCE_INIT};
+use sync::Mutex;
 
 use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
 
@@ -41,21 +41,8 @@ struct StringCache {
     buckets: [*mut StringCacheEntry, ..4096],
 }
 
-impl StringCache {
-    #[inline]
-    fn lock<'a>() -> MutexGuard<'a, StringCache> {
-        static mut global_string_cache_ptr: *mut Mutex<StringCache> = 0 as *mut _;
-        static mut START: Once = ONCE_INIT;
-
-        unsafe {
-            START.doit(|| {
-                let cache = box Mutex::new(StringCache::new());
-                global_string_cache_ptr = mem::transmute(cache);
-            });
-
-            (&*global_string_cache_ptr).lock()
-        }
-    }
+lazy_static! {
+    static ref STRING_CACHE: Mutex<StringCache> = Mutex::new(StringCache::new());
 }
 
 struct StringCacheEntry {
@@ -187,7 +174,7 @@ impl Atom {
                     bytes::copy_memory(buf, string_to_add.as_bytes());
                     Inline(len as u8, buf)
                 } else {
-                    Dynamic(StringCache::lock().add(string_to_add) as *mut ())
+                    Dynamic(STRING_CACHE.lock().add(string_to_add) as *mut ())
                 }
             }
         };
@@ -238,7 +225,7 @@ impl Drop for Atom {
     fn drop(&mut self) {
         // Out of line to guide inlining.
         fn drop_slow(this: &mut Atom) {
-            StringCache::lock().remove(this.data);
+            STRING_CACHE.lock().remove(this.data);
         }
 
         unsafe {
