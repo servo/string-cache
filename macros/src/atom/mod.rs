@@ -29,7 +29,7 @@ mod static_atom;
 pub fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
     bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_map!()");
     let tts: Vec<TokenTree> = data::atoms.iter().flat_map(|k| {
-        (quote_tokens!(&mut *cx, $k,)).move_iter()
+        (quote_tokens!(&mut *cx, $k,)).into_iter()
     }).collect();
     MacExpr::new(quote_expr!(&mut *cx, phf_ordered_set!($tts)))
 }
