@@ -4,6 +4,9 @@ name = "string_cache"
 version = "0.0.0"
 authors = [ "The Servo Project Developers" ]
 
+[features]
+log-events = []
+
 [dependencies.string_cache_macros]
 path = "macros"
 

@@ -41,8 +41,14 @@ extern crate xxhash;
 #[phase(plugin)]
 extern crate string_cache_macros;
 
+#[cfg(feature = "log-events")]
+extern crate serialize;
+
 pub use atom::Atom;
 pub use namespace::{Namespace, QualName};
+
+#[cfg(feature = "log-events")]
+pub mod event;
 
 pub mod atom;
 pub mod namespace;
@@ -60,7 +66,7 @@ mod string_cache {
 // For macros and deriving.
 #[cfg(not(test))]
 mod std {
-    pub use core::{cmp, fmt, clone, option, mem};
+    pub use core::{cmp, fmt, clone, option, mem, result};
     pub use collections::hash;
 
     pub mod sync {

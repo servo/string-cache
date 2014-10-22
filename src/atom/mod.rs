@@ -28,6 +28,12 @@ use sync::Mutex;
 
 use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
 
+#[cfg(feature = "log-events")]
+use event;
+
+#[cfg(not(feature = "log-events"))]
+macro_rules! log (($e:expr) => (()))
+
 #[path="../../shared/repr.rs"]
 pub mod repr;
 
@@ -110,6 +116,7 @@ impl StringCache {
                             StringCacheEntry::new(self.buckets[bucket_index], hash, string_to_add));
             }
             self.buckets[bucket_index] = ptr;
+            log!(event::Insert(ptr as u64, String::from_str(string_to_add)));
         }
 
         debug_assert!(ptr != ptr::null_mut());
@@ -146,6 +153,8 @@ impl StringCache {
             heap::deallocate(ptr as *mut u8,
                 mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT);
         }
+
+        log!(event::Remove(key));
     }
 }
 
@@ -180,9 +189,9 @@ impl Atom {
             }
         };
 
-        Atom {
-            data: unsafe { unpacked.pack() },
-        }
+        let data = unsafe { unpacked.pack() };
+        log!(event::Intern(data))
+        Atom { data: data }
     }
 
     pub fn as_slice<'t>(&'t self) -> &'t str {
