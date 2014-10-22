@@ -135,20 +135,20 @@ impl StringCache {
 
         let bucket_index = (value.hash & (self.buckets.len()-1) as u64) as uint;
 
-        let mut current = self.buckets[bucket_index];
-        let mut prev: *mut StringCacheEntry = ptr::null_mut();
+        let mut prevp = &self.buckets[bucket_index];
+        let mut current = *prevp;
 
         while current != ptr::null_mut() {
             if current == ptr {
-                if prev != ptr::null_mut() {
-                    unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
-                } else {
-                    unsafe { self.buckets[bucket_index] = (*current).next_in_bucket };
-                }
+                unsafe {
+                    (**prevp).next_in_bucket = (*current).next_in_bucket
+                };
                 break;
             }
-            prev = current;
-            unsafe { current = (*current).next_in_bucket };
+            unsafe {
+                prevp = &(*current).next_in_bucket;
+                current = *prevp
+            };
         }
         assert!(current != ptr::null_mut());
 
