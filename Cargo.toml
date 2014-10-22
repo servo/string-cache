@@ -5,6 +5,9 @@ version = "0.0.0"
 authors = [ "The Servo Project Developers" ]
 
 [features]
+
+# Enable event logging for generating benchmark traces.
+# See examples/event-log.
 log-events = []
 
 [dependencies.string_cache_macros]
