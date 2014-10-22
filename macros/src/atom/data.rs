@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-pub static atoms: &'static [&'static str] = &[
+pub static ATOMS: &'static [&'static str] = &[
 
     // The first 64 atoms are special: we can quickly check membership
     // in sets of these, using a bitmask.  This includes every tag that
