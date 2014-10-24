@@ -52,11 +52,15 @@ unsafe fn inline_atom_slice(x: &u64) -> raw::Slice<u8> {
     }
 }
 
+pub fn pack_static(n: u32) -> u64 {
+    (STATIC_TAG as u64) | ((n as u64) << STATIC_SHIFT_BITS)
+}
+
 impl UnpackedAtom {
     #[inline(always)]
     pub unsafe fn pack(self) -> u64 {
         match self {
-            Static(n) => (STATIC_TAG as u64) | ((n as u64) << STATIC_SHIFT_BITS),
+            Static(n) => pack_static(n),
             Dynamic(p) => {
                 let n = p as u64;
                 debug_assert!(0 == n & 0xf);

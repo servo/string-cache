@@ -75,8 +75,7 @@ fn make_atom_result(cx: &mut ExtCtxt, name: &str) -> Option<AtomResult> {
         None => return None,
     };
 
-    // In the case of static atoms, the call to pack() doesn't use any unsafe code.
-    let data = unsafe { repr::Static(*i as u32).pack() };
+    let data = repr::pack_static(*i as u32);
 
     Some(AtomResult {
         expr: quote_expr!(&mut *cx, ::string_cache::atom::Atom { data: $data }),
