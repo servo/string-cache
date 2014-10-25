@@ -21,14 +21,14 @@ use std::ascii::AsciiExt;
 
 mod data;
 
-#[path="../../../shared/static_atom.rs"]
-mod static_atom;
+#[path="../../../shared/repr.rs"]
+mod repr;
 
 // Build a PhfOrderedSet of static atoms.
 // Takes no arguments.
 pub fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
     bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_map!()");
-    let tts: Vec<TokenTree> = data::atoms.iter().flat_map(|k| {
+    let tts: Vec<TokenTree> = data::ATOMS.iter().flat_map(|k| {
         (quote_tokens!(&mut *cx, $k,)).into_iter()
     }).collect();
     MacExpr::new(quote_expr!(&mut *cx, phf_ordered_set!($tts)))
@@ -46,7 +46,7 @@ fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
 lazy_static! {
     static ref STATIC_ATOM_MAP: HashMap<&'static str, uint> = {
         let mut m = HashMap::new();
-        for (i, x) in data::atoms.iter().enumerate() {
+        for (i, x) in data::ATOMS.iter().enumerate() {
             m.insert(*x, i);
         }
         m
@@ -69,13 +69,13 @@ impl MacResult for AtomResult {
     }
 }
 
-fn make_atom_result(cx: &mut ExtCtxt, sp: Span, name: &str) -> Option<AtomResult> {
+fn make_atom_result(cx: &mut ExtCtxt, name: &str) -> Option<AtomResult> {
     let i = match STATIC_ATOM_MAP.find_equiv(&name) {
         Some(i) => i,
         None => return None,
     };
 
-    let data = static_atom::add_tag(*i as u32);
+    let data = repr::pack_static(*i as u32);
 
     Some(AtomResult {
         expr: quote_expr!(&mut *cx, ::string_cache::atom::Atom { data: $data }),
@@ -90,14 +90,14 @@ pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResul
         [ref t] => expect!(cx, sp, atom_tok_to_str(t), usage),
         _ => bail!(cx, sp, usage),
     };
-    box expect!(cx, sp, make_atom_result(cx, sp, name.get()),
+    box expect!(cx, sp, make_atom_result(cx, name.get()),
         format!("Unknown static atom {:s}", name.get()).as_slice())
 }
 
 // Translate `ns!(HTML)` into `Namespace { atom: atom!("http://www.w3.org/1999/xhtml") }`.
 // The argument is ASCII-case-insensitive.
 pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
-    static all_ns: &'static [(&'static str, &'static str)] = [
+    static ALL_NS: &'static [(&'static str, &'static str)] = [
         ("", ""),
         ("html", "http://www.w3.org/1999/xhtml"),
         ("xml", "http://www.w3.org/XML/1998/namespace"),
@@ -108,7 +108,7 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
     ];
 
     fn usage() -> String {
-        let ns_names: Vec<&'static str> = all_ns.slice_from(1).iter()
+        let ns_names: Vec<&'static str> = ALL_NS.slice_from(1).iter()
             .map(|&(x, _)| x).collect();
         format!("Usage: ns!(HTML), case-insensitive. \
             Known namespaces: {:s}",
@@ -120,12 +120,12 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
         _ => None,
     }, usage().as_slice());
 
-    let &(short, url) = expect!(cx, sp,
-        all_ns.iter().find(|&&(short, _)| short.eq_ignore_ascii_case(name.get())),
+    let &(_, url) = expect!(cx, sp,
+        ALL_NS.iter().find(|&&(short, _)| short.eq_ignore_ascii_case(name.get())),
         usage().as_slice());
 
     // All of the URLs should be in the static atom table.
-    let AtomResult { expr, pat } = expect!(cx, sp, make_atom_result(cx, sp, url),
+    let AtomResult { expr, pat } = expect!(cx, sp, make_atom_result(cx, url),
         format!("internal plugin error: can't find namespace url {:s}", url).as_slice());
 
     box AtomResult {

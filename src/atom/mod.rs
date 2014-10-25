@@ -12,49 +12,44 @@
 use core::prelude::*;
 
 use phf::PhfOrderedSet;
+use xxhash::XXHasher;
 
 use core::fmt;
 use core::mem;
 use core::ptr;
-use core::slice;
 use core::slice::bytes;
 use core::str;
 use core::atomic::{AtomicInt, SeqCst};
 use alloc::heap;
+use alloc::boxed::Box;
 use collections::string::String;
-use collections::hash::{Hash, Hasher, sip};
+use collections::hash::{Hash, Hasher};
 use sync::Mutex;
-use sync::one::{Once, ONCE_INIT};
 
-#[path="../shared/static_atom.rs"]
-mod static_atom;
+use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
 
-// Inline atoms are probably buggy on big-endian architectures.
-#[allow(dead_code)]
-#[static_assert]
-const IS_LITTLE_ENDIAN: bool = cfg!(target_endian = "little");
+#[cfg(feature = "log-events")]
+use event;
 
+#[cfg(not(feature = "log-events"))]
+macro_rules! log (($e:expr) => (()))
 
-static mut global_string_cache_ptr: *mut Mutex<StringCache> = 0 as *mut _;
+#[path="../../shared/repr.rs"]
+pub mod repr;
 
+// Needed for memory safety of the tagging scheme!
 const ENTRY_ALIGNMENT: uint = 16;
 
 // Macro-generated table for static atoms.
 static static_atom_set: PhfOrderedSet<&'static str> = static_atom_set!();
 
-// NOTE: Deriving Eq here implies that a given string must always
-// be interned the same way.
-#[repr(u8)]
-#[deriving(Eq, PartialEq, Show)]
-enum AtomType {
-    Dynamic = 0,
-    Inline = 1,
-    Static = static_atom::STATIC_TAG,
+struct StringCache {
+    hasher: XXHasher,
+    buckets: [*mut StringCacheEntry, ..4096],
 }
 
-struct StringCache {
-    hasher: sip::SipHasher,
-    buckets: [*mut StringCacheEntry, ..4096],
+lazy_static! {
+    static ref STRING_CACHE: Mutex<StringCache> = Mutex::new(StringCache::new());
 }
 
 struct StringCacheEntry {
@@ -78,12 +73,12 @@ impl StringCacheEntry {
 impl StringCache {
     fn new() -> StringCache {
         StringCache {
-            hasher: sip::SipHasher::new(),
+            hasher: XXHasher::new(),
             buckets: unsafe { mem::zeroed() },
         }
     }
 
-    fn add(&mut self, string_to_add: &str) -> u64 {
+    fn add(&mut self, string_to_add: &str) -> *mut StringCacheEntry {
         let hash = self.hasher.hash(&string_to_add);
         let bucket_index = (hash & (self.buckets.len()-1) as u64) as uint;
         let mut ptr = self.buckets[bucket_index];
@@ -121,10 +116,11 @@ impl StringCache {
                             StringCacheEntry::new(self.buckets[bucket_index], hash, string_to_add));
             }
             self.buckets[bucket_index] = ptr;
+            log!(event::Insert(ptr as u64, String::from_str(string_to_add)));
         }
 
-        assert!(ptr != ptr::null_mut());
-        ptr as u64
+        debug_assert!(ptr != ptr::null_mut());
+        ptr
     }
 
     fn remove(&mut self, key: u64) {
@@ -135,31 +131,36 @@ impl StringCache {
 
         let bucket_index = (value.hash & (self.buckets.len()-1) as u64) as uint;
 
-        let mut prevp = &self.buckets[bucket_index];
-        let mut current = *prevp;
+        let mut current = self.buckets[bucket_index];
+        let mut prev: *mut StringCacheEntry = ptr::null_mut();
 
         while current != ptr::null_mut() {
             if current == ptr {
-                unsafe {
-                    (**prevp).next_in_bucket = (*current).next_in_bucket
-                };
+                if prev != ptr::null_mut() {
+                    unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
+                } else {
+                    unsafe { self.buckets[bucket_index] = (*current).next_in_bucket };
+                }
                 break;
             }
-            unsafe {
-                prevp = &(*current).next_in_bucket;
-                current = *prevp
-            };
+            prev = current;
+            unsafe { current = (*current).next_in_bucket };
         }
-        assert!(current != ptr::null_mut());
+        debug_assert!(current != ptr::null_mut());
 
         unsafe {
             ptr::read(ptr as *const StringCacheEntry);
             heap::deallocate(ptr as *mut u8,
                 mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT);
         }
+
+        log!(event::Remove(key));
     }
 }
 
+// NOTE: Deriving Eq here implies that a given string must always
+// be interned the same way.
+#[unsafe_no_drop_flag]
 #[deriving(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
@@ -168,105 +169,60 @@ pub struct Atom {
 }
 
 impl Atom {
-    pub fn from_static(atom_id: u32) -> Atom {
-        Atom {
-            data: static_atom::add_tag(atom_id),
-        }
+    #[inline(always)]
+    unsafe fn unpack(&self) -> UnpackedAtom {
+        UnpackedAtom::from_packed(self.data)
     }
 
     pub fn from_slice(string_to_add: &str) -> Atom {
-        match static_atom_set.find_index_equiv(&string_to_add) {
-            Some(atom_id) => {
-                Atom::from_static(atom_id as u32)
-            },
+        let unpacked = match static_atom_set.find_index_equiv(&string_to_add) {
+            Some(id) => Static(id as u32),
             None => {
-                if string_to_add.len() < 8 {
-                    Atom::from_inline(string_to_add)
+                let len = string_to_add.len();
+                if len <= repr::MAX_INLINE_LEN {
+                    let mut buf: [u8, ..7] = [0, ..7];
+                    bytes::copy_memory(buf, string_to_add.as_bytes());
+                    Inline(len as u8, buf)
                 } else {
-                    Atom::from_dynamic(string_to_add)
+                    Dynamic(STRING_CACHE.lock().add(string_to_add) as *mut ())
                 }
             }
-        }
+        };
+
+        let data = unsafe { unpacked.pack() };
+        log!(event::Intern(data))
+        Atom { data: data }
     }
 
     pub fn as_slice<'t>(&'t self) -> &'t str {
-        let (atom_type, string_len) = self.get_type_and_inline_len();
-        let ptr = self as *const Atom as *const u8;
-        match atom_type {
-            Inline => {
-                unsafe {
-                    let data = ptr.offset(1) as *const [u8, ..7];
-                    str::raw::from_utf8((*data).slice_to(string_len))
+        unsafe {
+            match self.unpack() {
+                Inline(..) => {
+                    let buf = repr::inline_orig_bytes(&self.data);
+                    debug_assert!(str::is_utf8(buf));
+                    str::raw::from_utf8(buf)
+                },
+                Static(idx) => *static_atom_set.iter().idx(idx as uint).expect("bad static atom"),
+                Dynamic(entry) => {
+                    let entry = entry as *mut StringCacheEntry;
+                    (*entry).string.as_slice()
                 }
-            },
-            Static => {
-                *static_atom_set.iter().idx(static_atom::remove_tag(self.data) as uint)
-                    .expect("bad static atom")
-            },
-            Dynamic => {
-                let hash_value = unsafe { &*(self.data as *const StringCacheEntry) };
-                hash_value.string.as_slice()
             }
         }
-    }
-
-    #[inline]
-    fn from_inline(string: &str) -> Atom {
-        assert!(string.len() < 8);
-        let mut string_data: u64 = 0;
-        unsafe { slice::raw::mut_buf_as_slice(&mut string_data as *mut u64 as *mut u8, 7,
-                                    |b| bytes::copy_memory(b, string.as_bytes())) };
-        Atom {
-            data: (Inline as u64) | (string.len() as u64 << 4) | (string_data << 8),
-        }
-    }
-
-    #[inline]
-    fn from_dynamic(string: &str) -> Atom {
-        static mut START: Once = ONCE_INIT;
-
-        unsafe {
-            START.doit(|| {
-                let cache = box Mutex::new(StringCache::new());
-                global_string_cache_ptr = mem::transmute(cache);
-            });
-        }
-
-        let mut string_cache = unsafe {
-            (&*global_string_cache_ptr).lock()
-        };
-        let hash_value_address = string_cache.add(string);
-        Atom {
-            data: hash_value_address | Dynamic as u64
-        }
-    }
-
-    #[inline]
-    fn get_type(&self) -> AtomType {
-        unsafe { mem::transmute((self.data & 0xf) as u8) }
-    }
-
-    #[inline]
-    fn get_type_and_inline_len(&self) -> (AtomType, uint) {
-        let atom_type = self.get_type();
-        let len = match atom_type {
-            Static | Dynamic => 0,
-            Inline => ((self.data & 0xf0) >> 4) as uint
-        };
-        (atom_type, len)
     }
 }
 
 impl Clone for Atom {
-    #[inline]
+    #[inline(always)]
     fn clone(&self) -> Atom {
-        let atom_type = self.get_type();
-        match atom_type {
-            Dynamic => {
-                let hash_value = unsafe { &mut *(self.data as *mut StringCacheEntry) };
-                hash_value.ref_count.fetch_add(1, SeqCst);
+        unsafe {
+            match repr::from_packed_dynamic(self.data) {
+                Some(entry) => {
+                    let entry = entry as *mut StringCacheEntry;
+                    (*entry).ref_count.fetch_add(1, SeqCst);
+                },
+                None => (),
             }
-            _ => {}
         }
         Atom {
             data: self.data
@@ -279,41 +235,46 @@ impl Drop for Atom {
     fn drop(&mut self) {
         // Out of line to guide inlining.
         fn drop_slow(this: &mut Atom) {
-            let mut string_cache = unsafe {
-                (&*global_string_cache_ptr).lock()
-            };
-            string_cache.remove(this.data);
+            STRING_CACHE.lock().remove(this.data);
         }
 
-        match self.get_type() {
-            Dynamic => {
-                let ptr = self.data as *mut StringCacheEntry;
-                let value: &mut StringCacheEntry = unsafe { mem::transmute(ptr) };
-                if value.ref_count.fetch_sub(1, SeqCst) == 1 {
-                    drop_slow(self);
+        unsafe {
+            match repr::from_packed_dynamic(self.data) {
+                // We use #[unsafe_no_drop_flag] so that Atom will be only 64
+                // bits.  That means we need to ignore a NULL pointer here,
+                // which represents a value that was moved out.
+                Some(entry) if entry.is_not_null() => {
+                    let entry = entry as *mut StringCacheEntry;
+                    if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
+                        drop_slow(self);
+                    }
                 }
-            },
-            _ => {}
+                _ => (),
+            }
         }
     }
 }
 
 impl fmt::Show for Atom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Atom('{:s}' type={})", self.as_slice(), self.get_type())
+        let ty_str = unsafe {
+            match self.unpack() {
+                Dynamic(..) => "dynamic",
+                Inline(..) => "inline",
+                Static(..) => "static",
+            }
+        };
+
+        write!(f, "Atom('{:s}' type={:s})", self.as_slice(), ty_str)
     }
 }
 
 impl PartialOrd for Atom {
     fn partial_cmp(&self, other: &Atom) -> Option<Ordering> {
-        self.data.partial_cmp(&other.data)
-    }
-
-    fn lt(&self, other: &Atom) -> bool {
         if self.data == other.data {
-            return false;
+            return Some(Equal);
         }
-        self.as_slice() < other.as_slice()
+        self.as_slice().partial_cmp(&other.as_slice())
     }
 }
 
@@ -327,14 +288,16 @@ impl Ord for Atom {
 }
 
 #[cfg(test)]
+mod bench;
+
+#[cfg(test)]
 mod tests {
     use core::prelude::*;
 
+    use std::fmt;
     use std::task::spawn;
-    use super::{Atom, Static, Inline, Dynamic};
-    use test::Bencher;
-    use collections::MutableSeq;
-    use collections::vec::Vec;
+    use super::Atom;
+    use super::repr::{Static, Inline, Dynamic};
 
     #[test]
     fn test_as_slice() {
@@ -357,44 +320,27 @@ mod tests {
         assert!(d1.as_slice() == "ZZZZZZZZZZ");
     }
 
+    macro_rules! unpacks_to (($e:expr, $t:pat) => (
+        match unsafe { Atom::from_slice($e).unpack() } {
+            $t => (),
+            _ => fail!("atom has wrong type"),
+        }
+    ))
+
     #[test]
     fn test_types() {
-        let s0 = Atom::from_slice("");
-        assert!(s0.get_type_and_inline_len() == (Static, 0));
-
-        let s1 = Atom::from_slice("id");
-        assert!(s1.get_type_and_inline_len() == (Static, 0));
-
-        let s1 = Atom::from_slice("body");
-        assert!(s1.get_type_and_inline_len() == (Static, 0));
-
-        // "z" is a static atom
-        let i0 = Atom::from_slice("c");
-        assert!(i0.get_type_and_inline_len() == (Inline, 1));
-
-        let i1 = Atom::from_slice("zz");
-        assert!(i1.get_type_and_inline_len() == (Inline, 2));
-
-        let i2 = Atom::from_slice("zzz");
-        assert!(i2.get_type_and_inline_len() == (Inline, 3));
-
-        let i3 = Atom::from_slice("zzzz");
-        assert!(i3.get_type_and_inline_len() == (Inline, 4));
-
-        let i4 = Atom::from_slice("zzzzz");
-        assert!(i4.get_type_and_inline_len() == (Inline, 5));
-
-        let i5 = Atom::from_slice("zzzzzz");
-        assert!(i5.get_type_and_inline_len() == (Inline, 6));
-
-        let i6 = Atom::from_slice("zzzzzzz");
-        assert!(i6.get_type_and_inline_len() == (Inline, 7));
-
-        let d0 = Atom::from_slice("zzzzzzzz");
-        assert!(d0.get_type_and_inline_len() == (Dynamic, 0));
-
-        let d1 = Atom::from_slice("zzzzzzzzzzzzz");
-        assert!(d1.get_type_and_inline_len() == (Dynamic, 0));
+        unpacks_to!("", Static(..));
+        unpacks_to!("id", Static(..));
+        unpacks_to!("body", Static(..));
+        unpacks_to!("c", Inline(..)); // "z" is a static atom
+        unpacks_to!("zz", Inline(..));
+        unpacks_to!("zzz", Inline(..));
+        unpacks_to!("zzzz", Inline(..));
+        unpacks_to!("zzzzz", Inline(..));
+        unpacks_to!("zzzzzz", Inline(..));
+        unpacks_to!("zzzzzzz", Inline(..));
+        unpacks_to!("zzzzzzzz", Dynamic(..));
+        unpacks_to!("zzzzzzzzzzzzz", Dynamic(..));
     }
 
     #[test]
@@ -430,6 +376,7 @@ mod tests {
         fn check(x: &str, y: &str) {
             assert_eq!(x < y, Atom::from_slice(x) < Atom::from_slice(y));
             assert_eq!(x.cmp(&y), Atom::from_slice(x).cmp(&Atom::from_slice(y)));
+            assert_eq!(x.partial_cmp(&y), Atom::from_slice(x).partial_cmp(&Atom::from_slice(y)));
         }
 
         check("a", "body");
@@ -471,6 +418,53 @@ mod tests {
         assert!(i0 != d0);
     }
 
+    macro_rules! assert_eq_fmt (($fmt:expr, $x:expr, $y:expr) => ({
+        let x = $x;
+        let y = $y;
+        if x != y {
+            fail!("assertion failed: {} != {}",
+                format_args!(fmt::format, $fmt, x).as_slice(),
+                format_args!(fmt::format, $fmt, y).as_slice());
+        }
+    }))
+
+    #[test]
+    fn repr() {
+        fn check(s: &str, data: u64) {
+            assert_eq_fmt!("0x{:016X}", Atom::from_slice(s).data, data);
+        }
+
+        fn check_static(s: &str, x: Atom, data: u64) {
+            check(s, data);
+            assert_eq_fmt!("0x{:016X}", x.data, data);
+        }
+
+        // This test is here to make sure we don't change atom representation
+        // by accident.  It may need adjusting if there are changes to the
+        // static atom table, the tag values, etc.
+
+        // Static atoms
+        check_static("a",       atom!(a),       0x0000_0000_0000_0002);
+        check_static("address", atom!(address), 0x0000_0001_0000_0002);
+        check_static("area",    atom!(area),    0x0000_0003_0000_0002);
+
+        // Inline atoms
+        check("e",       0x0000_0000_0000_6511);
+        check("xyzzy",   0x0000_797A_7A79_7851);
+        check("xyzzy01", 0x3130_797A_7A79_7871);
+
+        // Dynamic atoms. This is a pointer so we can't verify every bit.
+        assert_eq!(0x00, Atom::from_slice("a dynamic string").data & 0xf);
+    }
+
+    #[test]
+    fn assert_sizes() {
+        // Guard against accidental changes to the sizes of things.
+        use core::mem;
+        assert_eq!(8, mem::size_of::<super::Atom>());
+        assert_eq!(48, mem::size_of::<super::StringCacheEntry>());
+    }
+
     #[test]
     fn test_threads() {
         for _ in range(0u32, 100u32) {
@@ -479,48 +473,6 @@ mod tests {
                 let _ = Atom::from_slice("another string");
             });
         }
-    }
-
-    #[bench]
-    fn bench_strings(b: &mut Bencher) {
-        let mut strings0 = Vec::new();
-        let mut strings1 = Vec::new();
-
-        for _ in range(0u32, 1000u32) {
-            strings0.push("a");
-            strings1.push("b");
-        }
-
-        let mut eq_count = 0u32;
-
-        b.iter(|| {
-            for (s0, s1) in strings0.iter().zip(strings1.iter()) {
-                if s0 == s1 {
-                    eq_count += 1;
-                }
-            }
-        });
-    }
-
-    #[bench]
-    fn bench_atoms(b: &mut Bencher) {
-        let mut atoms0 = Vec::new();
-        let mut atoms1 = Vec::new();
-
-        for _ in range(0u32, 1000u32) {
-            atoms0.push(Atom::from_slice("a"));
-            atoms1.push(Atom::from_slice("b"));
-        }
-
-        let mut eq_count = 0u32;
-
-        b.iter(|| {
-            for (a0, a1) in atoms0.iter().zip(atoms1.iter()) {
-                if a0 == a1 {
-                    eq_count += 1;
-                }
-            }
-        });
     }
 
     #[test]

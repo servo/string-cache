@@ -1,0 +1,9 @@
+[package]
+
+name = "string-cache-event-log-example"
+version = "0.0.0"
+authors = [ "The Servo Project Developers" ]
+
+[dependencies.string_cache]
+git = "https://github.com/servo/string-cache"
+features = ["log-events"]
