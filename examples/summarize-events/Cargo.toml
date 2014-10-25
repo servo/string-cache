@@ -1,0 +1,12 @@
+[package]
+
+name = "string-cache-summarize-events"
+version = "0.0.0"
+authors = [ "The Servo Project Developers" ]
+
+[dependencies]
+csv = "0"
+rustc-serialize = "0"
+
+[dependencies.string_cache]
+git = "https://github.com/servo/string-cache"
