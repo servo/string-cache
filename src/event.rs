@@ -12,7 +12,7 @@
 use std::MutableSeq;
 use sync::Mutex;
 
-#[deriving(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Show, Encodable)]
+#[deriving(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Show)]
 pub enum Event {
     Intern(u64),
     Insert(u64, String),
@@ -29,3 +29,29 @@ pub fn log(e: Event) {
 }
 
 macro_rules! log (($e:expr) => (::event::log($e)));
+
+// Serialize by converting to this private struct,
+// which produces more convenient output.
+
+#[deriving(Encodable)]
+struct SerializeEvent<'a> {
+    event: &'static str,
+    id: u64,
+    string: Option<&'a String>,
+}
+
+impl<E, S: Encoder<E>> Encodable<S, E> for Event {
+    fn encode(&self, s: &mut S) -> Result<(), E> {
+        let (event, id, string) = match *self {
+            Intern(id) => ("intern", id, None),
+            Insert(id, ref s) => ("insert", id, Some(s)),
+            Remove(id) => ("remove", id, None),
+        };
+
+        SerializeEvent {
+            event: event,
+            id: id,
+            string: string
+        }.encode(s)
+    }
+}
