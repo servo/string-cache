@@ -12,7 +12,7 @@ use syntax::codemap::Span;
 use syntax::ast::{TokenTree, TtToken};
 use syntax::ast;
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
-use syntax::parse::token::{get_ident, InternedString, LIT_STR, IDENT};
+use syntax::parse::token::{get_ident, InternedString, LitStr, Ident};
 
 use std::iter::Chain;
 use std::slice::{Items, Found, NotFound};
@@ -36,8 +36,8 @@ pub fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> B
 
 fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
     Some(get_ident(match *t {
-        TtToken(_, IDENT(s, _)) => s,
-        TtToken(_, LIT_STR(s)) => s.ident(),
+        TtToken(_, Ident(s, _)) => s,
+        TtToken(_, LitStr(s)) => s.ident(),
         _ => return None,
     }))
 }

@@ -97,7 +97,7 @@ impl UnpackedAtom {
 
             // intrinsics::unreachable() in release builds?
             // See rust-lang/rust#18152.
-            _ => fail!("impossible"),
+            _ => panic!("impossible"),
         }
     }
 }

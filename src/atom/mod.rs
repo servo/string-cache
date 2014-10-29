@@ -323,7 +323,7 @@ mod tests {
     macro_rules! unpacks_to (($e:expr, $t:pat) => (
         match unsafe { Atom::from_slice($e).unpack() } {
             $t => (),
-            _ => fail!("atom has wrong type"),
+            _ => panic!("atom has wrong type"),
         }
     ))
 
@@ -422,7 +422,7 @@ mod tests {
         let x = $x;
         let y = $y;
         if x != y {
-            fail!("assertion failed: {} != {}",
+            panic!("assertion failed: {} != {}",
                 format_args!(fmt::format, $fmt, x).as_slice(),
                 format_args!(fmt::format, $fmt, y).as_slice());
         }
