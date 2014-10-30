@@ -41,7 +41,7 @@ macro_rules! check_type (($name:ident, $x:expr, $p:pat) => (
     fn $name() {
         match unsafe { $x.unpack() } {
             $p => (),
-            _ => fail!("atom has wrong type"),
+            _ => panic!("atom has wrong type"),
         }
     }
 ))
