@@ -11,7 +11,7 @@
 
 use core::prelude::*;
 
-use phf::OrderedSet;
+use phf::{OrderedSet, PhfHash};
 use xxhash::XXHasher;
 
 use core::fmt;
@@ -22,6 +22,7 @@ use core::str;
 use core::atomic::{AtomicInt, SeqCst};
 use alloc::heap;
 use alloc::boxed::Box;
+use collections::str::StrAllocating;
 use collections::string::String;
 use collections::hash::{Hash, Hasher};
 use sync::Mutex;
@@ -60,12 +61,12 @@ struct StringCacheEntry {
 }
 
 impl StringCacheEntry {
-    fn new(next: *mut StringCacheEntry, hash: u64, string_to_add: &str) -> StringCacheEntry {
+    fn new(next: *mut StringCacheEntry, hash: u64, string_to_add: String) -> StringCacheEntry {
         StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
             ref_count: AtomicInt::new(1),
-            string: String::from_str(string_to_add),
+            string: string_to_add,
         }
     }
 }
@@ -78,14 +79,14 @@ impl StringCache {
         }
     }
 
-    fn add(&mut self, string_to_add: &str) -> *mut StringCacheEntry {
+    fn add(&mut self, string_to_add: String) -> *mut StringCacheEntry {
         let hash = self.hasher.hash(&string_to_add);
         let bucket_index = (hash & (self.buckets.len()-1) as u64) as uint;
         let mut ptr = self.buckets[bucket_index];
 
         while ptr != ptr::null_mut() {
             let value = unsafe { &*ptr };
-            if value.hash == hash && value.string.as_slice() == string_to_add {
+            if value.hash == hash && value.string == string_to_add {
                 break;
             }
             ptr = value.next_in_bucket;
@@ -116,7 +117,7 @@ impl StringCache {
                             StringCacheEntry::new(self.buckets[bucket_index], hash, string_to_add));
             }
             self.buckets[bucket_index] = ptr;
-            log!(event::Insert(ptr as u64, String::from_str(string_to_add)));
+            log!(event::Insert(ptr as u64, string_to_add));
         }
 
         debug_assert!(ptr != ptr::null_mut());
@@ -158,6 +159,19 @@ impl StringCache {
     }
 }
 
+pub trait StringLike for Sized?: Equiv<&'static str> + PhfHash {
+    // Writes as much of the string as possible into `buf`.
+    fn write_bytes(&self, buf: &mut [u8]);
+    fn string_len(&self) -> uint;
+    fn to_owned_string(&self) -> String;
+}
+
+impl StringLike for str {
+    fn write_bytes(&self, buf: &mut [u8]) { bytes::copy_memory(buf, self.as_bytes()) }
+    fn string_len(&self) -> uint { self.len() }
+    fn to_owned_string(&self) -> String { self.into_string() }
+}
+
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
 #[unsafe_no_drop_flag]
@@ -175,16 +189,21 @@ impl Atom {
     }
 
     pub fn from_slice(string_to_add: &str) -> Atom {
+        Atom::from_str_equiv(string_to_add)
+    }
+
+    pub fn from_str_equiv<Sized? S: StringLike>(string_to_add: &S) -> Atom {
         let unpacked = match static_atom_set.get_index_equiv(string_to_add) {
             Some(id) => Static(id as u32),
             None => {
-                let len = string_to_add.len();
+                let len = string_to_add.string_len();
                 if len <= repr::MAX_INLINE_LEN {
                     let mut buf: [u8, ..7] = [0, ..7];
-                    bytes::copy_memory(buf, string_to_add.as_bytes());
+                    string_to_add.write_bytes(buf.as_mut_slice());
                     Inline(len as u8, buf)
                 } else {
-                    Dynamic(STRING_CACHE.lock().add(string_to_add) as *mut ())
+                    let as_string = string_to_add.to_owned_string(); // outside of the lock.
+                    Dynamic(STRING_CACHE.lock().add(as_string) as *mut ())
                 }
             }
         };
