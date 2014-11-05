@@ -70,7 +70,7 @@ impl MacResult for AtomResult {
 }
 
 fn make_atom_result(cx: &mut ExtCtxt, name: &str) -> Option<AtomResult> {
-    let i = match STATIC_ATOM_MAP.find_equiv(&name) {
+    let i = match STATIC_ATOM_MAP.find_equiv(name) {
         Some(i) => i,
         None => return None,
     };

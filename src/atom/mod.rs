@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(non_uppercase_statics)]
+#![allow(non_upper_case_globals)]
 
 use core::prelude::*;
 
-use phf::PhfOrderedSet;
+use phf::OrderedSet;
 use xxhash::XXHasher;
 
 use core::fmt;
@@ -41,7 +41,7 @@ pub mod repr;
 const ENTRY_ALIGNMENT: uint = 16;
 
 // Macro-generated table for static atoms.
-static static_atom_set: PhfOrderedSet<&'static str> = static_atom_set!();
+static static_atom_set: OrderedSet<&'static str> = static_atom_set!();
 
 struct StringCache {
     hasher: XXHasher,
@@ -175,7 +175,7 @@ impl Atom {
     }
 
     pub fn from_slice(string_to_add: &str) -> Atom {
-        let unpacked = match static_atom_set.find_index_equiv(&string_to_add) {
+        let unpacked = match static_atom_set.find_index_equiv(string_to_add) {
             Some(id) => Static(id as u32),
             None => {
                 let len = string_to_add.len();
