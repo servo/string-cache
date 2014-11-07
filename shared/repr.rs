@@ -16,7 +16,7 @@
 use core::{mem, raw, intrinsics};
 use core::option::{Option, Some, None};
 use core::ptr::RawPtr;
-use core::slice::{ImmutableSlice, AsSlice};
+use core::slice::{SlicePrelude, AsSlice};
 use core::slice::bytes;
 
 // FIXME(rust-lang/rust#18153): generate these from an enum
