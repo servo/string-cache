@@ -189,7 +189,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
     #[bench]
     fn $name(b: &mut Bencher) {
         use std::{str, rand};
-        use std::slice::MutableSlice;
+        use std::slice::SlicePrelude;
         use std::rand::Rng;
 
         let mut gen = rand::weak_rng();
