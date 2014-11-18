@@ -19,6 +19,8 @@ use core::ptr::RawPtr;
 use core::slice::{SlicePrelude, AsSlice};
 use core::slice::bytes;
 
+pub use self::UnpackedAtom::{Dynamic, Inline, Static};
+
 // FIXME(rust-lang/rust#18153): generate these from an enum
 pub const DYNAMIC_TAG: u8 = 0u8;
 pub const INLINE_TAG: u8 = 1u8;  // len in upper nybble
