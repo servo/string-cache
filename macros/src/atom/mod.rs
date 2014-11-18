@@ -70,7 +70,7 @@ impl MacResult for AtomResult {
 }
 
 fn make_atom_result(cx: &mut ExtCtxt, name: &str) -> Option<AtomResult> {
-    let i = match STATIC_ATOM_MAP.find_equiv(name) {
+    let i = match STATIC_ATOM_MAP.get(name) {
         Some(i) => i,
         None => return None,
     };
@@ -97,7 +97,7 @@ pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResul
 // Translate `ns!(HTML)` into `Namespace { atom: atom!("http://www.w3.org/1999/xhtml") }`.
 // The argument is ASCII-case-insensitive.
 pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
-    static ALL_NS: &'static [(&'static str, &'static str)] = [
+    static ALL_NS: &'static [(&'static str, &'static str)] = &[
         ("", ""),
         ("html", "http://www.w3.org/1999/xhtml"),
         ("xml", "http://www.w3.org/XML/1998/namespace"),
