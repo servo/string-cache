@@ -134,7 +134,7 @@ macro_rules! bench_all (
             use core::prelude::*;
             use collections::vec::Vec;
             use test::{Bencher, black_box};
-            use std::to_string::ToString;
+            use std::string::ToString;
 
             use atom::Atom;
             use atom::repr::{Static, Inline, Dynamic};
@@ -189,7 +189,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
     #[bench]
     fn $name(b: &mut Bencher) {
         use std::{str, rand};
-        use std::slice::SlicePrelude;
+        use std::slice::{SlicePrelude, AsSlice};
         use std::rand::Rng;
 
         let mut gen = rand::weak_rng();
@@ -201,12 +201,12 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
             // as about 3-12% at one point.
 
             let mut buf: [u8, ..$len] = [0, ..$len];
-            gen.fill_bytes(buf);
+            gen.fill_bytes(buf.as_mut_slice());
             for n in buf.iter_mut() {
                 // shift into printable ASCII
                 *n = (*n % 0x40) + 0x20;
             }
-            let s = unsafe { str::raw::from_utf8(buf) };
+            let s = unsafe { str::raw::from_utf8(buf.as_slice()) };
             black_box(Atom::from_slice(s));
         });
     }
