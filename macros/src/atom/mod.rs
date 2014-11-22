@@ -12,7 +12,7 @@ use syntax::codemap::Span;
 use syntax::ast::{TokenTree, TtToken};
 use syntax::ast;
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
-use syntax::parse::token::{get_ident, InternedString, LitStr, Ident};
+use syntax::parse::token::{get_ident, InternedString, Ident, Literal, Lit};
 
 use std::iter::Chain;
 use std::slice::{Items, Found, NotFound};
@@ -37,7 +37,7 @@ pub fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> B
 fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
     Some(get_ident(match *t {
         TtToken(_, Ident(s, _)) => s,
-        TtToken(_, LitStr(s)) => s.ident(),
+        TtToken(_, Literal(Lit::Str_(s), _)) => s.ident(),
         _ => return None,
     }))
 }
@@ -91,7 +91,7 @@ pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResul
         _ => bail!(cx, sp, usage),
     };
     box expect!(cx, sp, make_atom_result(cx, name.get()),
-        format!("Unknown static atom {:s}", name.get()).as_slice())
+        format!("Unknown static atom {}", name.get()).as_slice())
 }
 
 // Translate `ns!(HTML)` into `Namespace { atom: atom!("http://www.w3.org/1999/xhtml") }`.
@@ -111,7 +111,7 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
         let ns_names: Vec<&'static str> = ALL_NS.slice_from(1).iter()
             .map(|&(x, _)| x).collect();
         format!("Usage: ns!(HTML), case-insensitive. \
-            Known namespaces: {:s}",
+            Known namespaces: {}",
             ns_names.connect(" "))
     }
 
@@ -126,7 +126,7 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
 
     // All of the URLs should be in the static atom table.
     let AtomResult { expr, pat } = expect!(cx, sp, make_atom_result(cx, url),
-        format!("internal plugin error: can't find namespace url {:s}", url).as_slice());
+        format!("internal plugin error: can't find namespace url {}", url).as_slice());
 
     box AtomResult {
         expr: quote_expr!(&mut *cx, ::string_cache::namespace::Namespace($expr)),

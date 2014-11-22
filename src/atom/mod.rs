@@ -175,7 +175,7 @@ impl Atom {
     }
 
     pub fn from_slice(string_to_add: &str) -> Atom {
-        let unpacked = match static_atom_set.get_index_equiv(string_to_add) {
+        let unpacked = match static_atom_set.get_index(string_to_add) {
             Some(id) => Static(id as u32),
             None => {
                 let len = string_to_add.len();
@@ -265,7 +265,7 @@ impl fmt::Show for Atom {
             }
         };
 
-        write!(f, "Atom('{:s}' type={:s})", self.as_slice(), ty_str)
+        write!(f, "Atom('{}' type={})", self.as_slice(), ty_str)
     }
 }
 
