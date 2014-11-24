@@ -200,7 +200,7 @@ impl Atom {
                 Inline(..) => {
                     let buf = repr::inline_orig_bytes(&self.data);
                     debug_assert!(str::is_utf8(buf));
-                    str::raw::from_utf8_unchecked(buf)
+                    str::from_utf8_unchecked(buf)
                 },
                 Static(idx) => *static_atom_set.iter().idx(idx as uint).expect("bad static atom"),
                 Dynamic(entry) => {
