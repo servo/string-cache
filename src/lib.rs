@@ -24,9 +24,6 @@ extern crate sync;
 extern crate test;
 
 #[cfg(test)]
-extern crate native;
-
-#[cfg(test)]
 extern crate std;
 
 #[phase(plugin)]
