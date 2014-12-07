@@ -18,12 +18,10 @@ extern crate core;
 
 extern crate alloc;
 extern crate collections;
-extern crate sync;
 
 #[cfg(test)]
 extern crate test;
 
-#[cfg(test)]
 extern crate std;
 
 #[phase(plugin)]
@@ -58,15 +56,4 @@ pub mod namespace;
 mod string_cache {
     pub use atom;
     pub use namespace;
-}
-
-// For macros and deriving.
-#[cfg(not(test))]
-mod std {
-    pub use core::{cmp, fmt, clone, option, mem, result};
-    pub use collections::hash;
-
-    pub mod sync {
-        pub use sync::one::{Once, ONCE_INIT};
-    }
 }
