@@ -11,14 +11,12 @@
 #![crate_type = "rlib"]
 
 #![feature(phase, macro_rules, default_type_params, globs)]
-#![no_std]
 
 #[phase(plugin, link)]
 extern crate core;
 
 extern crate alloc;
 extern crate collections;
-extern crate sync;
 
 #[cfg(test)]
 extern crate test;
@@ -60,13 +58,3 @@ mod string_cache {
     pub use namespace;
 }
 
-// For macros and deriving.
-#[cfg(not(test))]
-mod std {
-    pub use core::{cmp, fmt, clone, option, mem, result};
-    pub use collections::hash;
-
-    pub mod sync {
-        pub use sync::one::{Once, ONCE_INIT};
-    }
-}
