@@ -24,7 +24,7 @@ use alloc::heap;
 use alloc::boxed::Box;
 use collections::string::String;
 use collections::hash::{Hash, Hasher};
-use sync::Mutex;
+use std::sync::Mutex;
 
 use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
 
