@@ -9,13 +9,9 @@
 
 #![macro_escape]
 
-use core::prelude::*;
+use std::sync::Mutex;
 
-use alloc::boxed::Box;
-use collections::MutableSeq;
-use collections::vec::Vec;
-use collections::string::String;
-use sync::Mutex;
+pub use self::Event::{Intern, Insert, Remove};
 
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Show, Encodable)]
 pub enum Event {
