@@ -14,7 +14,6 @@ use syntax::ast;
 use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
 use syntax::parse::token::{get_ident, InternedString, Ident, Literal, Lit};
 
-use std::iter::Chain;
 use std::collections::HashMap;
 use std::ascii::AsciiExt;
 

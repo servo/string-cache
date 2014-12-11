@@ -9,21 +9,14 @@
 
 #![allow(non_upper_case_globals)]
 
-use core::prelude::*;
-
 use phf::OrderedSet;
 use xxhash::XXHasher;
 
-use core::fmt;
-use core::mem;
-use core::ptr;
-use core::slice::bytes;
-use core::str;
-use core::atomic::{AtomicInt, SeqCst};
-use alloc::heap;
-use alloc::boxed::Box;
-use collections::string::String;
-use collections::hash::{Hash, Hasher};
+use std::{fmt, mem, ptr, str};
+use std::slice::bytes;
+use std::sync::atomic::{AtomicInt, SeqCst};
+use std::rt::heap;
+use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
 
 use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
@@ -292,8 +285,6 @@ mod bench;
 
 #[cfg(test)]
 mod tests {
-    use core::prelude::*;
-
     use std::fmt;
     use std::task::spawn;
     use super::Atom;
@@ -460,7 +451,7 @@ mod tests {
     #[test]
     fn assert_sizes() {
         // Guard against accidental changes to the sizes of things.
-        use core::mem;
+        use std::mem;
         assert_eq!(8, mem::size_of::<super::Atom>());
         assert_eq!(48, mem::size_of::<super::StringCacheEntry>());
     }

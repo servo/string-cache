@@ -131,10 +131,7 @@ macro_rules! bench_all (
         mod $name {
             #![allow(unused_imports)]
 
-            use core::prelude::*;
-            use collections::vec::Vec;
             use test::{Bencher, black_box};
-            use std::string::ToString;
 
             use atom::Atom;
             use atom::repr::{Static, Inline, Dynamic};
@@ -189,7 +186,6 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
     #[bench]
     fn $name(b: &mut Bencher) {
         use std::{str, rand};
-        use std::slice::{SlicePrelude, AsSlice};
         use std::rand::Rng;
 
         let mut gen = rand::weak_rng();

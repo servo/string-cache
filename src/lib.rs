@@ -11,18 +11,9 @@
 #![crate_type = "rlib"]
 
 #![feature(phase, macro_rules, default_type_params, globs)]
-#![no_std]
-
-#[phase(plugin, link)]
-extern crate core;
-
-extern crate alloc;
-extern crate collections;
 
 #[cfg(test)]
 extern crate test;
-
-extern crate std;
 
 #[phase(plugin)]
 extern crate phf_mac;

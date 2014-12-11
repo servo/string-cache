@@ -9,8 +9,6 @@
 
 #![experimental="This may move as string-cache becomes less Web-specific."]
 
-use core::prelude::*;
-
 use atom::Atom;
 
 /// An atom that is meant to represent a namespace in the HTML / XML sense.

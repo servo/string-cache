@@ -13,7 +13,6 @@
 #![feature(macro_rules, plugin_registrar, quote, phase)]
 #![allow(unused_imports)]  // for quotes
 
-extern crate core;
 extern crate syntax;
 extern crate rustc;
 
