@@ -22,7 +22,7 @@ use core::str;
 use core::atomic::{AtomicInt, SeqCst};
 use alloc::heap;
 use alloc::boxed::Box;
-use collections::string::String;
+use collections::string::{String, IntoString};
 use collections::hash::{Hash, Hasher};
 use std::sync::Mutex;
 
@@ -287,6 +287,12 @@ impl Ord for Atom {
     }
 }
 
+impl IntoString for Atom {
+    fn into_string(self) -> String {
+        self.as_slice().into_string()
+    }
+}
+
 #[cfg(test)]
 mod bench;
 
@@ -302,22 +308,43 @@ mod tests {
     #[test]
     fn test_as_slice() {
         let s0 = Atom::from_slice("");
-        assert!(s0.as_slice() == "");
+        assert_eq!(s0.as_slice(), "");
 
         let s1 = Atom::from_slice("class");
-        assert!(s1.as_slice() == "class");
+        assert_eq!(s1.as_slice(), "class");
 
         let i0 = Atom::from_slice("blah");
-        assert!(i0.as_slice() == "blah");
+        assert_eq!(i0.as_slice(), "blah");
 
         let s0 = Atom::from_slice("BLAH");
-        assert!(s0.as_slice() == "BLAH");
+        assert_eq!(s0.as_slice(), "BLAH");
 
         let d0 = Atom::from_slice("zzzzzzzzzz");
-        assert!(d0.as_slice() == "zzzzzzzzzz");
+        assert_eq!(d0.as_slice(), "zzzzzzzzzz");
 
         let d1 = Atom::from_slice("ZZZZZZZZZZ");
-        assert!(d1.as_slice() == "ZZZZZZZZZZ");
+        assert_eq!(d1.as_slice(), "ZZZZZZZZZZ");
+    }
+
+    #[test]
+    fn test_into_string() {
+        let s0 = Atom::from_slice("");
+        assert_eq!(s0.into_string(), "".into_string());
+
+        let s1 = Atom::from_slice("class");
+        assert_eq!(s1.into_string(), "class".into_string());
+
+        let i0 = Atom::from_slice("blah");
+        assert_eq!(i0.into_string(), "blah".into_string());
+
+        let s0 = Atom::from_slice("BLAH");
+        assert_eq!(s0.into_string(), "BLAH".into_string());
+
+        let d0 = Atom::from_slice("zzzzzzzzzz");
+        assert_eq!(d0.into_string(), "zzzzzzzzzz".into_string());
+
+        let d1 = Atom::from_slice("ZZZZZZZZZZ");
+        assert_eq!(d1.into_string(), "ZZZZZZZZZZ".into_string());
     }
 
     macro_rules! unpacks_to (($e:expr, $t:pat) => (
