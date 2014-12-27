@@ -14,9 +14,10 @@
 #![allow(dead_code, unused_imports)]
 
 use core::{mem, raw, intrinsics};
-use core::option::{Option, Some, None};
+use core::option::Option;
+use core::option::Option::{Some, None};
 use core::ptr::RawPtr;
-use core::slice::{SlicePrelude, AsSlice};
+use core::slice::{SliceExt, AsSlice};
 use core::slice::bytes;
 
 pub use self::UnpackedAtom::{Dynamic, Inline, Static};

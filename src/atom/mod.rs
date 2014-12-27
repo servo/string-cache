@@ -23,7 +23,7 @@ use core::atomic::{AtomicInt, SeqCst};
 use alloc::heap;
 use alloc::boxed::Box;
 use collections::string::String;
-use collections::hash::{Hash, Hasher};
+use core::hash::{Hash, Hasher};
 use std::sync::Mutex;
 
 use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
@@ -32,7 +32,7 @@ use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
 use event;
 
 #[cfg(not(feature = "log-events"))]
-macro_rules! log (($e:expr) => (()))
+macro_rules! log (($e:expr) => (()));
 
 #[path="../../shared/repr.rs"]
 pub mod repr;
@@ -190,7 +190,7 @@ impl Atom {
         };
 
         let data = unsafe { unpacked.pack() };
-        log!(event::Intern(data))
+        log!(event::Intern(data));
         Atom { data: data }
     }
 
@@ -325,7 +325,7 @@ mod tests {
             $t => (),
             _ => panic!("atom has wrong type"),
         }
-    ))
+    ));
 
     #[test]
     fn test_types() {
@@ -426,7 +426,7 @@ mod tests {
                 format_args!(fmt::format, $fmt, x).as_slice(),
                 format_args!(fmt::format, $fmt, y).as_slice());
         }
-    }))
+    }));
 
     #[test]
     fn repr() {
@@ -468,7 +468,7 @@ mod tests {
     #[test]
     fn test_threads() {
         for _ in range(0u32, 100u32) {
-            spawn(proc() {
+            spawn(move || {
                 let _ = Atom::from_slice("a dynamic string");
                 let _ = Atom::from_slice("another string");
             });
