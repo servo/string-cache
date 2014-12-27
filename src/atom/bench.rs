@@ -44,7 +44,7 @@ macro_rules! check_type (($name:ident, $x:expr, $p:pat) => (
             _ => panic!("atom has wrong type"),
         }
     }
-))
+));
 
 macro_rules! bench_tiny_op (($name:ident, $op:ident, $ctor_x:expr, $ctor_y:expr) => (
     #[bench]
@@ -59,7 +59,7 @@ macro_rules! bench_tiny_op (($name:ident, $op:ident, $ctor_x:expr, $ctor_y:expr)
             }
         });
     }
-))
+));
 
 macro_rules! bench_one (
     (x_static   $x:expr, $y:expr) => (check_type!(check_type_x, $x, Static(..)));
@@ -122,7 +122,7 @@ macro_rules! bench_one (
             });
         }
     );
-)
+);
 
 macro_rules! bench_all (
     ([ $($which:ident)+ ] for $name:ident = $x:expr, $y:expr) => (
@@ -146,44 +146,44 @@ macro_rules! bench_all (
             )+
         }
     );
-)
+);
 
 pub const longer_dynamic_a: &'static str
     = "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Band";
 pub const longer_dynamic_b: &'static str
     = "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Ban!";
 
-bench_all!([eq ne lt clone_string] for short_string = "e", "f")
-bench_all!([eq ne lt clone_string] for medium_string = "xyzzy01", "xyzzy02")
+bench_all!([eq ne lt clone_string] for short_string = "e", "f");
+bench_all!([eq ne lt clone_string] for medium_string = "xyzzy01", "xyzzy02");
 bench_all!([eq ne lt clone_string]
-    for longer_string = super::longer_dynamic_a, super::longer_dynamic_b)
+    for longer_string = super::longer_dynamic_a, super::longer_dynamic_b);
 
 bench_all!([eq ne intern as_slice clone is_static lt]
-    for static_atom = atom!(a), atom!(b))
+    for static_atom = atom!(a), atom!(b));
 
 bench_all!([intern as_slice clone is_inline]
-    for short_inline_atom = mk("e"), mk("f"))
+    for short_inline_atom = mk("e"), mk("f"));
 
 bench_all!([eq ne intern as_slice clone is_inline lt]
-    for medium_inline_atom = mk("xyzzy01"), mk("xyzzy02"))
+    for medium_inline_atom = mk("xyzzy01"), mk("xyzzy02"));
 
 bench_all!([intern as_slice clone is_dynamic]
-    for min_dynamic_atom = mk("xyzzy001"), mk("xyzzy002"))
+    for min_dynamic_atom = mk("xyzzy001"), mk("xyzzy002"));
 
 bench_all!([eq ne intern as_slice clone is_dynamic lt]
-    for longer_dynamic_atom = mk(super::longer_dynamic_a), mk(super::longer_dynamic_b))
+    for longer_dynamic_atom = mk(super::longer_dynamic_a), mk(super::longer_dynamic_b));
 
 bench_all!([intern as_slice clone is_static]
-    for static_at_runtime = mk("a"), mk("b"))
+    for static_at_runtime = mk("a"), mk("b"));
 
 bench_all!([ne lt x_static y_inline]
-    for static_vs_inline  = atom!(a), mk("f"))
+    for static_vs_inline  = atom!(a), mk("f"));
 
 bench_all!([ne lt x_static y_dynamic]
-    for static_vs_dynamic = atom!(a), mk(super::longer_dynamic_b))
+    for static_vs_dynamic = atom!(a), mk(super::longer_dynamic_b));
 
 bench_all!([ne lt x_inline y_dynamic]
-    for inline_vs_dynamic = mk("e"), mk(super::longer_dynamic_b))
+    for inline_vs_dynamic = mk("e"), mk(super::longer_dynamic_b));
 
 macro_rules! bench_rand ( ($name:ident, $len:expr) => (
     #[bench]
@@ -210,9 +210,9 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
             black_box(Atom::from_slice(s));
         });
     }
-))
+));
 
-bench_rand!(intern_rand_008,   8)
-bench_rand!(intern_rand_032,  32)
-bench_rand!(intern_rand_128, 128)
-bench_rand!(intern_rand_512, 512)
+bench_rand!(intern_rand_008,   8);
+bench_rand!(intern_rand_032,  32);
+bench_rand!(intern_rand_128, 128);
+bench_rand!(intern_rand_512, 512);

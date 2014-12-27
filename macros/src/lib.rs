@@ -25,18 +25,18 @@ use rustc::plugin::Registry;
 macro_rules! bail ( ($cx:expr, $sp:expr, $msg:expr) => ({
     $cx.span_err($sp, $msg);
     return ::syntax::ext::base::DummyResult::any($sp);
-}))
+}));
 
 macro_rules! bail_if ( ($e:expr, $cx:expr, $sp:expr, $msg:expr) => (
     if $e { bail!($cx, $sp, $msg) }
-))
+));
 
 macro_rules! expect ( ($cx:expr, $sp:expr, $e:expr, $msg:expr) => (
     match $e {
         Some(x) => x,
         None => bail!($cx, $sp, $msg),
     }
-))
+));
 
 mod atom;
 

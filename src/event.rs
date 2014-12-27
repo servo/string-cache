@@ -33,4 +33,4 @@ pub fn log(e: Event) {
     LOG.lock().push(e);
 }
 
-macro_rules! log (($e:expr) => (::event::log($e)))
+macro_rules! log (($e:expr) => (::event::log($e)));

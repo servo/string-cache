@@ -139,4 +139,4 @@ macro_rules! qualname (($ns:tt, $local:tt) => (
         ns: ns!($ns),
         local: atom!($local),
     }
-))
+));
