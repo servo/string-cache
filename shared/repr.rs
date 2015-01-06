@@ -14,9 +14,9 @@
 #![allow(dead_code, unused_imports)]
 
 use core::{mem, raw, intrinsics};
-use core::option::{Option, Some, None};
-use core::ptr::RawPtr;
-use core::slice::{SlicePrelude, AsSlice};
+use core::option::Option::{self, Some, None};
+use core::ptr::PtrExt;
+use core::slice::{AsSlice, SliceExt};
 use core::slice::bytes;
 
 pub use self::UnpackedAtom::{Dynamic, Inline, Static};
@@ -35,7 +35,7 @@ pub enum UnpackedAtom {
     Dynamic(*mut ()),
 
     /// Length + bytes of string.
-    Inline(u8, [u8, ..7]),
+    Inline(u8, [u8; 7]),
 
     /// Index in static interning table.
     Static(u32),
@@ -91,7 +91,7 @@ impl UnpackedAtom {
             INLINE_TAG => {
                 let len = ((data & 0xf0) >> 4) as uint;
                 debug_assert!(len <= MAX_INLINE_LEN);
-                let mut buf: [u8, ..7] = [0, ..7];
+                let mut buf: [u8; 7] = [0; 7];
                 let src: &[u8] = mem::transmute(inline_atom_slice(&data));
                 bytes::copy_memory(buf.as_mut_slice(), src);
                 Inline(len as u8, buf)

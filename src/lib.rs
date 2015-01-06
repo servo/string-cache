@@ -10,7 +10,7 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(phase, macro_rules, default_type_params, globs)]
+#![feature(phase, macro_rules, default_type_params, globs, old_orphan_check)]
 #![no_std]
 
 #[phase(plugin, link)]

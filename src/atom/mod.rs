@@ -15,16 +15,19 @@ use phf::OrderedSet;
 use xxhash::XXHasher;
 
 use core::fmt;
+use core::iter::RandomAccessIterator;
 use core::mem;
 use core::ptr;
 use core::slice::bytes;
 use core::str;
-use core::atomic::{AtomicInt, SeqCst};
 use alloc::heap;
 use alloc::boxed::Box;
 use collections::string::String;
-use collections::hash::{Hash, Hasher};
+use std::cmp::Ordering::{self, Equal};
+use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
+use std::sync::atomic::AtomicInt;
+use std::sync::atomic::Ordering::SeqCst;
 
 use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
 
@@ -32,7 +35,7 @@ use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
 use event;
 
 #[cfg(not(feature = "log-events"))]
-macro_rules! log (($e:expr) => (()))
+macro_rules! log (($e:expr) => (()));
 
 #[path="../../shared/repr.rs"]
 pub mod repr;
@@ -45,7 +48,7 @@ static static_atom_set: OrderedSet<&'static str> = static_atom_set!();
 
 struct StringCache {
     hasher: XXHasher,
-    buckets: [*mut StringCacheEntry, ..4096],
+    buckets: [*mut StringCacheEntry; 4096],
 }
 
 lazy_static! {
@@ -58,6 +61,8 @@ struct StringCacheEntry {
     ref_count: AtomicInt,
     string: String,
 }
+
+unsafe impl Send for *mut StringCacheEntry { }
 
 impl StringCacheEntry {
     fn new(next: *mut StringCacheEntry, hash: u64, string_to_add: &str) -> StringCacheEntry {
@@ -161,7 +166,7 @@ impl StringCache {
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
 #[unsafe_no_drop_flag]
-#[deriving(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
     /// You should not otherwise access this field.
@@ -180,17 +185,17 @@ impl Atom {
             None => {
                 let len = string_to_add.len();
                 if len <= repr::MAX_INLINE_LEN {
-                    let mut buf: [u8, ..7] = [0, ..7];
+                    let mut buf: [u8; 7] = [0; 7];
                     bytes::copy_memory(buf.as_mut_slice(), string_to_add.as_bytes());
                     Inline(len as u8, buf)
                 } else {
-                    Dynamic(STRING_CACHE.lock().add(string_to_add) as *mut ())
+                    Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add) as *mut ())
                 }
             }
         };
 
         let data = unsafe { unpacked.pack() };
-        log!(event::Intern(data))
+        log!(event::Intern(data));
         Atom { data: data }
     }
 
@@ -199,8 +204,7 @@ impl Atom {
             match self.unpack() {
                 Inline(..) => {
                     let buf = repr::inline_orig_bytes(&self.data);
-                    debug_assert!(str::is_utf8(buf));
-                    str::from_utf8_unchecked(buf)
+                    str::from_utf8(buf).unwrap()
                 },
                 Static(idx) => *static_atom_set.iter().idx(idx as uint).expect("bad static atom"),
                 Dynamic(entry) => {
@@ -235,7 +239,7 @@ impl Drop for Atom {
     fn drop(&mut self) {
         // Out of line to guide inlining.
         fn drop_slow(this: &mut Atom) {
-            STRING_CACHE.lock().remove(this.data);
+            STRING_CACHE.lock().unwrap().remove(this.data);
         }
 
         unsafe {
@@ -243,7 +247,7 @@ impl Drop for Atom {
                 // We use #[unsafe_no_drop_flag] so that Atom will be only 64
                 // bits.  That means we need to ignore a NULL pointer here,
                 // which represents a value that was moved out.
-                Some(entry) if entry.is_not_null() => {
+                Some(entry) if !entry.is_null() => {
                     let entry = entry as *mut StringCacheEntry;
                     if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
                         drop_slow(self);
@@ -295,7 +299,7 @@ mod tests {
     use core::prelude::*;
 
     use std::fmt;
-    use std::task::spawn;
+    use std::thread::Thread;
     use super::Atom;
     use super::repr::{Static, Inline, Dynamic};
 
@@ -325,7 +329,7 @@ mod tests {
             $t => (),
             _ => panic!("atom has wrong type"),
         }
-    ))
+    ));
 
     #[test]
     fn test_types() {
@@ -423,10 +427,10 @@ mod tests {
         let y = $y;
         if x != y {
             panic!("assertion failed: {} != {}",
-                format_args!(fmt::format, $fmt, x).as_slice(),
-                format_args!(fmt::format, $fmt, y).as_slice());
+                format_args!($fmt, x),
+                format_args!($fmt, y));
         }
-    }))
+    }));
 
     #[test]
     fn repr() {
@@ -468,7 +472,7 @@ mod tests {
     #[test]
     fn test_threads() {
         for _ in range(0u32, 100u32) {
-            spawn(proc() {
+            Thread::spawn(move || {
                 let _ = Atom::from_slice("a dynamic string");
                 let _ = Atom::from_slice("another string");
             });
