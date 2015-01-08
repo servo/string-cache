@@ -298,7 +298,6 @@ mod bench;
 mod tests {
     use core::prelude::*;
 
-    use std::fmt;
     use std::thread::Thread;
     use super::Atom;
     use super::repr::{Static, Inline, Dynamic};

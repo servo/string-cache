@@ -207,7 +207,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
                 // shift into printable ASCII
                 *n = (*n % 0x40) + 0x20;
             }
-            let s = unsafe { str::from_utf8(buf.as_slice()).unwrap() };
+            let s = str::from_utf8(buf.as_slice()).unwrap();
             black_box(Atom::from_slice(s));
         });
     }

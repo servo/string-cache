@@ -10,10 +10,10 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(phase, macro_rules, default_type_params, globs, old_orphan_check)]
+#![feature(plugin, old_orphan_check)]
 #![no_std]
 
-#[phase(plugin, link)]
+#[macro_use]
 extern crate core;
 
 extern crate alloc;
@@ -24,16 +24,17 @@ extern crate test;
 
 extern crate std;
 
-#[phase(plugin)]
+#[plugin]
 extern crate phf_mac;
 extern crate phf;
 
-#[phase(plugin)]
+#[macro_use]
 extern crate lazy_static;
 
 extern crate xxhash;
 
-#[phase(plugin)]
+#[plugin]
+#[macro_use]
 extern crate string_cache_macros;
 
 #[cfg(feature = "log-events")]

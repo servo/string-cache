@@ -10,14 +10,14 @@
 #![crate_name="string_cache_macros"]
 #![crate_type="dylib"]
 
-#![feature(macro_rules, plugin_registrar, quote, phase)]
+#![feature(plugin_registrar, quote)]
 #![allow(unused_imports)]  // for quotes
 
 extern crate core;
 extern crate syntax;
 extern crate rustc;
 
-#[phase(plugin)]
+#[macro_use]
 extern crate lazy_static;
 
 use rustc::plugin::Registry;
