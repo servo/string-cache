@@ -10,7 +10,7 @@
 #![crate_name="string_cache_macros"]
 #![crate_type="dylib"]
 
-#![feature(plugin_registrar, quote)]
+#![feature(plugin_registrar, quote, int_uint, box_syntax)]
 #![allow(unused_imports)]  // for quotes
 
 extern crate core;

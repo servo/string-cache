@@ -26,7 +26,7 @@ pub const DYNAMIC_TAG: u8 = 0u8;
 pub const INLINE_TAG: u8 = 1u8;  // len in upper nybble
 pub const STATIC_TAG: u8 = 2u8;
 
-pub const MAX_INLINE_LEN: uint = 7;
+pub const MAX_INLINE_LEN: usize = 7;
 
 // Atoms use a compact representation which fits this enum in a single u64.
 // Inlining avoids actually constructing the unpacked representation in memory.
@@ -41,7 +41,7 @@ pub enum UnpackedAtom {
     Static(u32),
 }
 
-const STATIC_SHIFT_BITS: uint = 32;
+const STATIC_SHIFT_BITS: usize = 32;
 
 #[inline(always)]
 unsafe fn inline_atom_slice(x: &u64) -> raw::Slice<u8> {
@@ -69,7 +69,7 @@ impl UnpackedAtom {
                 n
             }
             Inline(len, buf) => {
-                debug_assert!((len as uint) <= MAX_INLINE_LEN);
+                debug_assert!((len as usize) <= MAX_INLINE_LEN);
                 let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
                 {
                     let dest: &mut [u8] = mem::transmute(inline_atom_slice(&mut data));
@@ -89,7 +89,7 @@ impl UnpackedAtom {
             DYNAMIC_TAG => Dynamic(data as *mut ()),
             STATIC_TAG => Static((data >> STATIC_SHIFT_BITS) as u32),
             INLINE_TAG => {
-                let len = ((data & 0xf0) >> 4) as uint;
+                let len = ((data & 0xf0) >> 4) as usize;
                 debug_assert!(len <= MAX_INLINE_LEN);
                 let mut buf: [u8; 7] = [0; 7];
                 let src: &[u8] = mem::transmute(inline_atom_slice(&data));

@@ -12,7 +12,7 @@
 use core::prelude::*;
 
 use phf::OrderedSet;
-use xxhash::XXHasher;
+use xxhash;
 
 use core::fmt;
 use core::iter::RandomAccessIterator;
@@ -47,7 +47,6 @@ const ENTRY_ALIGNMENT: uint = 16;
 static static_atom_set: OrderedSet<&'static str> = static_atom_set!();
 
 struct StringCache {
-    hasher: XXHasher,
     buckets: [*mut StringCacheEntry; 4096],
 }
 
@@ -78,13 +77,12 @@ impl StringCacheEntry {
 impl StringCache {
     fn new() -> StringCache {
         StringCache {
-            hasher: XXHasher::new(),
             buckets: unsafe { mem::zeroed() },
         }
     }
 
     fn add(&mut self, string_to_add: &str) -> *mut StringCacheEntry {
-        let hash = self.hasher.hash(&string_to_add);
+        let hash = xxhash::hash(&string_to_add);
         let bucket_index = (hash & (self.buckets.len()-1) as u64) as uint;
         let mut ptr = self.buckets[bucket_index];
 
