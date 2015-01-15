@@ -11,7 +11,9 @@
 #![crate_type="dylib"]
 
 #![feature(plugin_registrar, quote, int_uint, box_syntax)]
+#![deny(warnings)]
 #![allow(unused_imports)]  // for quotes
+#![allow(unstable)]
 
 extern crate core;
 extern crate syntax;

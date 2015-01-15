@@ -12,6 +12,8 @@
 
 #![feature(plugin, old_orphan_check)]
 #![no_std]
+#![deny(warnings)]
+#![allow(unstable)]
 
 #[macro_use]
 extern crate core;

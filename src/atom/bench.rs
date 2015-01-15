@@ -49,7 +49,7 @@ macro_rules! check_type (($name:ident, $x:expr, $p:pat) => (
 macro_rules! bench_tiny_op (($name:ident, $op:ident, $ctor_x:expr, $ctor_y:expr) => (
     #[bench]
     fn $name(b: &mut Bencher) {
-        const n: uint = 1000;
+        const n: usize = 1000;
         let xs: Vec<_> = repeat($ctor_x).take(n).collect();
         let ys: Vec<_> = repeat($ctor_y).take(n).collect();
 
@@ -92,7 +92,7 @@ macro_rules! bench_one (
         fn as_slice_x_1000(b: &mut Bencher) {
             let x = $x;
             b.iter(|| {
-                for _ in range(0, 1000u) {
+                for _ in range(0, 1000) {
                     black_box(x.as_slice());
                 }
             });
@@ -104,7 +104,7 @@ macro_rules! bench_one (
         fn clone_x_1000(b: &mut Bencher) {
             let x = $x;
             b.iter(|| {
-                for _ in range(0, 1000u) {
+                for _ in range(0, 1000) {
                     black_box(x.clone());
                 }
             });
@@ -116,7 +116,7 @@ macro_rules! bench_one (
         fn clone_x_1000(b: &mut Bencher) {
             let x = $x.to_string();
             b.iter(|| {
-                for _ in range(0, 1000u) {
+                for _ in range(0, 1000) {
                     black_box(x.clone());
                 }
             });

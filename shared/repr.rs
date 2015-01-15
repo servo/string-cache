@@ -30,6 +30,7 @@ pub const MAX_INLINE_LEN: usize = 7;
 
 // Atoms use a compact representation which fits this enum in a single u64.
 // Inlining avoids actually constructing the unpacked representation in memory.
+#[allow(missing_copy_implementations)]
 pub enum UnpackedAtom {
     /// Pointer to a dynamic table entry.  Must be 16-byte aligned!
     Dynamic(*mut ()),
@@ -123,7 +124,7 @@ pub unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
     match UnpackedAtom::from_packed(*data) {
         Inline(len, _) => {
             let src: &[u8] = mem::transmute(inline_atom_slice(data));
-            src.slice_to(len as uint)
+            src.slice_to(len as usize)
         }
         _ => intrinsics::unreachable(),
     }

@@ -24,7 +24,7 @@ use alloc::heap;
 use alloc::boxed::Box;
 use collections::string::String;
 use std::cmp::Ordering::{self, Equal};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicInt;
 use std::sync::atomic::Ordering::SeqCst;
@@ -41,7 +41,7 @@ macro_rules! log (($e:expr) => (()));
 pub mod repr;
 
 // Needed for memory safety of the tagging scheme!
-const ENTRY_ALIGNMENT: uint = 16;
+const ENTRY_ALIGNMENT: usize = 16;
 
 // Macro-generated table for static atoms.
 static static_atom_set: OrderedSet<&'static str> = static_atom_set!();
@@ -83,7 +83,7 @@ impl StringCache {
 
     fn add(&mut self, string_to_add: &str) -> *mut StringCacheEntry {
         let hash = xxhash::hash(&string_to_add);
-        let bucket_index = (hash & (self.buckets.len()-1) as u64) as uint;
+        let bucket_index = (hash & (self.buckets.len()-1) as u64) as usize;
         let mut ptr = self.buckets[bucket_index];
 
         while ptr != ptr::null_mut() {
@@ -132,7 +132,7 @@ impl StringCache {
 
         debug_assert!(value.ref_count.load(SeqCst) == 0);
 
-        let bucket_index = (value.hash & (self.buckets.len()-1) as u64) as uint;
+        let bucket_index = (value.hash & (self.buckets.len()-1) as u64) as usize;
 
         let mut current = self.buckets[bucket_index];
         let mut prev: *mut StringCacheEntry = ptr::null_mut();
@@ -204,7 +204,7 @@ impl Atom {
                     let buf = repr::inline_orig_bytes(&self.data);
                     str::from_utf8(buf).unwrap()
                 },
-                Static(idx) => *static_atom_set.iter().idx(idx as uint).expect("bad static atom"),
+                Static(idx) => *static_atom_set.iter().idx(idx as usize).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     (*entry).string.as_slice()
@@ -485,22 +485,22 @@ mod tests {
 
     #[test]
     fn match_atom() {
-        assert_eq!(2u, match Atom::from_slice("head") {
-            atom!(br) => 1u,
-            atom!(html) | atom!(head) => 2u,
-            _ => 3u,
+        assert_eq!(2, match Atom::from_slice("head") {
+            atom!(br) => 1,
+            atom!(html) | atom!(head) => 2,
+            _ => 3,
         });
 
-        assert_eq!(3u, match Atom::from_slice("body") {
-            atom!(br) => 1u,
-            atom!(html) | atom!(head) => 2u,
-            _ => 3u,
+        assert_eq!(3, match Atom::from_slice("body") {
+            atom!(br) => 1,
+            atom!(html) | atom!(head) => 2,
+            _ => 3,
         });
 
-        assert_eq!(3u, match Atom::from_slice("zzzzzz") {
-            atom!(br) => 1u,
-            atom!(html) | atom!(head) => 2u,
-            _ => 3u,
+        assert_eq!(3, match Atom::from_slice("zzzzzz") {
+            atom!(br) => 1,
+            atom!(html) | atom!(head) => 2,
+            _ => 3,
         });
     }
 }
