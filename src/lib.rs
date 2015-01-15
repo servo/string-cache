@@ -26,7 +26,7 @@ extern crate test;
 
 extern crate std;
 
-#[plugin]
+#[plugin] #[no_link]
 extern crate phf_mac;
 extern crate phf;
 
@@ -35,8 +35,7 @@ extern crate lazy_static;
 
 extern crate xxhash;
 
-#[plugin]
-#[macro_use]
+#[plugin] #[no_link] #[macro_use]
 extern crate string_cache_macros;
 
 #[cfg(feature = "log-events")]
