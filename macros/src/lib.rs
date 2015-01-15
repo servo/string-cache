@@ -10,14 +10,14 @@
 #![crate_name="string_cache_macros"]
 #![crate_type="dylib"]
 
-#![feature(macro_rules, plugin_registrar, quote, phase)]
+#![feature(plugin_registrar, quote, int_uint, box_syntax)]
 #![allow(unused_imports)]  // for quotes
 
 extern crate core;
 extern crate syntax;
 extern crate rustc;
 
-#[phase(plugin)]
+#[macro_use]
 extern crate lazy_static;
 
 use rustc::plugin::Registry;
@@ -25,18 +25,18 @@ use rustc::plugin::Registry;
 macro_rules! bail ( ($cx:expr, $sp:expr, $msg:expr) => ({
     $cx.span_err($sp, $msg);
     return ::syntax::ext::base::DummyResult::any($sp);
-}))
+}));
 
 macro_rules! bail_if ( ($e:expr, $cx:expr, $sp:expr, $msg:expr) => (
     if $e { bail!($cx, $sp, $msg) }
-))
+));
 
 macro_rules! expect ( ($cx:expr, $sp:expr, $e:expr, $msg:expr) => (
     match $e {
         Some(x) => x,
         None => bail!($cx, $sp, $msg),
     }
-))
+));
 
 mod atom;
 
