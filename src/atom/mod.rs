@@ -257,7 +257,7 @@ impl Drop for Atom {
     }
 }
 
-impl fmt::Show for Atom {
+impl fmt::Debug for Atom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ty_str = unsafe {
             match self.unpack() {
