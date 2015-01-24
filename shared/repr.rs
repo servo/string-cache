@@ -124,7 +124,7 @@ pub unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
     match UnpackedAtom::from_packed(*data) {
         Inline(len, _) => {
             let src: &[u8] = mem::transmute(inline_atom_slice(data));
-            src.slice_to(len as usize)
+            &src[..(len as usize)]
         }
         _ => intrinsics::unreachable(),
     }

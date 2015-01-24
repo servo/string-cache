@@ -107,7 +107,7 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
     ];
 
     fn usage() -> String {
-        let ns_names: Vec<&'static str> = ALL_NS.slice_from(1).iter()
+        let ns_names: Vec<&'static str> = ALL_NS[1..].iter()
             .map(|&(x, _)| x).collect();
         format!("Usage: ns!(HTML), case-insensitive. \
             Known namespaces: {}",
