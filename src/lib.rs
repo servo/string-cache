@@ -10,10 +10,13 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(plugin, old_orphan_check)]
 #![no_std]
 #![deny(warnings)]
-#![allow(unstable)]
+#![feature(alloc)]
+#![feature(collections)]
+#![feature(core)]
+#![feature(hash)]
+#![feature(plugin)]
 
 #[macro_use]
 extern crate core;
