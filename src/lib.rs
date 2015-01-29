@@ -13,6 +13,7 @@
 #![feature(plugin, old_orphan_check)]
 #![feature(core, collections, alloc, hash)]
 #![deny(warnings)]
+#![cfg_attr(test, feature(test, std_misc))]
 
 #[cfg(test)]
 extern crate test;
