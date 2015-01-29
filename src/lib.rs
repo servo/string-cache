@@ -17,6 +17,7 @@
 #![feature(core)]
 #![feature(hash)]
 #![feature(plugin)]
+#![cfg_attr(test, feature(test, std_misc))]
 
 #[macro_use]
 extern crate core;
