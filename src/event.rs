@@ -9,12 +9,7 @@
 
 #![macro_escape]
 
-use core::prelude::*;
-
-use alloc::boxed::Box;
-use collections::MutableSeq;
-use collections::vec::Vec;
-use collections::string::String;
+use std::MutableSeq;
 use sync::Mutex;
 
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Show, Encodable)]
