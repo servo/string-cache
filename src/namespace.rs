@@ -15,11 +15,11 @@ use atom::Atom;
 /// An atom that is meant to represent a namespace in the HTML / XML sense.
 /// Whether a given string represents a namespace is contextual, so this is
 /// a transparent wrapper that will not catch all mistakes.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Show, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
 pub struct Namespace(pub Atom);
 
 /// A name with a namespace.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Show, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
 pub struct QualName {
     pub ns: Namespace,
     pub local: Atom,
