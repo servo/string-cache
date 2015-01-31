@@ -10,7 +10,7 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(plugin, old_orphan_check)]
+#![feature(plugin)]
 #![feature(core, collections, alloc, hash)]
 #![deny(warnings)]
 #![cfg_attr(test, feature(test, std_misc))]
