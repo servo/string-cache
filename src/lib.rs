@@ -11,20 +11,12 @@
 #![crate_type = "rlib"]
 
 #![feature(plugin, old_orphan_check)]
-#![no_std]
+#![feature(core, collections, alloc, hash)]
 #![deny(warnings)]
-#![allow(unstable)]
-
-#[macro_use]
-extern crate core;
-
-extern crate alloc;
-extern crate collections;
+#![cfg_attr(test, feature(test, std_misc))]
 
 #[cfg(test)]
 extern crate test;
-
-extern crate std;
 
 #[plugin] #[no_link]
 extern crate phf_mac;

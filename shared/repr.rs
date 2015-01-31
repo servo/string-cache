@@ -13,11 +13,8 @@
 
 #![allow(dead_code, unused_imports)]
 
-use core::{mem, raw, intrinsics};
-use core::option::Option::{self, Some, None};
-use core::ptr::PtrExt;
-use core::slice::{AsSlice, SliceExt};
-use core::slice::bytes;
+use std::{mem, raw, intrinsics};
+use std::slice::bytes;
 
 pub use self::UnpackedAtom::{Dynamic, Inline, Static};
 

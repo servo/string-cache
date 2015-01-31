@@ -9,20 +9,16 @@
 
 #![allow(non_upper_case_globals)]
 
-use core::prelude::*;
-
 use phf::OrderedSet;
 use xxhash;
 
-use core::fmt;
-use core::iter::RandomAccessIterator;
-use core::mem;
-use core::ptr;
-use core::slice::bytes;
-use core::str;
-use alloc::heap;
-use alloc::boxed::Box;
-use collections::string::String;
+use std::fmt;
+use std::iter::RandomAccessIterator;
+use std::mem;
+use std::ptr;
+use std::slice::bytes;
+use std::str;
+use std::rt::heap;
 use std::cmp::Ordering::{self, Equal};
 use std::hash::Hash;
 use std::sync::Mutex;
@@ -294,8 +290,6 @@ mod bench;
 
 #[cfg(test)]
 mod tests {
-    use core::prelude::*;
-
     use std::thread::Thread;
     use super::Atom;
     use super::repr::{Static, Inline, Dynamic};
@@ -461,7 +455,7 @@ mod tests {
     #[test]
     fn assert_sizes() {
         // Guard against accidental changes to the sizes of things.
-        use core::mem;
+        use std::mem;
         assert_eq!(8, mem::size_of::<super::Atom>());
         assert_eq!(48, mem::size_of::<super::StringCacheEntry>());
     }
