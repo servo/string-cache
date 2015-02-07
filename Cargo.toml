@@ -12,7 +12,7 @@ log-events = []
 
 [dependencies]
 phf = "0"
-phf_mac = "0"
+phf_macros = "0"
 xxhash = "0"
 
 [dependencies.string_cache_macros]

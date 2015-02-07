@@ -19,7 +19,7 @@
 extern crate test;
 
 #[plugin] #[no_link]
-extern crate phf_mac;
+extern crate phf_macros;
 extern crate phf;
 
 #[macro_use]
