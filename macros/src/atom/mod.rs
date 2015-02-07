@@ -89,8 +89,8 @@ pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResul
         [ref t] => expect!(cx, sp, atom_tok_to_str(t), usage),
         _ => bail!(cx, sp, usage),
     };
-    box expect!(cx, sp, make_atom_result(cx, name.get()),
-        format!("Unknown static atom {}", name.get()).as_slice())
+    box expect!(cx, sp, make_atom_result(cx, &*name),
+        format!("Unknown static atom {}", &*name).as_slice())
 }
 
 // Translate `ns!(HTML)` into `Namespace { atom: atom!("http://www.w3.org/1999/xhtml") }`.
@@ -120,7 +120,7 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
     }, usage().as_slice());
 
     let &(_, url) = expect!(cx, sp,
-        ALL_NS.iter().find(|&&(short, _)| short.eq_ignore_ascii_case(name.get())),
+        ALL_NS.iter().find(|&&(short, _)| short.eq_ignore_ascii_case(&*name)),
         usage().as_slice());
 
     // All of the URLs should be in the static atom table.
