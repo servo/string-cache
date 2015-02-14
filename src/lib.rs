@@ -20,8 +20,6 @@
 #[cfg(test)]
 extern crate test;
 
-#[no_link]
-extern crate phf_macros;
 extern crate phf;
 
 #[macro_use]
