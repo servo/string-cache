@@ -10,24 +10,27 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(plugin, old_orphan_check)]
+#![feature(plugin, unsafe_no_drop_flag)]
 #![feature(core, collections, alloc, hash)]
 #![deny(warnings)]
 #![cfg_attr(test, feature(test, std_misc))]
+#![cfg_attr(bench, feature(rand))]
+#![plugin(phf_macros, string_cache_macros)]
 
 #[cfg(test)]
 extern crate test;
 
-#[plugin] #[no_link]
+#[no_link]
 extern crate phf_macros;
 extern crate phf;
 
 #[macro_use]
 extern crate lazy_static;
 
+extern crate rand;
 extern crate xxhash;
 
-#[plugin] #[no_link] #[macro_use]
+#[no_link] #[macro_use]
 extern crate string_cache_macros;
 
 #[cfg(feature = "log-events")]

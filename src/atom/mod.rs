@@ -22,7 +22,7 @@ use std::rt::heap;
 use std::cmp::Ordering::{self, Equal};
 use std::hash::Hash;
 use std::sync::Mutex;
-use std::sync::atomic::AtomicInt;
+use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
 use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
@@ -53,7 +53,7 @@ lazy_static! {
 struct StringCacheEntry {
     next_in_bucket: *mut StringCacheEntry,
     hash: u64,
-    ref_count: AtomicInt,
+    ref_count: AtomicIsize,
     string: String,
 }
 
@@ -64,7 +64,7 @@ impl StringCacheEntry {
         StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
-            ref_count: AtomicInt::new(1),
+            ref_count: AtomicIsize::new(1),
             string: String::from_str(string_to_add),
         }
     }
