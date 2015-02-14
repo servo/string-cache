@@ -132,11 +132,3 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
         pat: quote_pat!(&mut *cx, ::string_cache::namespace::Namespace($pat)),
     }
 }
-
-#[macro_export]
-macro_rules! qualname (($ns:tt, $local:tt) => (
-    ::string_cache::namespace::QualName {
-        ns: ns!($ns),
-        local: atom!($local),
-    }
-));

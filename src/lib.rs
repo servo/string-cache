@@ -28,14 +28,19 @@ extern crate lazy_static;
 extern crate rand;
 extern crate xxhash;
 
-#[no_link] #[macro_use]
-extern crate string_cache_macros;
-
 #[cfg(feature = "log-events")]
 extern crate serialize;
 
 pub use atom::Atom;
 pub use namespace::{Namespace, QualName};
+
+#[macro_export]
+macro_rules! qualname (($ns:tt, $local:tt) => (
+    ::string_cache::namespace::QualName {
+        ns: ns!($ns),
+        local: atom!($local),
+    }
+));
 
 #[cfg(feature = "log-events")]
 pub mod event;
