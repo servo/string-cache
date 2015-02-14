@@ -187,8 +187,9 @@ bench_all!([ne lt x_inline y_dynamic]
 macro_rules! bench_rand ( ($name:ident, $len:expr) => (
     #[bench]
     fn $name(b: &mut Bencher) {
-        use std::{str, rand};
-        use std::rand::Rng;
+        use std::str;
+        use rand;
+        use rand::Rng;
 
         let mut gen = rand::weak_rng();
         b.iter(|| {
