@@ -1,12 +1,12 @@
 [package]
 
-name = "string_cache_macros"
+name = "string_cache_plugin"
 version = "0.0.0"
 authors = [ "The Servo Project Developers" ]
 
 [lib]
 
-name = "string_cache_macros"
+name = "string_cache_plugin"
 plugin = true
 
 [dependencies.lazy_static]

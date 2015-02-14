@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![crate_name="string_cache_macros"]
+#![crate_name="string_cache_plugin"]
 #![crate_type="dylib"]
 
 #![feature(plugin_registrar, quote, int_uint, box_syntax)]
