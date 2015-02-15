@@ -15,7 +15,7 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(test, std_misc))]
 #![cfg_attr(bench, feature(rand))]
-#![plugin(phf_macros, string_cache_macros)]
+#![plugin(phf_macros, string_cache_plugin)]
 
 #[cfg(test)]
 extern crate test;
