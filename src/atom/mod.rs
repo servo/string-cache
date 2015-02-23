@@ -10,7 +10,6 @@
 #![allow(non_upper_case_globals)]
 
 use phf::OrderedSet;
-use xxhash;
 
 use std::fmt;
 use std::iter::RandomAccessIterator;
@@ -20,7 +19,7 @@ use std::slice::bytes;
 use std::str;
 use std::rt::heap;
 use std::cmp::Ordering::{self, Equal};
-use std::hash::Hash;
+use std::hash::{self, Hash};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
@@ -78,7 +77,7 @@ impl StringCache {
     }
 
     fn add(&mut self, string_to_add: &str) -> *mut StringCacheEntry {
-        let hash = xxhash::hash(&string_to_add);
+        let hash = hash::hash::<_, SipHasher>(&string_to_add);
         let bucket_index = (hash & (self.buckets.len()-1) as u64) as usize;
         let mut ptr = self.buckets[bucket_index];
 
