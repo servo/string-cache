@@ -26,7 +26,6 @@ extern crate phf;
 extern crate lazy_static;
 
 extern crate rand;
-extern crate xxhash;
 
 #[cfg(feature = "log-events")]
 extern crate serialize;
