@@ -11,7 +11,7 @@
 #![crate_type="dylib"]
 
 #![feature(plugin_registrar, quote, int_uint, box_syntax)]
-#![feature(rustc_private, core, std_misc)]
+#![feature(rustc_private, core)]
 #![deny(warnings)]
 #![allow(unused_imports)]  // for quotes
 

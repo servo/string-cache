@@ -19,7 +19,7 @@ use std::slice::bytes;
 use std::str;
 use std::rt::heap;
 use std::cmp::Ordering::{self, Equal};
-use std::hash::{self, Hash};
+use std::hash::{self, Hash, SipHasher};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
@@ -289,7 +289,7 @@ mod bench;
 
 #[cfg(test)]
 mod tests {
-    use std::thread::Thread;
+    use std::thread;
     use super::Atom;
     use super::repr::{Static, Inline, Dynamic};
 
@@ -462,7 +462,7 @@ mod tests {
     #[test]
     fn test_threads() {
         for _ in range(0u32, 100u32) {
-            Thread::spawn(move || {
+            thread::spawn(move || {
                 let _ = Atom::from_slice("a dynamic string");
                 let _ = Atom::from_slice("another string");
             });
