@@ -8,12 +8,16 @@ authors = [ "The Servo Project Developers" ]
 
 # Enable event logging for generating benchmark traces.
 # See examples/event-log.
-log-events = []
+log-events = ["rustc-serialize"]
 
 [dependencies]
 phf = "0"
 phf_macros = "0"
 rand = "0"
+
+[dependencies.rustc-serialize]
+version = "0"
+optional = true
 
 [dependencies.string_cache_plugin]
 path = "plugin"
