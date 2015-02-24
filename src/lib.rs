@@ -28,7 +28,7 @@ extern crate lazy_static;
 extern crate rand;
 
 #[cfg(feature = "log-events")]
-extern crate serialize;
+extern crate "rustc-serialize" as rustc_serialize;
 
 pub use atom::Atom;
 pub use namespace::{Namespace, QualName};
@@ -42,6 +42,7 @@ macro_rules! qualname (($ns:tt, $local:tt) => (
 ));
 
 #[cfg(feature = "log-events")]
+#[macro_use]
 pub mod event;
 
 pub mod atom;

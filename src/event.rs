@@ -7,12 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![macro_escape]
+use std::sync::Mutex;
+use rustc_serialize::{Encoder, Encodable};
 
-use std::MutableSeq;
-use sync::Mutex;
-
-#[deriving(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Show, Encodable)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Debug)]
 pub enum Event {
     Intern(u64),
     Insert(u64, String),
@@ -25,7 +23,33 @@ lazy_static! {
 }
 
 pub fn log(e: Event) {
-    LOG.lock().push(e);
+    LOG.lock().unwrap().push(e);
 }
 
 macro_rules! log (($e:expr) => (::event::log($e)));
+
+// Serialize by converting to this private struct,
+// which produces more convenient output.
+
+#[derive(RustcEncodable)]
+struct SerializeEvent<'a> {
+    event: &'static str,
+    id: u64,
+    string: Option<&'a String>,
+}
+
+impl Encodable for Event {
+    fn encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
+        let (event, id, string) = match *self {
+            Event::Intern(id) => ("intern", id, None),
+            Event::Insert(id, ref s) => ("insert", id, Some(s)),
+            Event::Remove(id) => ("remove", id, None),
+        };
+
+        SerializeEvent {
+            event: event,
+            id: id,
+            string: string
+        }.encode(s)
+    }
+}
