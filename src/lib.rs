@@ -13,7 +13,7 @@
 #![feature(plugin, unsafe_no_drop_flag)]
 #![feature(core, collections, alloc, hash)]
 #![deny(warnings)]
-#![cfg_attr(test, feature(test, std_misc))]
+#![cfg_attr(test, feature(test))]
 #![cfg_attr(bench, feature(rand))]
 #![plugin(phf_macros, string_cache_plugin)]
 
@@ -26,7 +26,6 @@ extern crate phf;
 extern crate lazy_static;
 
 extern crate rand;
-extern crate xxhash;
 
 #[cfg(feature = "log-events")]
 extern crate serialize;
