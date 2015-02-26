@@ -56,7 +56,7 @@ struct StringCacheEntry {
     string: String,
 }
 
-unsafe impl Send for *mut StringCacheEntry { }
+unsafe impl Send for StringCache { }
 
 impl StringCacheEntry {
     fn new(next: *mut StringCacheEntry, hash: u64, string_to_add: &str) -> StringCacheEntry {
