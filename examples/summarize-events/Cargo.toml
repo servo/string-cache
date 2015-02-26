@@ -9,4 +9,4 @@ csv = "0"
 rustc-serialize = "0"
 
 [dependencies.string_cache]
-git = "https://github.com/servo/string-cache"
+path = "../.."
