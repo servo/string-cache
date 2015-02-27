@@ -26,7 +26,7 @@ mod repr;
 // Build a PhfOrderedSet of static atoms.
 // Takes no arguments.
 pub fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
-    bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_map!()");
+    ext_bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_map!()");
     let tts: Vec<TokenTree> = data::ATOMS.iter().flat_map(|k| {
         (quote_tokens!(&mut *cx, $k,)).into_iter()
     }).collect();
@@ -86,10 +86,10 @@ fn make_atom_result(cx: &mut ExtCtxt, name: &str) -> Option<AtomResult> {
 pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
     let usage = "Usage: atom!(html) or atom!(\"font-weight\")";
     let name = match tt {
-        [ref t] => expect!(cx, sp, atom_tok_to_str(t), usage),
-        _ => bail!(cx, sp, usage),
+        [ref t] => ext_expect!(cx, sp, atom_tok_to_str(t), usage),
+        _ => ext_bail!(cx, sp, usage),
     };
-    box expect!(cx, sp, make_atom_result(cx, &*name),
+    box ext_expect!(cx, sp, make_atom_result(cx, &*name),
         format!("Unknown static atom {}", &*name).as_slice())
 }
 
@@ -114,17 +114,17 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
             ns_names.connect(" "))
     }
 
-    let name = expect!(cx, sp, match tt {
+    let name = ext_expect!(cx, sp, match tt {
         [ref t] => atom_tok_to_str(t),
         _ => None,
     }, usage().as_slice());
 
-    let &(_, url) = expect!(cx, sp,
+    let &(_, url) = ext_expect!(cx, sp,
         ALL_NS.iter().find(|&&(short, _)| short.eq_ignore_ascii_case(&*name)),
         usage().as_slice());
 
     // All of the URLs should be in the static atom table.
-    let AtomResult { expr, pat } = expect!(cx, sp, make_atom_result(cx, url),
+    let AtomResult { expr, pat } = ext_expect!(cx, sp, make_atom_result(cx, url),
         format!("internal plugin error: can't find namespace url {}", url).as_slice());
 
     box AtomResult {
