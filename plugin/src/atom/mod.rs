@@ -11,7 +11,7 @@ use syntax::ptr::P;
 use syntax::codemap::Span;
 use syntax::ast::{TokenTree, TtToken};
 use syntax::ast;
-use syntax::ext::base::{ExtCtxt, MacResult, MacExpr};
+use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
 use syntax::parse::token::{get_ident, InternedString, Ident, Literal, Lit};
 
 use std::iter::Chain;
@@ -30,7 +30,7 @@ pub fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> B
     let tts: Vec<TokenTree> = data::ATOMS.iter().flat_map(|k| {
         (quote_tokens!(&mut *cx, $k,)).into_iter()
     }).collect();
-    MacExpr::new(quote_expr!(&mut *cx, phf_ordered_set!($tts)))
+    MacEager::expr(quote_expr!(&mut *cx, phf_ordered_set!($tts)))
 }
 
 fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
