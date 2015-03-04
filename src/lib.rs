@@ -10,7 +10,7 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(plugin, unsafe_no_drop_flag)]
+#![feature(plugin, unsafe_no_drop_flag, static_assert)]
 #![feature(core, collections, alloc, hash)]
 #![deny(warnings)]
 #![cfg_attr(test, feature(test))]

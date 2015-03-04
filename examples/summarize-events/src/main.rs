@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(std_misc, core, env, old_path)]
+#![feature(std_misc, core, old_path)]
 
 extern crate csv;
 extern crate string_cache;
@@ -45,7 +45,7 @@ fn main() {
     let filename = env::args().skip(1).next()
         .expect("Usage: string-cache-summarize-events foo.csv");
     let path = &Path::new(filename);
-    let mut file = csv::Reader::from_file(path);
+    let mut file = csv::Reader::from_file(path).unwrap();
 
     // Over the lifetime of a program, one dynamic atom might get interned at
     // several addresses, and one address may be used to intern several
@@ -124,7 +124,7 @@ fn main() {
     println!("kind       times   pct");
     println!("-------  -------  ----");
     for (k, &n) in by_kind.iter().enumerate() {
-        let k: Kind = FromPrimitive::from_uint(k).unwrap();
+        let k: Kind = FromPrimitive::from_usize(k).unwrap();
         print!("{:7?}  {:7}  {:4.1}",
             k, n, 100.0 * (n as f64) / (total as f64));
 
