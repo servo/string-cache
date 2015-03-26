@@ -80,9 +80,8 @@ macro_rules! bench_one (
         #[bench]
         fn intern(b: &mut Bencher) {
             let x = $x.as_slice().to_string();
-            let x = x.as_slice();
             b.iter(|| {
-                black_box(Atom::from_slice(x));
+                black_box(Atom::from_slice(&x));
             });
         }
     );
@@ -92,7 +91,7 @@ macro_rules! bench_one (
         fn as_slice_x_1000(b: &mut Bencher) {
             let x = $x;
             b.iter(|| {
-                for _ in range(0, 1000) {
+                for _ in 0..1000 {
                     black_box(x.as_slice());
                 }
             });
@@ -104,7 +103,7 @@ macro_rules! bench_one (
         fn clone_x_1000(b: &mut Bencher) {
             let x = $x;
             b.iter(|| {
-                for _ in range(0, 1000) {
+                for _ in 0..1000 {
                     black_box(x.clone());
                 }
             });
@@ -116,7 +115,7 @@ macro_rules! bench_one (
         fn clone_x_1000(b: &mut Bencher) {
             let x = $x.to_string();
             b.iter(|| {
-                for _ in range(0, 1000) {
+                for _ in 0..1000 {
                     black_box(x.clone());
                 }
             });
@@ -205,7 +204,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
                 // shift into printable ASCII
                 *n = (*n % 0x40) + 0x20;
             }
-            let s = str::from_utf8(buf.as_slice()).unwrap();
+            let s = str::from_utf8(&buf[..]).unwrap();
             black_box(Atom::from_slice(s));
         });
     }

@@ -28,7 +28,7 @@ extern crate lazy_static;
 extern crate rand;
 
 #[cfg(feature = "log-events")]
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 
 pub use atom::Atom;
 pub use namespace::{Namespace, QualName};
