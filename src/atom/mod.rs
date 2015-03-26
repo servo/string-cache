@@ -83,7 +83,7 @@ impl StringCache {
 
         while ptr != ptr::null_mut() {
             let value = unsafe { &*ptr };
-            if value.hash == hash && value.string.as_slice() == string_to_add {
+            if value.hash == hash && value.string == string_to_add {
                 break;
             }
             ptr = value.next_in_bucket;
@@ -202,7 +202,7 @@ impl Atom {
                 Static(idx) => *static_atom_set.iter().idx(idx as usize).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
-                    (*entry).string.as_slice()
+                    &(*entry).string
                 }
             }
         }
@@ -461,7 +461,7 @@ mod tests {
 
     #[test]
     fn test_threads() {
-        for _ in range(0u32, 100u32) {
+        for _ in 0_u32..100 {
             thread::spawn(move || {
                 let _ = Atom::from_slice("a dynamic string");
                 let _ = Atom::from_slice("another string");

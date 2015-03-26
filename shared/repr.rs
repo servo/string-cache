@@ -71,7 +71,7 @@ impl UnpackedAtom {
                 let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
                 {
                     let dest: &mut [u8] = mem::transmute(inline_atom_slice(&mut data));
-                    bytes::copy_memory(dest, buf.as_slice());
+                    bytes::copy_memory(dest, &buf[..]);
                 }
                 data
             }

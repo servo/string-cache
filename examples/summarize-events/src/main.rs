@@ -7,11 +7,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(std_misc, core, old_path)]
+#![feature(core)]
 
 extern crate csv;
 extern crate string_cache;
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 
 use string_cache::Atom;
 use string_cache::atom::repr;
@@ -19,6 +19,7 @@ use string_cache::atom::repr;
 use std::{env, cmp};
 use std::num::FromPrimitive;
 use std::collections::hash_map::{HashMap, Entry};
+use std::path::Path;
 
 #[derive(RustcDecodable, Debug)]
 struct Event {
@@ -44,7 +45,7 @@ struct Summary {
 fn main() {
     let filename = env::args().skip(1).next()
         .expect("Usage: string-cache-summarize-events foo.csv");
-    let path = &Path::new(filename);
+    let path = &Path::new(&filename);
     let mut file = csv::Reader::from_file(path).unwrap();
 
     // Over the lifetime of a program, one dynamic atom might get interned at
@@ -64,7 +65,7 @@ fn main() {
                 assert!(tag <= repr::STATIC_TAG);
 
                 let string = match tag {
-                    repr::DYNAMIC_TAG => dynamic[ev.id].clone(),
+                    repr::DYNAMIC_TAG => dynamic[&ev.id].clone(),
 
                     // FIXME: We really shouldn't be allowed to do this. It's a memory-safety
                     // hazard; the field is only public for the atom!() macro.
@@ -108,7 +109,7 @@ fn main() {
         .max().unwrap_or(0);
 
     let pad = |c, n| {
-        for _ in range(n, longest_atom) {
+        for _ in n..longest_atom {
             print!("{}", c);
         }
     };
@@ -143,7 +144,6 @@ fn main() {
     pad('-', 4);
     println!("----  ------  -------");
     for (string, Summary { kind, times }) in summary {
-        use std::str::StrExt;
         pad(' ', string.chars().count());
         println!("{}  {:6}  {:?}", string, times, kind);
     }

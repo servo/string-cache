@@ -90,7 +90,7 @@ pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResul
         _ => ext_bail!(cx, sp, usage),
     };
     box ext_expect!(cx, sp, make_atom_result(cx, &*name),
-        format!("Unknown static atom {}", &*name).as_slice())
+        &format!("Unknown static atom {}", &*name))
 }
 
 // Translate `ns!(HTML)` into `Namespace { atom: atom!("http://www.w3.org/1999/xhtml") }`.
@@ -117,15 +117,15 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
     let name = ext_expect!(cx, sp, match tt {
         [ref t] => atom_tok_to_str(t),
         _ => None,
-    }, usage().as_slice());
+    }, &usage());
 
     let &(_, url) = ext_expect!(cx, sp,
         ALL_NS.iter().find(|&&(short, _)| short.eq_ignore_ascii_case(&*name)),
-        usage().as_slice());
+        &usage());
 
     // All of the URLs should be in the static atom table.
     let AtomResult { expr, pat } = ext_expect!(cx, sp, make_atom_result(cx, url),
-        format!("internal plugin error: can't find namespace url {}", url).as_slice());
+        &format!("internal plugin error: can't find namespace url {}", url));
 
     box AtomResult {
         expr: quote_expr!(&mut *cx, ::string_cache::namespace::Namespace($expr)),
