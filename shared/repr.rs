@@ -46,8 +46,9 @@ unsafe fn inline_atom_slice(x: &u64) -> raw::Slice<u8> {
     #[static_assert]
     const IS_LITTLE_ENDIAN: bool = cfg!(target_endian = "little");
 
+    let x: *const u64 = x;
     raw::Slice {
-        data: ((x as *const u64) as *const u8).offset(1),
+        data: (x as *const u8).offset(1),
         len: 7,
     }
 }
