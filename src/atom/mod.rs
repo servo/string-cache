@@ -14,6 +14,7 @@ use phf::OrderedSet;
 use std::fmt;
 use std::iter::RandomAccessIterator;
 use std::mem;
+use std::ops;
 use std::ptr;
 use std::slice::bytes;
 use std::str;
@@ -249,6 +250,15 @@ impl Drop for Atom {
                 _ => (),
             }
         }
+    }
+}
+
+impl ops::Deref for Atom {
+    type Target = str;
+
+    #[inline]
+    fn deref(&self) -> &str {
+        self.as_slice()
     }
 }
 
@@ -495,5 +505,12 @@ mod tests {
             atom!(html) | atom!(head) => 2,
             _ => 3,
         });
+    }
+
+    #[test]
+    fn ensure_deref() {
+        // Ensure we can Deref to a &str
+        let atom = Atom::from_slice("foobar");
+        let _: &str = &atom;
     }
 }
