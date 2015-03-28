@@ -147,7 +147,7 @@ impl StringCache {
         debug_assert!(current != ptr::null_mut());
 
         unsafe {
-            ptr::read(ptr as *const StringCacheEntry);
+            ptr::read(ptr);
             heap::deallocate(ptr as *mut u8,
                 mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT);
         }
