@@ -92,7 +92,7 @@ impl UnpackedAtom {
                 debug_assert!(len <= MAX_INLINE_LEN);
                 let mut buf: [u8; 7] = [0; 7];
                 let src: &[u8] = mem::transmute(inline_atom_slice(&data));
-                bytes::copy_memory(buf.as_mut_slice(), src);
+                bytes::copy_memory(&mut buf[..], src);
                 Inline(len as u8, buf)
             },
 
