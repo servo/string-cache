@@ -199,7 +199,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
             // as about 3-12% at one point.
 
             let mut buf: [u8; $len] = [0; $len];
-            gen.fill_bytes(buf.as_mut_slice());
+            gen.fill_bytes(&mut buf);
             for n in buf.iter_mut() {
                 // shift into printable ASCII
                 *n = (*n % 0x40) + 0x20;
