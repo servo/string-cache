@@ -10,8 +10,8 @@
 #![crate_name="string_cache_plugin"]
 #![crate_type="dylib"]
 
-#![feature(plugin_registrar, quote, int_uint, box_syntax, static_assert)]
-#![feature(rustc_private, core)]
+#![feature(plugin_registrar, quote, box_syntax, static_assert)]
+#![feature(rustc_private, core, slice_patterns)]
 #![deny(warnings)]
 #![allow(unused_imports)]  // for quotes
 

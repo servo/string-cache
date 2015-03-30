@@ -43,7 +43,7 @@ fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
 
 // Build a map from atoms to IDs for use in implementing the atom!() macro.
 lazy_static! {
-    static ref STATIC_ATOM_MAP: HashMap<&'static str, uint> = {
+    static ref STATIC_ATOM_MAP: HashMap<&'static str, usize> = {
         let mut m = HashMap::new();
         for (i, x) in data::ATOMS.iter().enumerate() {
             m.insert(*x, i);
