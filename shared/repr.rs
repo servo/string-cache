@@ -72,7 +72,7 @@ impl UnpackedAtom {
                 let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
                 {
                     let dest: &mut [u8] = mem::transmute(inline_atom_slice(&mut data));
-                    bytes::copy_memory(dest, &buf[..]);
+                    bytes::copy_memory(&buf[..], dest);
                 }
                 data
             }
@@ -92,7 +92,7 @@ impl UnpackedAtom {
                 debug_assert!(len <= MAX_INLINE_LEN);
                 let mut buf: [u8; 7] = [0; 7];
                 let src: &[u8] = mem::transmute(inline_atom_slice(&data));
-                bytes::copy_memory(&mut buf[..], src);
+                bytes::copy_memory(src, &mut buf[..]);
                 Inline(len as u8, buf)
             },
 

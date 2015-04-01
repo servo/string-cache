@@ -180,7 +180,7 @@ impl Atom {
                 let len = string_to_add.len();
                 if len <= repr::MAX_INLINE_LEN {
                     let mut buf: [u8; 7] = [0; 7];
-                    bytes::copy_memory(&mut buf, string_to_add.as_bytes());
+                    bytes::copy_memory(string_to_add.as_bytes(), &mut buf);
                     Inline(len as u8, buf)
                 } else {
                     Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add) as *mut ())
