@@ -26,6 +26,7 @@ pub struct QualName {
 }
 
 impl QualName {
+    #[inline]
     pub fn new(ns: Namespace, local: Atom) -> QualName {
         QualName {
             ns: ns,

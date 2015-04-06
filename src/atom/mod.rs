@@ -173,6 +173,7 @@ impl Atom {
         UnpackedAtom::from_packed(self.data)
     }
 
+    #[inline]
     pub fn from_slice(string_to_add: &str) -> Atom {
         let unpacked = match static_atom_set.get_index(string_to_add) {
             Some(id) => Static(id as u32),
@@ -193,6 +194,7 @@ impl Atom {
         Atom { data: data }
     }
 
+    #[inline]
     pub fn as_slice<'t>(&'t self) -> &'t str {
         unsafe {
             match self.unpack() {
@@ -262,7 +264,15 @@ impl ops::Deref for Atom {
     }
 }
 
+impl fmt::Display for Atom {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        <str as fmt::Display>::fmt(self, f)
+    }
+}
+
 impl fmt::Debug for Atom {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ty_str = unsafe {
             match self.unpack() {
@@ -277,6 +287,7 @@ impl fmt::Debug for Atom {
 }
 
 impl PartialOrd for Atom {
+    #[inline]
     fn partial_cmp(&self, other: &Atom) -> Option<Ordering> {
         if self.data == other.data {
             return Some(Equal);
@@ -286,6 +297,7 @@ impl PartialOrd for Atom {
 }
 
 impl Ord for Atom {
+    #[inline]
     fn cmp(&self, other: &Atom) -> Ordering {
         if self.data == other.data {
             return Equal;
