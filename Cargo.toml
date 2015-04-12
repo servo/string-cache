@@ -4,6 +4,12 @@ name = "string_cache"
 version = "0.0.0"
 authors = [ "The Servo Project Developers" ]
 
+[lib]
+name = "string_cache"
+
+# https://github.com/rust-lang/cargo/issues/1512
+doctest = false
+
 [features]
 
 # Enable event logging for generating benchmark traces.
