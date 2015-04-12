@@ -12,7 +12,6 @@
 use phf::OrderedSet;
 
 use std::fmt;
-use std::iter::RandomAccessIterator;
 use std::mem;
 use std::ops;
 use std::ptr;
@@ -202,7 +201,7 @@ impl Atom {
                     let buf = repr::inline_orig_bytes(&self.data);
                     str::from_utf8(buf).unwrap()
                 },
-                Static(idx) => *static_atom_set.iter().idx(idx as usize).expect("bad static atom"),
+                Static(idx) => *static_atom_set.index(idx as usize).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string
