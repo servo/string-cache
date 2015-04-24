@@ -7,8 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![unstable(feature = "string_cache_namespace",
-            reason = "This may move as string-cache becomes less Web-specific.")]
+//! **Note:** This may move as string-cache becomes less Web-specific.
 
 use atom::Atom;
 
