@@ -1,8 +1,11 @@
 [package]
 
 name = "string_cache"
-version = "0.0.0"
+version = "0.1.0"
 authors = [ "The Servo Project Developers" ]
+description = "A string interning library for Rust, developed as part of the Servo project."
+license = "MIT / Apache-2.0"
+repository = "https://github.com/servo/string-cache"
 
 [lib]
 name = "string_cache"
@@ -28,3 +31,8 @@ optional = true
 
 [dependencies.string_cache_plugin]
 path = "plugin"
+version = "0.1.1"
+
+[dependencies.string_cache_shared]
+path = "shared"
+version = "0.1.0"

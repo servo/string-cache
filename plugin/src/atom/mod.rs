@@ -20,9 +20,6 @@ use std::ascii::AsciiExt;
 
 mod data;
 
-#[path="../../../shared/repr.rs"]
-mod repr;
-
 // Build a PhfOrderedSet of static atoms.
 // Takes no arguments.
 pub fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
@@ -74,7 +71,7 @@ fn make_atom_result(cx: &mut ExtCtxt, name: &str) -> Option<AtomResult> {
         None => return None,
     };
 
-    let data = repr::pack_static(*i as u32);
+    let data = ::string_cache_shared::pack_static(*i as u32);
 
     Some(AtomResult {
         expr: quote_expr!(&mut *cx, ::string_cache::atom::Atom { data: $data }),

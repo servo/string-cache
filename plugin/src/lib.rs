@@ -11,7 +11,7 @@
 #![crate_type="dylib"]
 
 #![feature(plugin_registrar, quote, box_syntax, static_assert)]
-#![feature(rustc_private, core, slice_patterns)]
+#![feature(rustc_private, slice_patterns)]
 #![deny(warnings)]
 #![allow(unused_imports)]  // for quotes
 
@@ -23,6 +23,8 @@ extern crate lazy_static;
 
 #[macro_use]
 extern crate mac;
+
+extern crate string_cache_shared;
 
 use rustc::plugin::Registry;
 

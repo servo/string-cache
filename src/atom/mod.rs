@@ -24,7 +24,7 @@ use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
-use self::repr::{UnpackedAtom, Static, Inline, Dynamic};
+use string_cache_shared::{self, UnpackedAtom, Static, Inline, Dynamic};
 
 #[cfg(feature = "log-events")]
 use event::Event;
@@ -32,8 +32,6 @@ use event::Event;
 #[cfg(not(feature = "log-events"))]
 macro_rules! log (($e:expr) => (()));
 
-#[path="../../shared/repr.rs"]
-pub mod repr;
 
 // Needed for memory safety of the tagging scheme!
 const ENTRY_ALIGNMENT: usize = 16;
@@ -178,7 +176,7 @@ impl Atom {
             Some(id) => Static(id as u32),
             None => {
                 let len = string_to_add.len();
-                if len <= repr::MAX_INLINE_LEN {
+                if len <= string_cache_shared::MAX_INLINE_LEN {
                     let mut buf: [u8; 7] = [0; 7];
                     bytes::copy_memory(string_to_add.as_bytes(), &mut buf);
                     Inline(len as u8, buf)
@@ -198,7 +196,7 @@ impl Atom {
         unsafe {
             match self.unpack() {
                 Inline(..) => {
-                    let buf = repr::inline_orig_bytes(&self.data);
+                    let buf = string_cache_shared::inline_orig_bytes(&self.data);
                     str::from_utf8(buf).unwrap()
                 },
                 Static(idx) => *static_atom_set.index(idx as usize).expect("bad static atom"),
@@ -215,7 +213,7 @@ impl Clone for Atom {
     #[inline(always)]
     fn clone(&self) -> Atom {
         unsafe {
-            match repr::from_packed_dynamic(self.data) {
+            match string_cache_shared::from_packed_dynamic(self.data) {
                 Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     (*entry).ref_count.fetch_add(1, SeqCst);
@@ -238,7 +236,7 @@ impl Drop for Atom {
         }
 
         unsafe {
-            match repr::from_packed_dynamic(self.data) {
+            match string_cache_shared::from_packed_dynamic(self.data) {
                 // We use #[unsafe_no_drop_flag] so that Atom will be only 64
                 // bits.  That means we need to ignore a NULL pointer here,
                 // which represents a value that was moved out.
@@ -312,7 +310,7 @@ mod bench;
 mod tests {
     use std::thread;
     use super::Atom;
-    use super::repr::{Static, Inline, Dynamic};
+    use string_cache_shared::{Static, Inline, Dynamic};
 
     #[test]
     fn test_as_slice() {
