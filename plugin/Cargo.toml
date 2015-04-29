@@ -9,8 +9,6 @@ authors = [ "The Servo Project Developers" ]
 name = "string_cache_plugin"
 plugin = true
 
-[dependencies.lazy_static]
-git = "https://github.com/Kimundi/lazy-static.rs"
-
-[dependencies.mac]
-git = "https://github.com/reem/rust-mac"
+[dependencies]
+lazy_static = "0.1.10"
+mac = "0.0.2"

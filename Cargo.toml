@@ -20,6 +20,7 @@ log-events = ["rustc-serialize"]
 rand = "0"
 phf = "0.7"
 phf_macros = "0.7"
+lazy_static = "0.1.10"
 
 [dependencies.rustc-serialize]
 version = "0"
@@ -27,6 +28,3 @@ optional = true
 
 [dependencies.string_cache_plugin]
 path = "plugin"
-
-[dependencies.lazy_static]
-git = "https://github.com/Kimundi/lazy-static.rs"
