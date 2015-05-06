@@ -1,0 +1,16 @@
+[package]
+
+name = "string_cache_capi"
+version = "0.1.0"
+authors = [ "The Servo Project Developers" ]
+description = "C API for string-cache"
+
+[lib]
+name = "string_cache_capi"
+crate-type = ["staticlib"]
+
+[dependencies]
+libc = "*"
+
+[dependencies.string_cache]
+path = "../"

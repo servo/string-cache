@@ -6,3 +6,4 @@ script:
   - cargo test --features log-events
   - cd examples/summarize-events/
   - cargo build
+  - (cd capi/ctest; ./build-and-test.sh)
