@@ -11,7 +11,7 @@
 //! the macros crate and the run-time library, in order to guarantee
 //! consistency.
 
-#![feature(core, static_assert)]
+#![feature(core)]
 #![deny(warnings)]
 
 use std::{mem, raw, intrinsics};
@@ -42,11 +42,9 @@ pub enum UnpackedAtom {
 
 const STATIC_SHIFT_BITS: usize = 32;
 
+#[cfg(target_endian = "little")]  // Not implemented yet for big-endian
 #[inline(always)]
 unsafe fn inline_atom_slice(x: &u64) -> raw::Slice<u8> {
-    #[static_assert]
-    const _IS_LITTLE_ENDIAN: bool = cfg!(target_endian = "little");
-
     let x: *const u64 = x;
     raw::Slice {
         data: (x as *const u8).offset(1),
@@ -82,8 +80,7 @@ impl UnpackedAtom {
 
     #[inline(always)]
     pub unsafe fn from_packed(data: u64) -> UnpackedAtom {
-        #[static_assert]
-        const _DYNAMIC_IS_UNTAGGED: bool = DYNAMIC_TAG == 0;
+        debug_assert!(DYNAMIC_TAG == 0); // Dynamic is untagged
 
         match (data & 0xf) as u8 {
             DYNAMIC_TAG => Dynamic(data as *mut ()),
