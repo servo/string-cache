@@ -6,6 +6,7 @@ authors = [ "The Servo Project Developers" ]
 description = "A string interning library for Rust, developed as part of the Servo project."
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/string-cache"
+documentation = "http://doc.servo.org/string_cache/"
 
 [lib]
 name = "string_cache"
