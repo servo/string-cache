@@ -7,17 +7,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![feature(core)]
-
 extern crate csv;
 extern crate string_cache;
+extern crate string_cache_shared;
 extern crate rustc_serialize;
 
 use string_cache::Atom;
-use string_cache::atom::repr;
 
 use std::{env, cmp};
-use std::num::FromPrimitive;
 use std::collections::hash_map::{HashMap, Entry};
 use std::path::Path;
 
@@ -28,12 +25,30 @@ struct Event {
     string: Option<String>,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, FromPrimitive)]
-#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Kind {
     Dynamic,
     Inline,
     Static,
+}
+
+impl Kind {
+    fn from_tag(tag: u8) -> Kind {
+        match tag {
+            string_cache_shared::DYNAMIC_TAG => Kind::Dynamic,
+            string_cache_shared::INLINE_TAG => Kind::Inline,
+            string_cache_shared::STATIC_TAG => Kind::Static,
+            _ => panic!()
+        }
+    }
+
+    fn to_tag(self) -> u8 {
+        match self {
+            Kind::Dynamic => string_cache_shared::DYNAMIC_TAG,
+            Kind::Inline => string_cache_shared::INLINE_TAG,
+            Kind::Static => string_cache_shared::STATIC_TAG,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -62,10 +77,10 @@ fn main() {
         match &ev.event[..] {
             "intern" => {
                 let tag = (ev.id & 0xf) as u8;
-                assert!(tag <= repr::STATIC_TAG);
+                assert!(tag <= string_cache_shared::STATIC_TAG);
 
                 let string = match tag {
-                    repr::DYNAMIC_TAG => dynamic[&ev.id].clone(),
+                    string_cache_shared::DYNAMIC_TAG => dynamic[&ev.id].clone(),
 
                     // FIXME: We really shouldn't be allowed to do this. It's a memory-safety
                     // hazard; the field is only public for the atom!() macro.
@@ -76,7 +91,7 @@ fn main() {
                     Entry::Occupied(entry) => entry.into_mut().times += 1,
                     Entry::Vacant(entry) => {
                         entry.insert(Summary {
-                            kind: FromPrimitive::from_u8(tag).unwrap(),
+                            kind: Kind::from_tag(tag),
                             times: 1,
                         });
                     }
@@ -118,14 +133,14 @@ fn main() {
     let mut by_kind = [0, 0, 0];
     for &(_, Summary { kind, times }) in &summary {
         total += times;
-        by_kind[kind as usize] += times;
+        by_kind[kind.to_tag() as usize] += times;
     }
 
     println!("\n");
     println!("kind       times   pct");
     println!("-------  -------  ----");
     for (k, &n) in by_kind.iter().enumerate() {
-        let k: Kind = FromPrimitive::from_usize(k).unwrap();
+        let k: Kind = Kind::from_tag(k as u8);
         print!("{:7?}  {:7}  {:4.1}",
             k, n, 100.0 * (n as f64) / (total as f64));
 
