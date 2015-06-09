@@ -11,7 +11,7 @@
 #![crate_type = "rlib"]
 
 #![feature(plugin, unsafe_no_drop_flag)]
-#![feature(core, collections, alloc, hash)]
+#![feature(core, alloc, hash)]
 #![deny(warnings)]
 #![cfg_attr(test, feature(test))]
 #![cfg_attr(bench, feature(rand))]
