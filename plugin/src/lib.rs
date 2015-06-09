@@ -10,7 +10,7 @@
 #![crate_name="string_cache_plugin"]
 #![crate_type="dylib"]
 
-#![feature(plugin_registrar, quote, box_syntax, static_assert)]
+#![feature(plugin_registrar, quote, box_syntax)]
 #![feature(rustc_private, slice_patterns)]
 #![deny(warnings)]
 #![allow(unused_imports)]  // for quotes

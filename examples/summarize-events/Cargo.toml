@@ -10,3 +10,6 @@ rustc-serialize = "0"
 
 [dependencies.string_cache]
 path = "../.."
+
+[dependencies.string_cache_shared]
+path = "../../shared"
