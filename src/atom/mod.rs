@@ -62,7 +62,7 @@ impl StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
             ref_count: AtomicIsize::new(1),
-            string: String::from_str(string_to_add),
+            string: String::from(string_to_add),
         }
     }
 }
@@ -112,7 +112,7 @@ impl StringCache {
                             StringCacheEntry::new(self.buckets[bucket_index], hash, string_to_add));
             }
             self.buckets[bucket_index] = ptr;
-            log!(Event::Insert(ptr as u64, String::from_str(string_to_add)));
+            log!(Event::Insert(ptr as u64, String::from(string_to_add)));
         }
 
         debug_assert!(ptr != ptr::null_mut());
