@@ -11,7 +11,7 @@
 //! the macros crate and the run-time library, in order to guarantee
 //! consistency.
 
-#![feature(core)]
+#![feature(raw, slice_bytes, core_intrinsics)]
 #![deny(warnings)]
 
 use std::{mem, raw, intrinsics};
