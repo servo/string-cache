@@ -11,6 +11,7 @@
 
 use phf::OrderedSet;
 
+use std::borrow::Borrow;
 use std::fmt;
 use std::mem;
 use std::ops;
@@ -303,6 +304,13 @@ impl Ord for Atom {
     }
 }
 
+impl Borrow<str> for Atom {
+    fn borrow(&self) -> &str {
+        &self
+    }
+}
+
+
 #[cfg(test)]
 mod bench;
 
@@ -521,5 +529,13 @@ mod tests {
         // Ensure we can Deref to a &str
         let atom = Atom::from_slice("foobar");
         let _: &str = &atom;
+    }
+
+    #[test]
+    fn ensure_borrow() {
+        // Ensure std::borrow::Borrow is implemented
+        let atoms = vec![Atom::from_slice("foo"), Atom::from_slice("bar")];
+        let joined_atoms = atoms.connect(" ");
+        assert_eq!(joined_atoms, "foo bar");
     }
 }
