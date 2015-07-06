@@ -303,6 +303,12 @@ impl Ord for Atom {
     }
 }
 
+impl AsRef<str> for Atom {
+    fn as_ref(&self) -> &str {
+        &self
+    }
+}
+
 #[cfg(test)]
 mod bench;
 
@@ -521,5 +527,12 @@ mod tests {
         // Ensure we can Deref to a &str
         let atom = Atom::from_slice("foobar");
         let _: &str = &atom;
+    }
+
+    #[test]
+    fn ensure_as_ref() {
+        // Ensure we can as_ref to a &str
+        let atom = Atom::from_slice("foobar");
+        let _: &str = atom.as_ref();
     }
 }
