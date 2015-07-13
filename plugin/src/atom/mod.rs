@@ -108,7 +108,7 @@ pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+
             .map(|&(x, _)| x).collect();
         format!("Usage: ns!(HTML), case-insensitive. \
             Known namespaces: {}",
-            ns_names.connect(" "))
+            ns_names.join(" "))
     }
 
     let name = ext_expect!(cx, sp, match tt {
