@@ -10,6 +10,7 @@
 #![allow(non_upper_case_globals)]
 
 use phf::OrderedSet;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::fmt;
 use std::mem;
@@ -306,6 +307,20 @@ impl Ord for Atom {
 impl AsRef<str> for Atom {
     fn as_ref(&self) -> &str {
         &self
+    }
+}
+
+impl Serialize for Atom {
+    fn serialize<S>(&self, serializer: &mut S) -> Result<(),S::Error> where S: Serializer {
+        let string: &str = self.as_ref();
+        string.serialize(serializer)
+    }
+}
+
+impl Deserialize for Atom {
+    fn deserialize<D>(deserializer: &mut D) -> Result<Atom,D::Error> where D: Deserializer {
+        let string: String = try!(Deserialize::deserialize(deserializer));
+        Ok(Atom::from_slice(&*string))
     }
 }
 
