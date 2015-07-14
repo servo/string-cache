@@ -30,6 +30,8 @@ extern crate rand;
 #[cfg(feature = "log-events")]
 extern crate rustc_serialize;
 
+extern crate serde;
+
 extern crate string_cache_shared;
 
 pub use atom::Atom;
