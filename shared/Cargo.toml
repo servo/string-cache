@@ -6,6 +6,7 @@ authors = [ "The Servo Project Developers" ]
 description = "A string interning library for Rust, developed as part of the Servo project − shared code between the compiler plugin and main crate."
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/string-cache"
+build = "build.rs"
 
 [lib]
 
@@ -14,3 +15,7 @@ path = "lib.rs"
 
 [dependencies]
 debug_unreachable = "0.0.5"
+phf = "0.7.3"
+
+[build-dependencies]
+phf_codegen = "0.7.3"

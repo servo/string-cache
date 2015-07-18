@@ -9,7 +9,6 @@
 
 #![allow(non_upper_case_globals)]
 
-use phf::OrderedSet;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::fmt;
@@ -25,7 +24,7 @@ use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
-use string_cache_shared::{self, UnpackedAtom, Static, Inline, Dynamic};
+use string_cache_shared::{self, UnpackedAtom, Static, Inline, Dynamic, STATIC_ATOM_SET};
 
 #[cfg(feature = "log-events")]
 use event::Event;
@@ -37,8 +36,6 @@ macro_rules! log (($e:expr) => (()));
 // Needed for memory safety of the tagging scheme!
 const ENTRY_ALIGNMENT: usize = 16;
 
-// Macro-generated table for static atoms.
-static static_atom_set: OrderedSet<&'static str> = static_atom_set!();
 
 struct StringCache {
     buckets: [*mut StringCacheEntry; 4096],
@@ -173,7 +170,7 @@ impl Atom {
 
     #[inline]
     pub fn from_slice(string_to_add: &str) -> Atom {
-        let unpacked = match static_atom_set.get_index(string_to_add) {
+        let unpacked = match STATIC_ATOM_SET.get_index(string_to_add) {
             Some(id) => Static(id as u32),
             None => {
                 let len = string_to_add.len();
@@ -200,7 +197,7 @@ impl Atom {
                     let buf = string_cache_shared::inline_orig_bytes(&self.data);
                     str::from_utf8(buf).unwrap()
                 },
-                Static(idx) => *static_atom_set.index(idx as usize).expect("bad static atom"),
+                Static(idx) => *STATIC_ATOM_SET.index(idx as usize).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string

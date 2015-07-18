@@ -15,12 +15,10 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(test))]
 #![cfg_attr(bench, feature(rand))]
-#![plugin(phf_macros, string_cache_plugin)]
+#![plugin(string_cache_plugin)]
 
 #[cfg(test)]
 extern crate test;
-
-extern crate phf;
 
 #[macro_use]
 extern crate lazy_static;
