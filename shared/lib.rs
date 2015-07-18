@@ -24,9 +24,11 @@ pub use self::UnpackedAtom::{Dynamic, Inline, Static};
 include!(concat!(env!("OUT_DIR"), "/static_atom_set.rs"));
 
 // FIXME(rust-lang/rust#18153): generate these from an enum
-pub const DYNAMIC_TAG: u8 = 0u8;
-pub const INLINE_TAG: u8 = 1u8;  // len in upper nybble
-pub const STATIC_TAG: u8 = 2u8;
+pub const DYNAMIC_TAG: u8 = 0b_00;
+pub const INLINE_TAG: u8 = 0b_01;  // len in upper nybble
+pub const STATIC_TAG: u8 = 0b_10;
+pub const TAG_MASK: u64 = 0b_11;
+pub const ENTRY_ALIGNMENT: usize = 4;  // Multiples have TAG_MASK bits unset, available for tagging.
 
 pub const MAX_INLINE_LEN: usize = 7;
 
@@ -72,7 +74,7 @@ impl UnpackedAtom {
             Static(n) => pack_static(n),
             Dynamic(p) => {
                 let n = p as u64;
-                debug_assert!(0 == n & 0xf);
+                debug_assert!(0 == n & TAG_MASK);
                 n
             }
             Inline(len, buf) => {
@@ -93,7 +95,7 @@ impl UnpackedAtom {
     pub unsafe fn from_packed(data: u64) -> UnpackedAtom {
         debug_assert!(DYNAMIC_TAG == 0); // Dynamic is untagged
 
-        match (data & 0xf) as u8 {
+        match (data & TAG_MASK) as u8 {
             DYNAMIC_TAG => Dynamic(data as *mut ()),
             STATIC_TAG => Static((data >> STATIC_SHIFT_BITS) as u32),
             INLINE_TAG => {
@@ -113,7 +115,7 @@ impl UnpackedAtom {
 /// Used for a fast path in Clone and Drop.
 #[inline(always)]
 pub unsafe fn from_packed_dynamic(data: u64) -> Option<*mut ()> {
-    if (DYNAMIC_TAG as u64) == (data & 0xf) {
+    if (DYNAMIC_TAG as u64) == (data & TAG_MASK) {
         Some(data as *mut ())
     } else {
         None

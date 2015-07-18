@@ -11,6 +11,7 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use std::cmp::max;
 use std::fmt;
 use std::mem;
 use std::ops;
@@ -24,17 +25,14 @@ use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
-use string_cache_shared::{self, UnpackedAtom, Static, Inline, Dynamic, STATIC_ATOM_SET};
+use string_cache_shared::{self, UnpackedAtom, Static, Inline, Dynamic, STATIC_ATOM_SET,
+                          ENTRY_ALIGNMENT};
 
 #[cfg(feature = "log-events")]
 use event::Event;
 
 #[cfg(not(feature = "log-events"))]
 macro_rules! log (($e:expr) => (()));
-
-
-// Needed for memory safety of the tagging scheme!
-const ENTRY_ALIGNMENT: usize = 16;
 
 
 struct StringCache {
@@ -104,8 +102,10 @@ impl StringCache {
 
         if should_add {
             unsafe {
-                ptr = heap::allocate(mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT)
-                        as *mut StringCacheEntry;
+                ptr = heap::allocate(
+                    mem::size_of::<StringCacheEntry>(),
+                    max(mem::align_of::<StringCacheEntry>(), ENTRY_ALIGNMENT)
+                ) as *mut StringCacheEntry;
                 ptr::write(ptr,
                             StringCacheEntry::new(self.buckets[bucket_index], hash, string_to_add));
             }
@@ -145,7 +145,8 @@ impl StringCache {
         unsafe {
             ptr::read(ptr);
             heap::deallocate(ptr as *mut u8,
-                mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT);
+                mem::size_of::<StringCacheEntry>(),
+                max(mem::align_of::<StringCacheEntry>(), ENTRY_ALIGNMENT));
         }
 
         log!(Event::Remove(key));
