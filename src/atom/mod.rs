@@ -155,7 +155,7 @@ impl StringCache {
 
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
-#[unsafe_no_drop_flag]
+#[unsafe_no_drop_flag]  // See tests::atom_drop_is_idempotent
 #[derive(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
@@ -236,10 +236,7 @@ impl Drop for Atom {
 
         unsafe {
             match string_cache_shared::from_packed_dynamic(self.data) {
-                // We use #[unsafe_no_drop_flag] so that Atom will be only 64
-                // bits.  That means we need to ignore a NULL pointer here,
-                // which represents a value that was moved out.
-                Some(entry) if !entry.is_null() => {
+                Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
                         drop_slow(self);
@@ -250,6 +247,7 @@ impl Drop for Atom {
         }
     }
 }
+
 
 impl ops::Deref for Atom {
     type Target = str;
@@ -548,4 +546,15 @@ mod tests {
         let atom = Atom::from_slice("foobar");
         let _: &str = atom.as_ref();
     }
+
+    /// Atom uses #[unsafe_no_drop_flag] to stay small, so drop() may be called more than once.
+    /// In calls after the first one, the atom will be filled with a POST_DROP value.
+    /// drop() must be a no-op in this case.
+    #[test]
+    fn atom_drop_is_idempotent() {
+        unsafe {
+            assert_eq!(::string_cache_shared::from_packed_dynamic(::std::mem::POST_DROP_U64), None);
+        }
+    }
+
 }
