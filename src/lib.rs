@@ -13,7 +13,7 @@
 #![feature(plugin, unsafe_no_drop_flag)]
 #![feature(slice_bytes, heap_api, hash_default)]
 #![deny(warnings)]
-#![cfg_attr(test, feature(test))]
+#![cfg_attr(test, feature(test, filling_drop))]
 #![cfg_attr(bench, feature(rand))]
 #![plugin(string_cache_plugin)]
 
