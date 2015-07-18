@@ -11,22 +11,19 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::cmp::max;
 use std::fmt;
 use std::mem;
 use std::ops;
 use std::ptr;
-use std::slice::bytes;
 use std::str;
-use std::rt::heap;
 use std::cmp::Ordering::{self, Equal};
-use std::hash::{self, Hash, SipHasher};
+use std::hash::{Hash, SipHasher, Hasher};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
 use string_cache_shared::{self, UnpackedAtom, Static, Inline, Dynamic, STATIC_ATOM_SET,
-                          ENTRY_ALIGNMENT};
+                          ENTRY_ALIGNMENT, copy_memory};
 
 #[cfg(feature = "log-events")]
 use event::Event;
@@ -71,7 +68,11 @@ impl StringCache {
     }
 
     fn add(&mut self, string_to_add: &str) -> *mut StringCacheEntry {
-        let hash = hash::hash::<_, SipHasher>(&string_to_add);
+        let hash = {
+            let mut hasher = SipHasher::default();
+            string_to_add.hash(&mut hasher);
+            hasher.finish()
+        };
         let bucket_index = (hash & (self.buckets.len()-1) as u64) as usize;
         let mut ptr = self.buckets[bucket_index];
 
@@ -101,14 +102,11 @@ impl StringCache {
         }
 
         if should_add {
-            unsafe {
-                ptr = heap::allocate(
-                    mem::size_of::<StringCacheEntry>(),
-                    max(mem::align_of::<StringCacheEntry>(), ENTRY_ALIGNMENT)
-                ) as *mut StringCacheEntry;
-                ptr::write(ptr,
-                            StringCacheEntry::new(self.buckets[bucket_index], hash, string_to_add));
-            }
+            debug_assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
+            let mut entry = Box::new(StringCacheEntry::new(
+                self.buckets[bucket_index], hash, string_to_add));
+            ptr = &mut *entry;
+            mem::forget(entry);
             self.buckets[bucket_index] = ptr;
             log!(Event::Insert(ptr as u64, String::from(string_to_add)));
         }
@@ -143,19 +141,21 @@ impl StringCache {
         debug_assert!(current != ptr::null_mut());
 
         unsafe {
-            ptr::read(ptr);
-            heap::deallocate(ptr as *mut u8,
-                mem::size_of::<StringCacheEntry>(),
-                max(mem::align_of::<StringCacheEntry>(), ENTRY_ALIGNMENT));
+            box_from_raw(ptr);
         }
 
         log!(Event::Remove(key));
     }
 }
 
+// Box::from_raw is not stable yet
+unsafe fn box_from_raw<T>(raw: *mut T) -> Box<T> {
+    mem::transmute(raw)
+}
+
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
-#[unsafe_no_drop_flag]  // See tests::atom_drop_is_idempotent
+#[cfg_attr(unstable, unsafe_no_drop_flag)]  // See tests::atom_drop_is_idempotent
 #[derive(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
@@ -177,7 +177,7 @@ impl Atom {
                 let len = string_to_add.len();
                 if len <= string_cache_shared::MAX_INLINE_LEN {
                     let mut buf: [u8; 7] = [0; 7];
-                    bytes::copy_memory(string_to_add.as_bytes(), &mut buf);
+                    copy_memory(string_to_add.as_bytes(), &mut buf);
                     Inline(len as u8, buf)
                 } else {
                     Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add) as *mut ())
@@ -325,9 +325,10 @@ mod bench;
 
 #[cfg(test)]
 mod tests {
+    use std::mem;
     use std::thread;
-    use super::Atom;
-    use string_cache_shared::{Static, Inline, Dynamic};
+    use super::{Atom, StringCacheEntry};
+    use string_cache_shared::{Static, Inline, Dynamic, ENTRY_ALIGNMENT, from_packed_dynamic};
 
     #[test]
     fn test_as_slice() {
@@ -491,7 +492,7 @@ mod tests {
     fn assert_sizes() {
         // Guard against accidental changes to the sizes of things.
         use std::mem;
-        assert_eq!(8, mem::size_of::<super::Atom>());
+        assert_eq!(if cfg!(unstable) { 8 } else { 16 }, mem::size_of::<super::Atom>());
         assert_eq!(48, mem::size_of::<super::StringCacheEntry>());
     }
 
@@ -553,8 +554,12 @@ mod tests {
     #[test]
     fn atom_drop_is_idempotent() {
         unsafe {
-            assert_eq!(::string_cache_shared::from_packed_dynamic(::std::mem::POST_DROP_U64), None);
+            assert_eq!(from_packed_dynamic(mem::POST_DROP_U64), None);
         }
     }
 
+    #[test]
+    fn string_cache_entry_alignment_is_sufficient() {
+        assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
+    }
 }

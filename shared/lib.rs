@@ -48,6 +48,16 @@ pub enum UnpackedAtom {
 
 const STATIC_SHIFT_BITS: usize = 32;
 
+pub static ALL_NS: &'static [(&'static str, &'static str)] = &[
+    ("", ""),
+    ("html", "http://www.w3.org/1999/xhtml"),
+    ("xml", "http://www.w3.org/XML/1998/namespace"),
+    ("xmlns", "http://www.w3.org/2000/xmlns/"),
+    ("xlink", "http://www.w3.org/1999/xlink"),
+    ("svg", "http://www.w3.org/2000/svg"),
+    ("mathml", "http://www.w3.org/1998/Math/MathML"),
+];
+
 struct RawSlice {
     data: *const u8,
     len: usize,
