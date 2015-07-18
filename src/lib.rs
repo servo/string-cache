@@ -10,12 +10,11 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(plugin, unsafe_no_drop_flag)]
-#![feature(slice_bytes, heap_api, hash_default)]
 #![deny(warnings)]
 #![cfg_attr(test, feature(test, filling_drop))]
 #![cfg_attr(bench, feature(rand))]
-#![plugin(string_cache_plugin)]
+#![cfg_attr(feature = "unstable", feature(unsafe_no_drop_flag, plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
 #[cfg(test)]
 extern crate test;
@@ -42,6 +41,9 @@ macro_rules! qualname (($ns:tt, $local:tt) => (
         local: atom!($local),
     }
 ));
+
+#[cfg(not(feature = "unstable"))]
+include!(concat!(env!("OUT_DIR"), "/ns_macro_without_plugin.rs"));
 
 #[cfg(feature = "log-events")]
 #[macro_use]

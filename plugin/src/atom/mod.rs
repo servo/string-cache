@@ -71,15 +71,7 @@ pub fn expand_atom(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResul
 // Translate `ns!(HTML)` into `Namespace { atom: atom!("http://www.w3.org/1999/xhtml") }`.
 // The argument is ASCII-case-insensitive.
 pub fn expand_ns(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
-    static ALL_NS: &'static [(&'static str, &'static str)] = &[
-        ("", ""),
-        ("html", "http://www.w3.org/1999/xhtml"),
-        ("xml", "http://www.w3.org/XML/1998/namespace"),
-        ("xmlns", "http://www.w3.org/2000/xmlns/"),
-        ("xlink", "http://www.w3.org/1999/xlink"),
-        ("svg", "http://www.w3.org/2000/svg"),
-        ("mathml", "http://www.w3.org/1998/Math/MathML"),
-    ];
+    use string_cache_shared::ALL_NS;
 
     fn usage() -> String {
         let ns_names: Vec<&'static str> = ALL_NS[1..].iter()
