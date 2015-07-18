@@ -11,11 +11,12 @@
 //! the macros crate and the run-time library, in order to guarantee
 //! consistency.
 
-#![feature(raw, slice_bytes, core_intrinsics)]
 #![deny(warnings)]
 
-use std::{mem, raw, intrinsics};
-use std::slice::bytes;
+#[macro_use] extern crate debug_unreachable;
+
+use std::ptr;
+use std::slice;
 
 pub use self::UnpackedAtom::{Dynamic, Inline, Static};
 
@@ -42,11 +43,16 @@ pub enum UnpackedAtom {
 
 const STATIC_SHIFT_BITS: usize = 32;
 
+struct RawSlice {
+    data: *const u8,
+    len: usize,
+}
+
 #[cfg(target_endian = "little")]  // Not implemented yet for big-endian
 #[inline(always)]
-unsafe fn inline_atom_slice(x: &u64) -> raw::Slice<u8> {
+unsafe fn inline_atom_slice(x: &u64) -> RawSlice {
     let x: *const u64 = x;
-    raw::Slice {
+    RawSlice {
         data: (x as *const u8).offset(1),
         len: 7,
     }
@@ -70,8 +76,10 @@ impl UnpackedAtom {
                 debug_assert!((len as usize) <= MAX_INLINE_LEN);
                 let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
                 {
-                    let dest: &mut [u8] = mem::transmute(inline_atom_slice(&mut data));
-                    bytes::copy_memory(&buf[..], dest);
+                    let raw_slice = inline_atom_slice(&mut data);
+                    let dest: &mut [u8] = slice::from_raw_parts_mut(
+                        raw_slice.data as *mut u8, raw_slice.len);
+                    copy_memory(&buf[..], dest);
                 }
                 data
             }
@@ -89,14 +97,12 @@ impl UnpackedAtom {
                 let len = ((data & 0xf0) >> 4) as usize;
                 debug_assert!(len <= MAX_INLINE_LEN);
                 let mut buf: [u8; 7] = [0; 7];
-                let src: &[u8] = mem::transmute(inline_atom_slice(&data));
-                bytes::copy_memory(src, &mut buf[..]);
+                let raw_slice = inline_atom_slice(&data);
+                let src: &[u8] = slice::from_raw_parts(raw_slice.data, raw_slice.len);
+                copy_memory(src, &mut buf[..]);
                 Inline(len as u8, buf)
             },
-
-            // intrinsics::unreachable() in release builds?
-            // See rust-lang/rust#18152.
-            _ => panic!("impossible"),
+            _ => debug_unreachable!(),
         }
     }
 }
@@ -119,9 +125,25 @@ pub unsafe fn from_packed_dynamic(data: u64) -> Option<*mut ()> {
 pub unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
     match UnpackedAtom::from_packed(*data) {
         Inline(len, _) => {
-            let src: &[u8] = mem::transmute(inline_atom_slice(data));
+            let raw_slice = inline_atom_slice(&data);
+            let src: &[u8] = slice::from_raw_parts(raw_slice.data, raw_slice.len);
             &src[..(len as usize)]
         }
-        _ => intrinsics::unreachable(),
+        _ => debug_unreachable!(),
+    }
+}
+
+
+/// Copy of std::slice::bytes::copy_memory, which is unstable.
+#[inline]
+pub fn copy_memory(src: &[u8], dst: &mut [u8]) {
+    let len_src = src.len();
+    assert!(dst.len() >= len_src);
+    // `dst` is unaliasable, so we know statically it doesn't overlap
+    // with `src`.
+    unsafe {
+        ptr::copy_nonoverlapping(src.as_ptr(),
+                                 dst.as_mut_ptr(),
+                                 len_src);
     }
 }
