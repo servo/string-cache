@@ -10,7 +10,7 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![deny(warnings)]
+#![cfg_attr(test, deny(warnings))]
 #![cfg_attr(test, feature(test, filling_drop))]
 #![cfg_attr(bench, feature(rand))]
 #![cfg_attr(feature = "unstable", feature(unsafe_no_drop_flag, plugin))]
