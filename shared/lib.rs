@@ -11,7 +11,7 @@
 //! the macros crate and the run-time library, in order to guarantee
 //! consistency.
 
-#![deny(warnings)]
+#![cfg_attr(test, deny(warnings))]
 
 #[macro_use] extern crate debug_unreachable;
 extern crate phf;

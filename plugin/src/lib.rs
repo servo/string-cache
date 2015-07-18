@@ -12,7 +12,7 @@
 
 #![feature(plugin_registrar, quote, box_syntax)]
 #![feature(rustc_private, slice_patterns)]
-#![deny(warnings)]
+#![cfg_attr(test, deny(warnings))]
 #![allow(unused_imports)]  // for quotes
 
 extern crate syntax;
