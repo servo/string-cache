@@ -14,11 +14,14 @@
 #![deny(warnings)]
 
 #[macro_use] extern crate debug_unreachable;
+extern crate phf;
 
 use std::ptr;
 use std::slice;
 
 pub use self::UnpackedAtom::{Dynamic, Inline, Static};
+
+include!(concat!(env!("OUT_DIR"), "/static_atom_set.rs"));
 
 // FIXME(rust-lang/rust#18153): generate these from an enum
 pub const DYNAMIC_TAG: u8 = 0u8;

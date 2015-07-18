@@ -18,17 +18,6 @@ use std::iter::Chain;
 use std::collections::HashMap;
 use std::ascii::AsciiExt;
 
-mod data;
-
-// Build a PhfOrderedSet of static atoms.
-// Takes no arguments.
-pub fn expand_static_atom_set(cx: &mut ExtCtxt, sp: Span, tt: &[TokenTree]) -> Box<MacResult+'static> {
-    ext_bail_if!(tt.len() != 0, cx, sp, "Usage: static_atom_map!()");
-    let tts: Vec<TokenTree> = data::ATOMS.iter().flat_map(|k| {
-        (quote_tokens!(&mut *cx, $k,)).into_iter()
-    }).collect();
-    MacEager::expr(quote_expr!(&mut *cx, phf_ordered_set!($tts)))
-}
 
 fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
     Some(get_ident(match *t {
@@ -36,17 +25,6 @@ fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
         TtToken(_, Literal(Lit::Str_(s), _)) => s.ident(),
         _ => return None,
     }))
-}
-
-// Build a map from atoms to IDs for use in implementing the atom!() macro.
-lazy_static! {
-    static ref STATIC_ATOM_MAP: HashMap<&'static str, usize> = {
-        let mut m = HashMap::new();
-        for (i, x) in data::ATOMS.iter().enumerate() {
-            m.insert(*x, i);
-        }
-        m
-    };
 }
 
 // FIXME: libsyntax should provide this (rust-lang/rust#17637)
@@ -66,12 +44,12 @@ impl MacResult for AtomResult {
 }
 
 fn make_atom_result(cx: &mut ExtCtxt, name: &str) -> Option<AtomResult> {
-    let i = match STATIC_ATOM_MAP.get(name) {
+    let i = match ::string_cache_shared::STATIC_ATOM_SET.get_index(name) {
         Some(i) => i,
         None => return None,
     };
 
-    let data = ::string_cache_shared::pack_static(*i as u32);
+    let data = ::string_cache_shared::pack_static(i as u32);
 
     Some(AtomResult {
         expr: quote_expr!(&mut *cx, ::string_cache::atom::Atom { data: $data }),
