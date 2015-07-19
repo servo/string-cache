@@ -25,9 +25,11 @@ log-events = ["rustc-serialize"]
 unstable = ["string_cache_plugin"]
 
 [dependencies]
-rand = "0"
 lazy_static = "0.1.10"
 serde = "0.4.2"
+
+[dev-dependencies]
+rand = "0"
 
 [dependencies.rustc-serialize]
 version = "0"

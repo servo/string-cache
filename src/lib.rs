@@ -12,7 +12,6 @@
 
 #![cfg_attr(test, deny(warnings))]
 #![cfg_attr(test, feature(test, filling_drop))]
-#![cfg_attr(bench, feature(rand))]
 #![cfg_attr(feature = "unstable", feature(unsafe_no_drop_flag, plugin))]
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
@@ -22,6 +21,7 @@ extern crate test;
 #[macro_use]
 extern crate lazy_static;
 
+#[cfg(test)]
 extern crate rand;
 
 #[cfg(feature = "log-events")]
