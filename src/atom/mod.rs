@@ -141,7 +141,7 @@ impl StringCache {
         debug_assert!(current != ptr::null_mut());
 
         unsafe {
-            box_from_raw(ptr);
+            mem::drop(box_from_raw(ptr));
         }
 
         log!(Event::Remove(key));
