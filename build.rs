@@ -8,7 +8,7 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 fn main() {
-    let path = Path::new(env!("OUT_DIR")).join("ns_macro_without_plugin.rs");
+    let path = Path::new(env!("OUT_DIR")).join("ns_atom_macros_without_plugin.rs");
     let mut file = BufWriter::new(File::create(&path).unwrap());
     writeln!(file, r"#[macro_export]").unwrap();
     writeln!(file, r"macro_rules! ns {{").unwrap();

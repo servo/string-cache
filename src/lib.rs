@@ -43,7 +43,7 @@ macro_rules! qualname (($ns:tt, $local:tt) => (
 ));
 
 #[cfg(not(feature = "unstable"))]
-include!(concat!(env!("OUT_DIR"), "/ns_macro_without_plugin.rs"));
+include!(concat!(env!("OUT_DIR"), "/ns_atom_macros_without_plugin.rs"));
 
 #[cfg(feature = "log-events")]
 #[macro_use]
