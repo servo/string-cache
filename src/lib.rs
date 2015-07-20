@@ -11,11 +11,11 @@
 #![crate_type = "rlib"]
 
 #![cfg_attr(test, deny(warnings))]
-#![cfg_attr(test, feature(test, filling_drop))]
+#![cfg_attr(all(test, feature = "unstable"), feature(test, filling_drop))]
 #![cfg_attr(feature = "unstable", feature(unsafe_no_drop_flag, plugin))]
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
-#[cfg(test)]
+#[cfg(all(test, feature = "unstable"))]
 extern crate test;
 
 #[macro_use]
