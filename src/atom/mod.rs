@@ -315,7 +315,7 @@ impl Deserialize for Atom {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "unstable"))]
 mod bench;
 
 #[cfg(test)]
@@ -323,7 +323,7 @@ mod tests {
     use std::mem;
     use std::thread;
     use super::{Atom, StringCacheEntry};
-    use string_cache_shared::{Static, Inline, Dynamic, ENTRY_ALIGNMENT, from_packed_dynamic};
+    use string_cache_shared::{Static, Inline, Dynamic, ENTRY_ALIGNMENT};
 
     #[test]
     fn test_as_slice() {
@@ -546,8 +546,10 @@ mod tests {
     /// Atom uses #[unsafe_no_drop_flag] to stay small, so drop() may be called more than once.
     /// In calls after the first one, the atom will be filled with a POST_DROP value.
     /// drop() must be a no-op in this case.
+    #[cfg(feature = "unstable")]
     #[test]
     fn atom_drop_is_idempotent() {
+        use string_cache_shared::from_packed_dynamic;
         unsafe {
             assert_eq!(from_packed_dynamic(mem::POST_DROP_U64), None);
         }
