@@ -31,9 +31,10 @@ use event::Event;
 #[cfg(not(feature = "log-events"))]
 macro_rules! log (($e:expr) => (()));
 
-
+const NB_BUCKETS: usize = 1 << 12;  // 4096
+const BUCKET_MASK: u64 = (1 << 12) - 1;
 struct StringCache {
-    buckets: [*mut StringCacheEntry; 4096],
+    buckets: [*mut StringCacheEntry; NB_BUCKETS],
 }
 
 lazy_static! {
@@ -63,7 +64,7 @@ impl StringCacheEntry {
 impl StringCache {
     fn new() -> StringCache {
         StringCache {
-            buckets: unsafe { mem::zeroed() },
+            buckets: [ptr::null_mut(); NB_BUCKETS],
         }
     }
 
@@ -73,10 +74,10 @@ impl StringCache {
             string_to_add.hash(&mut hasher);
             hasher.finish()
         };
-        let bucket_index = (hash & (self.buckets.len()-1) as u64) as usize;
+        let bucket_index = (hash & BUCKET_MASK) as usize;
         let mut ptr = self.buckets[bucket_index];
 
-        while ptr != ptr::null_mut() {
+        while !ptr.is_null() {
             let value = unsafe { &*ptr };
             if value.hash == hash && value.string == string_to_add {
                 break;
@@ -84,34 +85,28 @@ impl StringCache {
             ptr = value.next_in_bucket;
         }
 
-        let mut should_add = false;
-        if ptr != ptr::null_mut() {
+        if !ptr.is_null() {
             unsafe {
-                if (*ptr).ref_count.fetch_add(1, SeqCst) == 0 {
-                    // Uh-oh. The pointer's reference count was zero, which means someone may try
-                    // to free it. (Naive attempts to defend against this, for example having the
-                    // destructor check to see whether the reference count is indeed zero, don't
-                    // work due to ABA.) Thus we need to temporarily add a duplicate string to the
-                    // list.
-                    should_add = true;
-                    (*ptr).ref_count.fetch_sub(1, SeqCst);
+                if (*ptr).ref_count.fetch_add(1, SeqCst) > 0 {
+                    return ptr;
                 }
+                // Uh-oh. The pointer's reference count was zero, which means someone may try
+                // to free it. (Naive attempts to defend against this, for example having the
+                // destructor check to see whether the reference count is indeed zero, don't
+                // work due to ABA.) Thus we need to temporarily add a duplicate string to the
+                // list.
+                (*ptr).ref_count.fetch_sub(1, SeqCst);
             }
-        } else {
-            should_add = true
         }
 
-        if should_add {
-            debug_assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
-            let mut entry = Box::new(StringCacheEntry::new(
-                self.buckets[bucket_index], hash, string_to_add));
-            ptr = &mut *entry;
-            mem::forget(entry);
-            self.buckets[bucket_index] = ptr;
-            log!(Event::Insert(ptr as u64, String::from(string_to_add)));
-        }
+        debug_assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
+        let mut entry = Box::new(StringCacheEntry::new(
+            self.buckets[bucket_index], hash, string_to_add));
+        ptr = &mut *entry;
+        mem::forget(entry);
+        self.buckets[bucket_index] = ptr;
+        log!(Event::Insert(ptr as u64, String::from(string_to_add)));
 
-        debug_assert!(ptr != ptr::null_mut());
         ptr
     }
 
@@ -121,24 +116,24 @@ impl StringCache {
 
         debug_assert!(value.ref_count.load(SeqCst) == 0);
 
-        let bucket_index = (value.hash & (self.buckets.len()-1) as u64) as usize;
+        let bucket_index = (value.hash & BUCKET_MASK) as usize;
 
         let mut current = self.buckets[bucket_index];
         let mut prev: *mut StringCacheEntry = ptr::null_mut();
 
-        while current != ptr::null_mut() {
+        while !current.is_null() {
             if current == ptr {
-                if prev != ptr::null_mut() {
-                    unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
-                } else {
+                if prev.is_null() {
                     unsafe { self.buckets[bucket_index] = (*current).next_in_bucket };
+                } else {
+                    unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
                 }
                 break;
             }
             prev = current;
             unsafe { current = (*current).next_in_bucket };
         }
-        debug_assert!(current != ptr::null_mut());
+        debug_assert!(!current.is_null());
 
         unsafe {
             mem::drop(box_from_raw(ptr));
