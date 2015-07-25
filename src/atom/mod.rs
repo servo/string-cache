@@ -14,7 +14,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::mem;
 use std::ops;
-use std::ptr;
 use std::str;
 use std::cmp::Ordering::{self, Equal};
 use std::hash::{Hash, SipHasher, Hasher};
@@ -34,7 +33,7 @@ macro_rules! log (($e:expr) => (()));
 const NB_BUCKETS: usize = 1 << 12;  // 4096
 const BUCKET_MASK: u64 = (1 << 12) - 1;
 struct StringCache {
-    buckets: [*mut StringCacheEntry; NB_BUCKETS],
+    buckets: [Option<Box<StringCacheEntry>>; NB_BUCKETS],
 }
 
 lazy_static! {
@@ -42,16 +41,15 @@ lazy_static! {
 }
 
 struct StringCacheEntry {
-    next_in_bucket: *mut StringCacheEntry,
+    next_in_bucket: Option<Box<StringCacheEntry>>,
     hash: u64,
     ref_count: AtomicIsize,
     string: String,
 }
 
-unsafe impl Send for StringCache { }
-
 impl StringCacheEntry {
-    fn new(next: *mut StringCacheEntry, hash: u64, string_to_add: &str) -> StringCacheEntry {
+    fn new(next: Option<Box<StringCacheEntry>>, hash: u64, string_to_add: &str)
+           -> StringCacheEntry {
         StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
@@ -64,7 +62,7 @@ impl StringCacheEntry {
 impl StringCache {
     fn new() -> StringCache {
         StringCache {
-            buckets: [ptr::null_mut(); NB_BUCKETS],
+            buckets: unsafe { mem::zeroed() },
         }
     }
 
@@ -75,36 +73,31 @@ impl StringCache {
             hasher.finish()
         };
         let bucket_index = (hash & BUCKET_MASK) as usize;
-        let mut ptr = self.buckets[bucket_index];
+        {
+            let mut ptr: Option<&mut Box<StringCacheEntry>> =
+                self.buckets[bucket_index].as_mut();
 
-        while !ptr.is_null() {
-            let value = unsafe { &*ptr };
-            if value.hash == hash && value.string == string_to_add {
-                break;
-            }
-            ptr = value.next_in_bucket;
-        }
-
-        if !ptr.is_null() {
-            unsafe {
-                if (*ptr).ref_count.fetch_add(1, SeqCst) > 0 {
-                    return ptr;
+            while let Some(entry) = ptr.take() {
+                if entry.hash == hash && entry.string == string_to_add {
+                    if entry.ref_count.fetch_add(1, SeqCst) > 0 {
+                        return &mut **entry;
+                    }
+                    // Uh-oh. The pointer's reference count was zero, which means someone may try
+                    // to free it. (Naive attempts to defend against this, for example having the
+                    // destructor check to see whether the reference count is indeed zero, don't
+                    // work due to ABA.) Thus we need to temporarily add a duplicate string to the
+                    // list.
+                    entry.ref_count.fetch_sub(1, SeqCst);
+                    break;
                 }
-                // Uh-oh. The pointer's reference count was zero, which means someone may try
-                // to free it. (Naive attempts to defend against this, for example having the
-                // destructor check to see whether the reference count is indeed zero, don't
-                // work due to ABA.) Thus we need to temporarily add a duplicate string to the
-                // list.
-                (*ptr).ref_count.fetch_sub(1, SeqCst);
+                ptr = entry.next_in_bucket.as_mut();
             }
         }
-
         debug_assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
         let mut entry = Box::new(StringCacheEntry::new(
-            self.buckets[bucket_index], hash, string_to_add));
-        ptr = &mut *entry;
-        mem::forget(entry);
-        self.buckets[bucket_index] = ptr;
+            self.buckets[bucket_index].take(), hash, string_to_add));
+        let ptr: *mut StringCacheEntry = &mut *entry;
+        self.buckets[bucket_index] = Some(entry);
         log!(Event::Insert(ptr as u64, String::from(string_to_add)));
 
         ptr
@@ -112,40 +105,29 @@ impl StringCache {
 
     fn remove(&mut self, key: u64) {
         let ptr = key as *mut StringCacheEntry;
-        let value: &mut StringCacheEntry = unsafe { mem::transmute(ptr) };
+        let bucket_index = {
+            let value: &StringCacheEntry = unsafe { &*ptr };
+            debug_assert!(value.ref_count.load(SeqCst) == 0);
+            (value.hash & BUCKET_MASK) as usize
+        };
 
-        debug_assert!(value.ref_count.load(SeqCst) == 0);
 
-        let bucket_index = (value.hash & BUCKET_MASK) as usize;
+        let mut current: &mut Option<Box<StringCacheEntry>> = &mut self.buckets[bucket_index];
 
-        let mut current = self.buckets[bucket_index];
-        let mut prev: *mut StringCacheEntry = ptr::null_mut();
-
-        while !current.is_null() {
-            if current == ptr {
-                if prev.is_null() {
-                    unsafe { self.buckets[bucket_index] = (*current).next_in_bucket };
-                } else {
-                    unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
-                }
+        loop {
+            let entry_ptr: *mut StringCacheEntry = match current.as_mut() {
+                Some(entry) => &mut **entry,
+                None => break,
+            };
+            if entry_ptr == ptr {
+                mem::drop(mem::replace(current, unsafe { (*entry_ptr).next_in_bucket.take() }));
                 break;
             }
-            prev = current;
-            unsafe { current = (*current).next_in_bucket };
-        }
-        debug_assert!(!current.is_null());
-
-        unsafe {
-            mem::drop(box_from_raw(ptr));
+            current = unsafe { &mut (*entry_ptr).next_in_bucket };
         }
 
         log!(Event::Remove(key));
     }
-}
-
-// Box::from_raw is not stable yet
-unsafe fn box_from_raw<T>(raw: *mut T) -> Box<T> {
-    mem::transmute(raw)
 }
 
 // NOTE: Deriving Eq here implies that a given string must always
