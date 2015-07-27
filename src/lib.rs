@@ -10,21 +10,18 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![feature(plugin, unsafe_no_drop_flag)]
-#![feature(slice_bytes, heap_api, hash_default)]
-#![deny(warnings)]
-#![cfg_attr(test, feature(test))]
-#![cfg_attr(bench, feature(rand))]
-#![plugin(phf_macros, string_cache_plugin)]
+#![cfg_attr(test, deny(warnings))]
+#![cfg_attr(all(test, feature = "unstable"), feature(test, filling_drop))]
+#![cfg_attr(feature = "unstable", feature(unsafe_no_drop_flag, plugin))]
+#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 
-#[cfg(test)]
+#[cfg(all(test, feature = "unstable"))]
 extern crate test;
-
-extern crate phf;
 
 #[macro_use]
 extern crate lazy_static;
 
+#[cfg(test)]
 extern crate rand;
 
 #[cfg(feature = "log-events")]
@@ -44,6 +41,9 @@ macro_rules! qualname (($ns:tt, $local:tt) => (
         local: atom!($local),
     }
 ));
+
+#[cfg(not(feature = "unstable"))]
+include!(concat!(env!("OUT_DIR"), "/ns_atom_macros_without_plugin.rs"));
 
 #[cfg(feature = "log-events")]
 #[macro_use]

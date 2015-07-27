@@ -1,12 +1,13 @@
 [package]
 
 name = "string_cache"
-version = "0.1.6"
+version = "0.1.7"
 authors = [ "The Servo Project Developers" ]
 description = "A string interning library for Rust, developed as part of the Servo project."
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/string-cache"
 documentation = "http://doc.servo.org/string_cache/"
+build = "build.rs"
 
 [lib]
 name = "string_cache"
@@ -20,12 +21,15 @@ doctest = false
 # See examples/event-log.
 log-events = ["rustc-serialize"]
 
+# Use unstable features to optimize space and time (memory and CPU usage).
+unstable = ["string_cache_plugin"]
+
 [dependencies]
-rand = "0"
-phf = "0.7"
-phf_macros = "0.7"
 lazy_static = "0.1.10"
 serde = "0.4.2"
+
+[dev-dependencies]
+rand = "0"
 
 [dependencies.rustc-serialize]
 version = "0"
@@ -34,7 +38,12 @@ optional = true
 [dependencies.string_cache_plugin]
 path = "plugin"
 version = "0.1.1"
+optional = true
 
 [dependencies.string_cache_shared]
+path = "shared"
+version = "0.1.0"
+
+[build-dependencies.string_cache_shared]
 path = "shared"
 version = "0.1.0"

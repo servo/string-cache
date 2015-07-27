@@ -9,23 +9,20 @@
 
 #![allow(non_upper_case_globals)]
 
-use phf::OrderedSet;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::fmt;
 use std::mem;
 use std::ops;
-use std::ptr;
-use std::slice::bytes;
 use std::str;
-use std::rt::heap;
 use std::cmp::Ordering::{self, Equal};
-use std::hash::{self, Hash, SipHasher};
+use std::hash::{Hash, SipHasher, Hasher};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
-use string_cache_shared::{self, UnpackedAtom, Static, Inline, Dynamic};
+use string_cache_shared::{self, UnpackedAtom, Static, Inline, Dynamic, STATIC_ATOM_SET,
+                          ENTRY_ALIGNMENT, copy_memory};
 
 #[cfg(feature = "log-events")]
 use event::Event;
@@ -33,15 +30,10 @@ use event::Event;
 #[cfg(not(feature = "log-events"))]
 macro_rules! log (($e:expr) => (()));
 
-
-// Needed for memory safety of the tagging scheme!
-const ENTRY_ALIGNMENT: usize = 16;
-
-// Macro-generated table for static atoms.
-static static_atom_set: OrderedSet<&'static str> = static_atom_set!();
-
+const NB_BUCKETS: usize = 1 << 12;  // 4096
+const BUCKET_MASK: u64 = (1 << 12) - 1;
 struct StringCache {
-    buckets: [*mut StringCacheEntry; 4096],
+    buckets: [Option<Box<StringCacheEntry>>; NB_BUCKETS],
 }
 
 lazy_static! {
@@ -49,16 +41,15 @@ lazy_static! {
 }
 
 struct StringCacheEntry {
-    next_in_bucket: *mut StringCacheEntry,
+    next_in_bucket: Option<Box<StringCacheEntry>>,
     hash: u64,
     ref_count: AtomicIsize,
     string: String,
 }
 
-unsafe impl Send for StringCache { }
-
 impl StringCacheEntry {
-    fn new(next: *mut StringCacheEntry, hash: u64, string_to_add: &str) -> StringCacheEntry {
+    fn new(next: Option<Box<StringCacheEntry>>, hash: u64, string_to_add: &str)
+           -> StringCacheEntry {
         StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
@@ -76,79 +67,63 @@ impl StringCache {
     }
 
     fn add(&mut self, string_to_add: &str) -> *mut StringCacheEntry {
-        let hash = hash::hash::<_, SipHasher>(&string_to_add);
-        let bucket_index = (hash & (self.buckets.len()-1) as u64) as usize;
-        let mut ptr = self.buckets[bucket_index];
+        let hash = {
+            let mut hasher = SipHasher::default();
+            string_to_add.hash(&mut hasher);
+            hasher.finish()
+        };
+        let bucket_index = (hash & BUCKET_MASK) as usize;
+        {
+            let mut ptr: Option<&mut Box<StringCacheEntry>> =
+                self.buckets[bucket_index].as_mut();
 
-        while ptr != ptr::null_mut() {
-            let value = unsafe { &*ptr };
-            if value.hash == hash && value.string == string_to_add {
-                break;
-            }
-            ptr = value.next_in_bucket;
-        }
-
-        let mut should_add = false;
-        if ptr != ptr::null_mut() {
-            unsafe {
-                if (*ptr).ref_count.fetch_add(1, SeqCst) == 0 {
+            while let Some(entry) = ptr.take() {
+                if entry.hash == hash && entry.string == string_to_add {
+                    if entry.ref_count.fetch_add(1, SeqCst) > 0 {
+                        return &mut **entry;
+                    }
                     // Uh-oh. The pointer's reference count was zero, which means someone may try
                     // to free it. (Naive attempts to defend against this, for example having the
                     // destructor check to see whether the reference count is indeed zero, don't
                     // work due to ABA.) Thus we need to temporarily add a duplicate string to the
                     // list.
-                    should_add = true;
-                    (*ptr).ref_count.fetch_sub(1, SeqCst);
+                    entry.ref_count.fetch_sub(1, SeqCst);
+                    break;
                 }
+                ptr = entry.next_in_bucket.as_mut();
             }
-        } else {
-            should_add = true
         }
+        debug_assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
+        let mut entry = Box::new(StringCacheEntry::new(
+            self.buckets[bucket_index].take(), hash, string_to_add));
+        let ptr: *mut StringCacheEntry = &mut *entry;
+        self.buckets[bucket_index] = Some(entry);
+        log!(Event::Insert(ptr as u64, String::from(string_to_add)));
 
-        if should_add {
-            unsafe {
-                ptr = heap::allocate(mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT)
-                        as *mut StringCacheEntry;
-                ptr::write(ptr,
-                            StringCacheEntry::new(self.buckets[bucket_index], hash, string_to_add));
-            }
-            self.buckets[bucket_index] = ptr;
-            log!(Event::Insert(ptr as u64, String::from(string_to_add)));
-        }
-
-        debug_assert!(ptr != ptr::null_mut());
         ptr
     }
 
     fn remove(&mut self, key: u64) {
         let ptr = key as *mut StringCacheEntry;
-        let value: &mut StringCacheEntry = unsafe { mem::transmute(ptr) };
+        let bucket_index = {
+            let value: &StringCacheEntry = unsafe { &*ptr };
+            debug_assert!(value.ref_count.load(SeqCst) == 0);
+            (value.hash & BUCKET_MASK) as usize
+        };
 
-        debug_assert!(value.ref_count.load(SeqCst) == 0);
 
-        let bucket_index = (value.hash & (self.buckets.len()-1) as u64) as usize;
+        let mut current: &mut Option<Box<StringCacheEntry>> = &mut self.buckets[bucket_index];
 
-        let mut current = self.buckets[bucket_index];
-        let mut prev: *mut StringCacheEntry = ptr::null_mut();
-
-        while current != ptr::null_mut() {
-            if current == ptr {
-                if prev != ptr::null_mut() {
-                    unsafe { (*prev).next_in_bucket = (*current).next_in_bucket };
-                } else {
-                    unsafe { self.buckets[bucket_index] = (*current).next_in_bucket };
-                }
+        loop {
+            let entry_ptr: *mut StringCacheEntry = match current.as_mut() {
+                Some(entry) => &mut **entry,
+                None => break,
+            };
+            if entry_ptr == ptr {
+                mem::drop(mem::replace(current, unsafe { (*entry_ptr).next_in_bucket.take() }));
                 break;
             }
-            prev = current;
-            unsafe { current = (*current).next_in_bucket };
-        }
-        debug_assert!(current != ptr::null_mut());
-
-        unsafe {
-            ptr::read(ptr);
-            heap::deallocate(ptr as *mut u8,
-                mem::size_of::<StringCacheEntry>(), ENTRY_ALIGNMENT);
+            current = unsafe { &mut (*entry_ptr).next_in_bucket };
         }
 
         log!(Event::Remove(key));
@@ -157,7 +132,7 @@ impl StringCache {
 
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
-#[unsafe_no_drop_flag]
+#[cfg_attr(unstable, unsafe_no_drop_flag)]  // See tests::atom_drop_is_idempotent
 #[derive(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
@@ -173,13 +148,13 @@ impl Atom {
 
     #[inline]
     pub fn from_slice(string_to_add: &str) -> Atom {
-        let unpacked = match static_atom_set.get_index(string_to_add) {
+        let unpacked = match STATIC_ATOM_SET.get_index(string_to_add) {
             Some(id) => Static(id as u32),
             None => {
                 let len = string_to_add.len();
                 if len <= string_cache_shared::MAX_INLINE_LEN {
                     let mut buf: [u8; 7] = [0; 7];
-                    bytes::copy_memory(string_to_add.as_bytes(), &mut buf);
+                    copy_memory(string_to_add.as_bytes(), &mut buf);
                     Inline(len as u8, buf)
                 } else {
                     Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add) as *mut ())
@@ -200,7 +175,7 @@ impl Atom {
                     let buf = string_cache_shared::inline_orig_bytes(&self.data);
                     str::from_utf8(buf).unwrap()
                 },
-                Static(idx) => *static_atom_set.index(idx as usize).expect("bad static atom"),
+                Static(idx) => *STATIC_ATOM_SET.index(idx as usize).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string
@@ -238,10 +213,7 @@ impl Drop for Atom {
 
         unsafe {
             match string_cache_shared::from_packed_dynamic(self.data) {
-                // We use #[unsafe_no_drop_flag] so that Atom will be only 64
-                // bits.  That means we need to ignore a NULL pointer here,
-                // which represents a value that was moved out.
-                Some(entry) if !entry.is_null() => {
+                Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
                         drop_slow(self);
@@ -252,6 +224,7 @@ impl Drop for Atom {
         }
     }
 }
+
 
 impl ops::Deref for Atom {
     type Target = str;
@@ -324,14 +297,15 @@ impl Deserialize for Atom {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "unstable"))]
 mod bench;
 
 #[cfg(test)]
 mod tests {
+    use std::mem;
     use std::thread;
-    use super::Atom;
-    use string_cache_shared::{Static, Inline, Dynamic};
+    use super::{Atom, StringCacheEntry};
+    use string_cache_shared::{Static, Inline, Dynamic, ENTRY_ALIGNMENT};
 
     #[test]
     fn test_as_slice() {
@@ -495,7 +469,7 @@ mod tests {
     fn assert_sizes() {
         // Guard against accidental changes to the sizes of things.
         use std::mem;
-        assert_eq!(8, mem::size_of::<super::Atom>());
+        assert_eq!(if cfg!(unstable) { 8 } else { 16 }, mem::size_of::<super::Atom>());
         assert_eq!(48, mem::size_of::<super::StringCacheEntry>());
     }
 
@@ -549,5 +523,22 @@ mod tests {
         // Ensure we can as_ref to a &str
         let atom = Atom::from_slice("foobar");
         let _: &str = atom.as_ref();
+    }
+
+    /// Atom uses #[unsafe_no_drop_flag] to stay small, so drop() may be called more than once.
+    /// In calls after the first one, the atom will be filled with a POST_DROP value.
+    /// drop() must be a no-op in this case.
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn atom_drop_is_idempotent() {
+        use string_cache_shared::from_packed_dynamic;
+        unsafe {
+            assert_eq!(from_packed_dynamic(mem::POST_DROP_U64), None);
+        }
+    }
+
+    #[test]
+    fn string_cache_entry_alignment_is_sufficient() {
+        assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
     }
 }

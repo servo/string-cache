@@ -11,18 +11,24 @@
 //! the macros crate and the run-time library, in order to guarantee
 //! consistency.
 
-#![feature(raw, slice_bytes, core_intrinsics)]
-#![deny(warnings)]
+#![cfg_attr(test, deny(warnings))]
 
-use std::{mem, raw, intrinsics};
-use std::slice::bytes;
+#[macro_use] extern crate debug_unreachable;
+extern crate phf;
+
+use std::ptr;
+use std::slice;
 
 pub use self::UnpackedAtom::{Dynamic, Inline, Static};
 
+include!(concat!(env!("OUT_DIR"), "/static_atom_set.rs"));
+
 // FIXME(rust-lang/rust#18153): generate these from an enum
-pub const DYNAMIC_TAG: u8 = 0u8;
-pub const INLINE_TAG: u8 = 1u8;  // len in upper nybble
-pub const STATIC_TAG: u8 = 2u8;
+pub const DYNAMIC_TAG: u8 = 0b_00;
+pub const INLINE_TAG: u8 = 0b_01;  // len in upper nybble
+pub const STATIC_TAG: u8 = 0b_10;
+pub const TAG_MASK: u64 = 0b_11;
+pub const ENTRY_ALIGNMENT: usize = 4;  // Multiples have TAG_MASK bits unset, available for tagging.
 
 pub const MAX_INLINE_LEN: usize = 7;
 
@@ -42,11 +48,26 @@ pub enum UnpackedAtom {
 
 const STATIC_SHIFT_BITS: usize = 32;
 
+pub static ALL_NS: &'static [(&'static str, &'static str)] = &[
+    ("", ""),
+    ("html", "http://www.w3.org/1999/xhtml"),
+    ("xml", "http://www.w3.org/XML/1998/namespace"),
+    ("xmlns", "http://www.w3.org/2000/xmlns/"),
+    ("xlink", "http://www.w3.org/1999/xlink"),
+    ("svg", "http://www.w3.org/2000/svg"),
+    ("mathml", "http://www.w3.org/1998/Math/MathML"),
+];
+
+struct RawSlice {
+    data: *const u8,
+    len: usize,
+}
+
 #[cfg(target_endian = "little")]  // Not implemented yet for big-endian
 #[inline(always)]
-unsafe fn inline_atom_slice(x: &u64) -> raw::Slice<u8> {
+unsafe fn inline_atom_slice(x: &u64) -> RawSlice {
     let x: *const u64 = x;
-    raw::Slice {
+    RawSlice {
         data: (x as *const u8).offset(1),
         len: 7,
     }
@@ -63,15 +84,17 @@ impl UnpackedAtom {
             Static(n) => pack_static(n),
             Dynamic(p) => {
                 let n = p as u64;
-                debug_assert!(0 == n & 0xf);
+                debug_assert!(0 == n & TAG_MASK);
                 n
             }
             Inline(len, buf) => {
                 debug_assert!((len as usize) <= MAX_INLINE_LEN);
                 let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
                 {
-                    let dest: &mut [u8] = mem::transmute(inline_atom_slice(&mut data));
-                    bytes::copy_memory(&buf[..], dest);
+                    let raw_slice = inline_atom_slice(&mut data);
+                    let dest: &mut [u8] = slice::from_raw_parts_mut(
+                        raw_slice.data as *mut u8, raw_slice.len);
+                    copy_memory(&buf[..], dest);
                 }
                 data
             }
@@ -82,21 +105,19 @@ impl UnpackedAtom {
     pub unsafe fn from_packed(data: u64) -> UnpackedAtom {
         debug_assert!(DYNAMIC_TAG == 0); // Dynamic is untagged
 
-        match (data & 0xf) as u8 {
+        match (data & TAG_MASK) as u8 {
             DYNAMIC_TAG => Dynamic(data as *mut ()),
             STATIC_TAG => Static((data >> STATIC_SHIFT_BITS) as u32),
             INLINE_TAG => {
                 let len = ((data & 0xf0) >> 4) as usize;
                 debug_assert!(len <= MAX_INLINE_LEN);
                 let mut buf: [u8; 7] = [0; 7];
-                let src: &[u8] = mem::transmute(inline_atom_slice(&data));
-                bytes::copy_memory(src, &mut buf[..]);
+                let raw_slice = inline_atom_slice(&data);
+                let src: &[u8] = slice::from_raw_parts(raw_slice.data, raw_slice.len);
+                copy_memory(src, &mut buf[..]);
                 Inline(len as u8, buf)
             },
-
-            // intrinsics::unreachable() in release builds?
-            // See rust-lang/rust#18152.
-            _ => panic!("impossible"),
+            _ => debug_unreachable!(),
         }
     }
 }
@@ -104,7 +125,7 @@ impl UnpackedAtom {
 /// Used for a fast path in Clone and Drop.
 #[inline(always)]
 pub unsafe fn from_packed_dynamic(data: u64) -> Option<*mut ()> {
-    if (DYNAMIC_TAG as u64) == (data & 0xf) {
+    if (DYNAMIC_TAG as u64) == (data & TAG_MASK) {
         Some(data as *mut ())
     } else {
         None
@@ -119,9 +140,25 @@ pub unsafe fn from_packed_dynamic(data: u64) -> Option<*mut ()> {
 pub unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
     match UnpackedAtom::from_packed(*data) {
         Inline(len, _) => {
-            let src: &[u8] = mem::transmute(inline_atom_slice(data));
+            let raw_slice = inline_atom_slice(&data);
+            let src: &[u8] = slice::from_raw_parts(raw_slice.data, raw_slice.len);
             &src[..(len as usize)]
         }
-        _ => intrinsics::unreachable(),
+        _ => debug_unreachable!(),
+    }
+}
+
+
+/// Copy of std::slice::bytes::copy_memory, which is unstable.
+#[inline]
+pub fn copy_memory(src: &[u8], dst: &mut [u8]) {
+    let len_src = src.len();
+    assert!(dst.len() >= len_src);
+    // `dst` is unaliasable, so we know statically it doesn't overlap
+    // with `src`.
+    unsafe {
+        ptr::copy_nonoverlapping(src.as_ptr(),
+                                 dst.as_mut_ptr(),
+                                 len_src);
     }
 }

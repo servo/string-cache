@@ -12,7 +12,7 @@
 
 #![feature(plugin_registrar, quote, box_syntax)]
 #![feature(rustc_private, slice_patterns)]
-#![deny(warnings)]
+#![cfg_attr(test, deny(warnings))]
 #![allow(unused_imports)]  // for quotes
 
 extern crate syntax;
@@ -33,7 +33,6 @@ mod atom;
 // NB: This needs to be public or we get a linker error.
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_macro("static_atom_set", atom::expand_static_atom_set);
     reg.register_macro("atom", atom::expand_atom);
     reg.register_macro("ns", atom::expand_ns);
 }
