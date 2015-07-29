@@ -12,7 +12,7 @@ use syntax::codemap::Span;
 use syntax::ast::{TokenTree, TtToken};
 use syntax::ast;
 use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
-use syntax::parse::token::{get_ident, InternedString, Ident, Literal, Lit};
+use syntax::parse::token::{InternedString, Ident, Literal, Lit};
 
 use std::iter::Chain;
 use std::collections::HashMap;
@@ -20,11 +20,11 @@ use std::ascii::AsciiExt;
 
 
 fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
-    Some(get_ident(match *t {
-        TtToken(_, Ident(s, _)) => s,
-        TtToken(_, Literal(Lit::Str_(s), _)) => s.ident(),
+    Some(match *t {
+        TtToken(_, Ident(s, _)) => s.name.as_str(),
+        TtToken(_, Literal(Lit::Str_(s), _)) => s.as_str(),
         _ => return None,
-    }))
+    })
 }
 
 // FIXME: libsyntax should provide this (rust-lang/rust#17637)
