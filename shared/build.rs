@@ -12,7 +12,7 @@ fn main() {
         set.entry(atom);
     }
 
-    let path = Path::new(env!("OUT_DIR")).join("static_atom_set.rs");
+    let path = Path::new(&std::env::var("OUT_DIR").unwrap()).join("static_atom_set.rs");
     let mut file = BufWriter::new(File::create(&path).unwrap());
     write!(&mut file, "pub static STATIC_ATOM_SET: phf::OrderedSet<&'static str> = ").unwrap();
     set.build(&mut file).unwrap();

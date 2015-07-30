@@ -2,13 +2,14 @@ extern crate string_cache_shared;
 
 use string_cache_shared::{STATIC_ATOM_SET, ALL_NS, pack_static};
 
+use std::env;
 use std::ascii::AsciiExt;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
 fn main() {
-    let path = Path::new(env!("OUT_DIR")).join("ns_atom_macros_without_plugin.rs");
+    let path = Path::new(&env::var("OUT_DIR").unwrap()).join("ns_atom_macros_without_plugin.rs");
     let mut file = BufWriter::new(File::create(&path).unwrap());
     writeln!(file, r"#[macro_export]").unwrap();
     writeln!(file, r"macro_rules! ns {{").unwrap();
