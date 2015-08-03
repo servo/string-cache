@@ -14,7 +14,7 @@
 #![cfg_attr(test, deny(warnings))]
 
 #[macro_use] extern crate debug_unreachable;
-extern crate phf;
+extern crate phf_shared;
 
 use std::ptr;
 use std::slice;
@@ -31,6 +31,35 @@ pub const TAG_MASK: u64 = 0b_11;
 pub const ENTRY_ALIGNMENT: usize = 4;  // Multiples have TAG_MASK bits unset, available for tagging.
 
 pub const MAX_INLINE_LEN: usize = 7;
+
+pub struct StaticAtomSet {
+    key: u64,
+    disps: &'static [(u32, u32)],
+    atoms: &'static [&'static str],
+}
+
+impl StaticAtomSet {
+    #[inline]
+    pub fn get_index(&self, s: &str) -> Option<u32> {
+        let hash = phf_shared::hash(s, self.key);
+        let index = phf_shared::get_index(hash, self.disps, self.atoms.len());
+        if self.atoms[index as usize] == s {
+            Some(index)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn index(&self, i: u32) -> Option<&'static str> {
+        self.atoms.get(i as usize).map(|&s| s)
+    }
+
+    #[inline]
+    pub fn iter(&self) -> slice::Iter<&'static str> {
+        self.atoms.iter()
+    }
+}
 
 // Atoms use a compact representation which fits this enum in a single u64.
 // Inlining avoids actually constructing the unpacked representation in memory.

@@ -175,7 +175,7 @@ impl Atom {
                     let buf = string_cache_shared::inline_orig_bytes(&self.data);
                     str::from_utf8(buf).unwrap()
                 },
-                Static(idx) => *STATIC_ATOM_SET.index(idx as usize).expect("bad static atom"),
+                Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string
@@ -442,9 +442,12 @@ mod tests {
             assert_eq_fmt!("0x{:016X}", Atom::from_slice(s).data, data);
         }
 
-        fn check_static(s: &str, x: Atom, data: u64) {
-            check(s, data);
-            assert_eq_fmt!("0x{:016X}", x.data, data);
+        fn check_static(s: &str, x: Atom) {
+            use string_cache_shared::STATIC_ATOM_SET;
+            assert_eq_fmt!("0x{:016X}", x.data, Atom::from_slice(s).data);
+            assert_eq!(0x2, x.data & 0xFFFF_FFFF);
+            // The index is unspecified by phf.
+            assert!((x.data >> 32) <= STATIC_ATOM_SET.iter().len() as u64);
         }
 
         // This test is here to make sure we don't change atom representation
@@ -452,9 +455,9 @@ mod tests {
         // static atom table, the tag values, etc.
 
         // Static atoms
-        check_static("a",       atom!(a),       0x0000_0000_0000_0002);
-        check_static("address", atom!(address), 0x0000_0001_0000_0002);
-        check_static("area",    atom!(area),    0x0000_0003_0000_0002);
+        check_static("a",       atom!(a));
+        check_static("address", atom!(address));
+        check_static("area",    atom!(area));
 
         // Inline atoms
         check("e",       0x0000_0000_0000_6511);

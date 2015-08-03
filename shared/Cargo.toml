@@ -15,7 +15,7 @@ path = "lib.rs"
 
 [dependencies]
 debug_unreachable = "0.0.6"
-phf = "0.7.3"
+phf_shared = "0.7.3"
 
 [build-dependencies]
-phf_codegen = "0.7.3"
+phf_generator = "0.7.3"
