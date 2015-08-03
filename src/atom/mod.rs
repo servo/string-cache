@@ -16,7 +16,6 @@ use std::mem;
 use std::ops;
 use std::str;
 use std::cmp::Ordering::{self, Equal};
-use std::hash::{Hash, SipHasher, Hasher};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
@@ -66,12 +65,7 @@ impl StringCache {
         }
     }
 
-    fn add(&mut self, string_to_add: &str) -> *mut StringCacheEntry {
-        let hash = {
-            let mut hasher = SipHasher::default();
-            string_to_add.hash(&mut hasher);
-            hasher.finish()
-        };
+    fn add(&mut self, string_to_add: &str, hash: u64) -> *mut StringCacheEntry {
         let bucket_index = (hash & BUCKET_MASK) as usize;
         {
             let mut ptr: Option<&mut Box<StringCacheEntry>> =
@@ -148,16 +142,16 @@ impl Atom {
 
     #[inline]
     pub fn from_slice(string_to_add: &str) -> Atom {
-        let unpacked = match STATIC_ATOM_SET.get_index(string_to_add) {
-            Some(id) => Static(id as u32),
-            None => {
+        let unpacked = match STATIC_ATOM_SET.get_index_or_hash(string_to_add) {
+            Ok(id) => Static(id as u32),
+            Err(hash) => {
                 let len = string_to_add.len();
                 if len <= string_cache_shared::MAX_INLINE_LEN {
                     let mut buf: [u8; 7] = [0; 7];
                     copy_memory(string_to_add.as_bytes(), &mut buf);
                     Inline(len as u8, buf)
                 } else {
-                    Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add) as *mut ())
+                    Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
                 }
             }
         };

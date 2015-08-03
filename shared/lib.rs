@@ -40,13 +40,13 @@ pub struct StaticAtomSet {
 
 impl StaticAtomSet {
     #[inline]
-    pub fn get_index(&self, s: &str) -> Option<u32> {
+    pub fn get_index_or_hash(&self, s: &str) -> Result<u32, u64> {
         let hash = phf_shared::hash(s, self.key);
         let index = phf_shared::get_index(hash, self.disps, self.atoms.len());
         if self.atoms[index as usize] == s {
-            Some(index)
+            Ok(index)
         } else {
-            None
+            Err(hash)
         }
     }
 

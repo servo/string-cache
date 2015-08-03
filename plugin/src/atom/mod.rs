@@ -44,9 +44,9 @@ impl MacResult for AtomResult {
 }
 
 fn make_atom_result(cx: &mut ExtCtxt, name: &str) -> Option<AtomResult> {
-    let i = match ::string_cache_shared::STATIC_ATOM_SET.get_index(name) {
-        Some(i) => i,
-        None => return None,
+    let i = match ::string_cache_shared::STATIC_ATOM_SET.get_index_or_hash(name) {
+        Ok(i) => i,
+        Err(_hash) => return None,
     };
 
     let data = ::string_cache_shared::pack_static(i as u32);
