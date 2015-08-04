@@ -1,7 +1,7 @@
 [package]
 
 name = "string_cache_shared"
-version = "0.1.5"
+version = "0.1.6"
 authors = [ "The Servo Project Developers" ]
 description = "A string interning library for Rust, developed as part of the Servo project − shared code between the compiler plugin and main crate."
 license = "MIT / Apache-2.0"
@@ -15,7 +15,7 @@ path = "lib.rs"
 
 [dependencies]
 debug_unreachable = "0.0.6"
-phf_shared = "0.7.3"
+phf_shared = "0.7.4"
 
 [build-dependencies]
-phf_generator = "0.7.3"
+phf_generator = "0.7.4"
