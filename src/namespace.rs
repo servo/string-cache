@@ -15,6 +15,7 @@ use atom::Atom;
 /// Whether a given string represents a namespace is contextual, so this is
 /// a transparent wrapper that will not catch all mistakes.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
+#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct Namespace(pub Atom);
 
 /// A name with a namespace.

@@ -13,7 +13,9 @@
 #![cfg_attr(test, deny(warnings))]
 #![cfg_attr(all(test, feature = "unstable"), feature(test, filling_drop))]
 #![cfg_attr(feature = "unstable", feature(unsafe_no_drop_flag, plugin))]
+#![cfg_attr(feature = "heap_size", feature(plugin, custom_derive))]
 #![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
+#![cfg_attr(feature = "heap_size", plugin(heapsize_plugin))]
 
 #[cfg(all(test, feature = "unstable"))]
 extern crate test;
@@ -26,6 +28,9 @@ extern crate rand;
 
 #[cfg(feature = "log-events")]
 extern crate rustc_serialize;
+
+#[cfg(feature = "heap_size")]
+extern crate heapsize;
 
 extern crate serde;
 

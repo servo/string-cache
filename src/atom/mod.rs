@@ -133,6 +133,7 @@ impl StringCache {
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
 #[cfg_attr(feature = "unstable", unsafe_no_drop_flag)]  // See tests::atom_drop_is_idempotent
+#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 #[derive(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
