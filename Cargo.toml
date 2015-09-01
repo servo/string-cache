@@ -40,12 +40,12 @@ optional = true
 
 [dependencies.string_cache_plugin]
 path = "plugin"
-version = "0.1.5"
+version = "0.1.7"
 optional = true
 
 [dependencies.string_cache_shared]
 path = "shared"
-version = "0.1.4"
+version = "0.1.6"
 
 [dependencies.heapsize]
 version = "0.1.1"
@@ -57,4 +57,4 @@ optional = true
 
 [build-dependencies.string_cache_shared]
 path = "shared"
-version = "0.1.4"
+version = "0.1.6"

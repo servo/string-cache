@@ -44,7 +44,7 @@ fn generate_combination(prefix1: String, suffix: &str, url: &str, file: &mut Buf
 }
 
 fn atom(s: &str) -> String {
-    let data = pack_static(STATIC_ATOM_SET.get_index(s).unwrap() as u32);
+    let data = pack_static(STATIC_ATOM_SET.get_index_or_hash(s).unwrap() as u32);
     format!("$crate::Atom {{ data: 0x{:x} }}", data)
 }
 

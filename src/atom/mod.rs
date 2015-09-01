@@ -16,7 +16,6 @@ use std::mem;
 use std::ops;
 use std::str;
 use std::cmp::Ordering::{self, Equal};
-use std::hash::{Hash, SipHasher, Hasher};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
@@ -66,12 +65,7 @@ impl StringCache {
         }
     }
 
-    fn add(&mut self, string_to_add: &str) -> *mut StringCacheEntry {
-        let hash = {
-            let mut hasher = SipHasher::default();
-            string_to_add.hash(&mut hasher);
-            hasher.finish()
-        };
+    fn add(&mut self, string_to_add: &str, hash: u64) -> *mut StringCacheEntry {
         let bucket_index = (hash & BUCKET_MASK) as usize;
         {
             let mut ptr: Option<&mut Box<StringCacheEntry>> =
@@ -149,16 +143,16 @@ impl Atom {
 
     #[inline]
     pub fn from_slice(string_to_add: &str) -> Atom {
-        let unpacked = match STATIC_ATOM_SET.get_index(string_to_add) {
-            Some(id) => Static(id as u32),
-            None => {
+        let unpacked = match STATIC_ATOM_SET.get_index_or_hash(string_to_add) {
+            Ok(id) => Static(id as u32),
+            Err(hash) => {
                 let len = string_to_add.len();
                 if len <= string_cache_shared::MAX_INLINE_LEN {
                     let mut buf: [u8; 7] = [0; 7];
                     copy_memory(string_to_add.as_bytes(), &mut buf);
                     Inline(len as u8, buf)
                 } else {
-                    Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add) as *mut ())
+                    Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
                 }
             }
         };
@@ -176,7 +170,7 @@ impl Atom {
                     let buf = string_cache_shared::inline_orig_bytes(&self.data);
                     str::from_utf8(buf).unwrap()
                 },
-                Static(idx) => *STATIC_ATOM_SET.index(idx as usize).expect("bad static atom"),
+                Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string
@@ -443,9 +437,12 @@ mod tests {
             assert_eq_fmt!("0x{:016X}", Atom::from_slice(s).data, data);
         }
 
-        fn check_static(s: &str, x: Atom, data: u64) {
-            check(s, data);
-            assert_eq_fmt!("0x{:016X}", x.data, data);
+        fn check_static(s: &str, x: Atom) {
+            use string_cache_shared::STATIC_ATOM_SET;
+            assert_eq_fmt!("0x{:016X}", x.data, Atom::from_slice(s).data);
+            assert_eq!(0x2, x.data & 0xFFFF_FFFF);
+            // The index is unspecified by phf.
+            assert!((x.data >> 32) <= STATIC_ATOM_SET.iter().len() as u64);
         }
 
         // This test is here to make sure we don't change atom representation
@@ -453,9 +450,9 @@ mod tests {
         // static atom table, the tag values, etc.
 
         // Static atoms
-        check_static("a",       atom!(a),       0x0000_0000_0000_0002);
-        check_static("address", atom!(address), 0x0000_0001_0000_0002);
-        check_static("area",    atom!(area),    0x0000_0003_0000_0002);
+        check_static("a",       atom!(a));
+        check_static("address", atom!(address));
+        check_static("area",    atom!(area));
 
         // Inline atoms
         check("e",       0x0000_0000_0000_6511);

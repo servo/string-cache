@@ -9,12 +9,7 @@
 
 pub static ATOMS: &'static [&'static str] = &[
 
-    // The first 64 atoms are special: we can quickly check membership
-    // in sets of these, using a bitmask.  This includes every tag that
-    // appears in more than one set in the tree builder spec, plus a
-    // few others (arbitrarily chosen).
-    //
-    // FIXME(kmc): check if this is really true with the packed tag bits
+    // The order is not preserved by phf.
 
     "a",
     "address",
@@ -80,8 +75,6 @@ pub static ATOMS: &'static [&'static str] = &[
     "tr",
     "track",
     "xmp",
-
-    // End of first 64 atoms.
 
     "",
 
