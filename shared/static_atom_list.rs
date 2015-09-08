@@ -944,6 +944,8 @@ pub static ATOMS: &'static [&'static str] = &[
     "rowspan",
     "rquote",
     "rspace",
+    "rb",
+    "rtc",
     "ruby",
     "rule",
     "rules",
