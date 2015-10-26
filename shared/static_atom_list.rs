@@ -78,6 +78,8 @@ pub static ATOMS: &'static [&'static str] = &[
 
     "",
 
+    "*",
+
     // XML namespaces known to the HTML syntax spec
     "http://www.w3.org/1999/xhtml",
     "http://www.w3.org/XML/1998/namespace",
