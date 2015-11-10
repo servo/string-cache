@@ -9,7 +9,7 @@
 
 use syntax::ptr::P;
 use syntax::codemap::Span;
-use syntax::ast::{TokenTree, TtToken};
+use syntax::ast::TokenTree;
 use syntax::ast;
 use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
 use syntax::parse::token::{InternedString, Ident, Literal, Lit};
@@ -21,8 +21,8 @@ use std::ascii::AsciiExt;
 
 fn atom_tok_to_str(t: &TokenTree) -> Option<InternedString> {
     Some(match *t {
-        TtToken(_, Ident(s, _)) => s.name.as_str(),
-        TtToken(_, Literal(Lit::Str_(s), _)) => s.as_str(),
+        TokenTree::Token(_, Ident(s, _)) => s.name.as_str(),
+        TokenTree::Token(_, Literal(Lit::Str_(s), _)) => s.as_str(),
         _ => return None,
     })
 }
