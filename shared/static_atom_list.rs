@@ -1000,6 +1000,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "sin",
     "sinh",
     "size",
+    "sizes",
     "slope",
     "small",
     "solidcolor",
