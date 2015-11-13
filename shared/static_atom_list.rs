@@ -387,6 +387,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "equalcolumns",
     "equalrows",
     "equivalent",
+    "error",
     "eulergamma",
     "event",
     "exists",
