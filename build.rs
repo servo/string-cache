@@ -60,10 +60,8 @@ fn write_atom_macro(hash_state: &phf_generator::HashState) {
     writeln!(file, r"#[macro_export]").unwrap();
     writeln!(file, r"macro_rules! atom {{").unwrap();
     for &s in set.iter() {
-        if is_ident(s) {
-            writeln!(file, r"( {} ) => {{ {} }};", s, atom(&set, s)).unwrap();
-        }
-        writeln!(file, r"({:?}) => {{ {} }};", s, atom(&set, s)).unwrap();
+        let data = shared::pack_static(set.get_index_or_hash(s).unwrap() as u32);
+        writeln!(file, r"({:?}) => {{ $crate::Atom {{ data: 0x{:x} }} }};", s, data).unwrap();
     }
     writeln!(file, r"}}").unwrap();
 }
@@ -72,20 +70,4 @@ fn leak<T>(v: Vec<T>) -> &'static [T] {
     let slice = unsafe { slice::from_raw_parts(v.as_ptr(), v.len()) };
     mem::forget(v);
     slice
-}
-
-fn atom(set: &shared::StaticAtomSet, s: &str) -> String {
-    let data = shared::pack_static(set.get_index_or_hash(s).unwrap() as u32);
-    format!("$crate::Atom {{ data: 0x{:x} }}", data)
-}
-
-fn is_ident(s: &str) -> bool {
-    let mut chars = s.chars();
-    !s.is_empty() && match chars.next().unwrap() {
-        'a'...'z' | 'A'...'Z' | '_' => true,
-        _ => false
-    } && chars.all(|c| match c {
-        'a'...'z' | 'A'...'Z' | '_' | '0'...'9' => true,
-        _ => false
-    })
 }

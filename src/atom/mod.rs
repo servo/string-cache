@@ -567,9 +567,9 @@ mod tests {
         // static atom table, the tag values, etc.
 
         // Static atoms
-        check_static("a",       atom!(a));
-        check_static("address", atom!(address));
-        check_static("area",    atom!(area));
+        check_static("a",       atom!("a"));
+        check_static("address", atom!("address"));
+        check_static("area",    atom!("area"));
 
         // Inline atoms
         check("e",       0x0000_0000_0000_6511);
@@ -600,7 +600,6 @@ mod tests {
 
     #[test]
     fn atom_macro() {
-        assert_eq!(atom!(body), Atom::from("body"));
         assert_eq!(atom!("body"), Atom::from("body"));
         assert_eq!(atom!("font-weight"), Atom::from("font-weight"));
     }
@@ -608,20 +607,20 @@ mod tests {
     #[test]
     fn match_atom() {
         assert_eq!(2, match Atom::from("head") {
-            atom!(br) => 1,
-            atom!(html) | atom!(head) => 2,
+            atom!("br") => 1,
+            atom!("html") | atom!("head") => 2,
             _ => 3,
         });
 
         assert_eq!(3, match Atom::from("body") {
-            atom!(br) => 1,
-            atom!(html) | atom!(head) => 2,
+            atom!("br") => 1,
+            atom!("html") | atom!("head") => 2,
             _ => 3,
         });
 
         assert_eq!(3, match Atom::from("zzzzzz") {
-            atom!(br) => 1,
-            atom!(html) | atom!(head) => 2,
+            atom!("br") => 1,
+            atom!("html") | atom!("head") => 2,
             _ => 3,
         });
     }

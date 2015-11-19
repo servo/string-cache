@@ -56,13 +56,13 @@ mod tests {
     fn qualname() {
         assert_eq!(QualName::new(ns!(), atom!("")),
             QualName { ns: ns!(), local: Atom::from("") });
-        assert_eq!(QualName::new(ns!(xml), atom!(base)),
-            QualName { ns: ns!(xml), local: atom!(base) });
+        assert_eq!(QualName::new(ns!(xml), atom!("base")),
+            QualName { ns: ns!(xml), local: atom!("base") });
     }
 
     #[test]
     fn qualname_macro() {
         assert_eq!(qualname!("", ""), QualName { ns: ns!(), local: atom!("") });
-        assert_eq!(qualname!(xml, base), QualName { ns: ns!(xml), local: atom!(base) });
+        assert_eq!(qualname!(xml, "base"), QualName { ns: ns!(xml), local: atom!("base") });
     }
 }
