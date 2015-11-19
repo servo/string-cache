@@ -32,7 +32,7 @@ use test::{Bencher, black_box};
 
 // Just shorthand
 fn mk(x: &str) -> Atom {
-    Atom::from_slice(x)
+    Atom::from(x)
 }
 
 macro_rules! check_type (($name:ident, $x:expr, $p:pat) => (
@@ -81,7 +81,7 @@ macro_rules! bench_one (
         fn intern(b: &mut Bencher) {
             let x = $x.to_string();
             b.iter(|| {
-                black_box(Atom::from_slice(&x));
+                black_box(Atom::from(&*x));
             });
         }
     );
@@ -205,7 +205,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
                 *n = (*n % 0x40) + 0x20;
             }
             let s = str::from_utf8(&buf[..]).unwrap();
-            black_box(Atom::from_slice(s));
+            black_box(Atom::from(s));
         });
     }
 ));
