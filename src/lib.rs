@@ -12,43 +12,50 @@
 
 #![cfg_attr(test, deny(warnings))]
 #![cfg_attr(all(test, feature = "unstable"), feature(test, filling_drop))]
-#![cfg_attr(feature = "unstable", feature(unsafe_no_drop_flag, plugin))]
+#![cfg_attr(feature = "unstable", feature(unsafe_no_drop_flag))]
 #![cfg_attr(feature = "heap_size", feature(plugin, custom_derive))]
-#![cfg_attr(feature = "unstable", plugin(string_cache_plugin))]
 #![cfg_attr(feature = "heap_size", plugin(heapsize_plugin))]
 
-#[cfg(all(test, feature = "unstable"))]
-extern crate test;
-
-#[macro_use]
-extern crate lazy_static;
-
-#[cfg(test)]
-extern crate rand;
-
-#[cfg(feature = "log-events")]
-extern crate rustc_serialize;
-
-#[cfg(feature = "heap_size")]
-extern crate heapsize;
-
+#[cfg(all(test, feature = "unstable"))] extern crate test;
+#[cfg(feature = "log-events")] extern crate rustc_serialize;
+#[cfg(feature = "heap_size")] extern crate heapsize;
+#[cfg(test)] extern crate rand;
+#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate debug_unreachable;
 extern crate serde;
-
-extern crate string_cache_shared;
+extern crate phf_shared;
 
 pub use atom::Atom;
 pub use namespace::{Namespace, QualName};
 
 #[macro_export]
-macro_rules! qualname (($ns:tt, $local:tt) => (
-    ::string_cache::namespace::QualName {
-        ns: ns!($ns),
-        local: atom!($local),
+macro_rules! qualname {
+    ("", $local:tt) => {
+        $crate::namespace::QualName {
+            ns: ns!(),
+            local: atom!($local),
+        }
+    };
+    ($ns:tt, $local:tt) => {
+        $crate::namespace::QualName {
+            ns: ns!($ns),
+            local: atom!($local),
+        }
     }
-));
+}
 
-#[cfg(not(feature = "unstable"))]
-include!(concat!(env!("OUT_DIR"), "/ns_atom_macros_without_plugin.rs"));
+#[macro_export]
+macro_rules! ns {
+    () => { $crate::Namespace(atom!("")) };
+    (html) => { $crate::Namespace(atom!("http://www.w3.org/1999/xhtml")) };
+    (xml) => { $crate::Namespace(atom!("http://www.w3.org/XML/1998/namespace")) };
+    (xmlns) => { $crate::Namespace(atom!("http://www.w3.org/2000/xmlns/")) };
+    (xlink) => { $crate::Namespace(atom!("http://www.w3.org/1999/xlink")) };
+    (svg) => { $crate::Namespace(atom!("http://www.w3.org/2000/svg")) };
+    (mathml) => { $crate::Namespace(atom!("http://www.w3.org/1998/Math/MathML")) };
+}
+
+include!(concat!(env!("OUT_DIR"), "/atom_macro.rs"));
 
 #[cfg(feature = "log-events")]
 #[macro_use]
@@ -56,6 +63,7 @@ pub mod event;
 
 pub mod atom;
 pub mod namespace;
+pub mod shared;
 
 // A private module so that macro-expanded idents like
 // `::string_cache::atom::Atom` will also work in this crate.
