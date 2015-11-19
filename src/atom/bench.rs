@@ -135,7 +135,7 @@ macro_rules! bench_all (
             use std::iter::repeat;
 
             use atom::Atom;
-            use string_cache_shared::{Static, Inline, Dynamic};
+            use atom::UnpackedAtom::{Static, Inline, Dynamic};
 
             use super::mk;
 

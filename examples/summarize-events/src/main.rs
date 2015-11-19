@@ -9,8 +9,12 @@
 
 extern crate csv;
 extern crate string_cache;
-extern crate string_cache_shared;
 extern crate rustc_serialize;
+extern crate phf_shared;
+
+#[path = "../../../src/shared.rs"]
+#[allow(dead_code)]
+mod shared;
 
 use string_cache::Atom;
 
@@ -35,18 +39,18 @@ enum Kind {
 impl Kind {
     fn from_tag(tag: u8) -> Kind {
         match tag {
-            string_cache_shared::DYNAMIC_TAG => Kind::Dynamic,
-            string_cache_shared::INLINE_TAG => Kind::Inline,
-            string_cache_shared::STATIC_TAG => Kind::Static,
+            shared::DYNAMIC_TAG => Kind::Dynamic,
+            shared::INLINE_TAG => Kind::Inline,
+            shared::STATIC_TAG => Kind::Static,
             _ => panic!()
         }
     }
 
     fn to_tag(self) -> u8 {
         match self {
-            Kind::Dynamic => string_cache_shared::DYNAMIC_TAG,
-            Kind::Inline => string_cache_shared::INLINE_TAG,
-            Kind::Static => string_cache_shared::STATIC_TAG,
+            Kind::Dynamic => shared::DYNAMIC_TAG,
+            Kind::Inline => shared::INLINE_TAG,
+            Kind::Static => shared::STATIC_TAG,
         }
     }
 }
@@ -77,10 +81,10 @@ fn main() {
         match &ev.event[..] {
             "intern" => {
                 let tag = (ev.id & 0xf) as u8;
-                assert!(tag <= string_cache_shared::STATIC_TAG);
+                assert!(tag <= shared::STATIC_TAG);
 
                 let string = match tag {
-                    string_cache_shared::DYNAMIC_TAG => dynamic[&ev.id].clone(),
+                    shared::DYNAMIC_TAG => dynamic[&ev.id].clone(),
 
                     // FIXME: We really shouldn't be allowed to do this. It's a memory-safety
                     // hazard; the field is only public for the atom!() macro.

@@ -14,17 +14,22 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::mem;
 use std::ops;
+use std::ptr;
+use std::slice;
 use std::str;
 use std::cmp::Ordering::{self, Equal};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
-use string_cache_shared::{self, UnpackedAtom, Static, Inline, Dynamic, STATIC_ATOM_SET,
-                          ENTRY_ALIGNMENT, copy_memory};
+use shared::{STATIC_TAG, INLINE_TAG, DYNAMIC_TAG, TAG_MASK, MAX_INLINE_LEN, STATIC_SHIFT_BITS,
+             ENTRY_ALIGNMENT, pack_static, StaticAtomSet};
+use self::UnpackedAtom::{Dynamic, Inline, Static};
 
 #[cfg(feature = "log-events")]
 use event::Event;
+
+include!(concat!(env!("OUT_DIR"), "/static_atom_set.rs"));
 
 #[cfg(not(feature = "log-events"))]
 macro_rules! log (($e:expr) => (()));
@@ -149,7 +154,7 @@ impl<'a> From<&'a str> for Atom {
             Ok(id) => Static(id as u32),
             Err(hash) => {
                 let len = string_to_add.len();
-                if len <= string_cache_shared::MAX_INLINE_LEN {
+                if len <= MAX_INLINE_LEN {
                     let mut buf: [u8; 7] = [0; 7];
                     copy_memory(string_to_add.as_bytes(), &mut buf);
                     Inline(len as u8, buf)
@@ -169,7 +174,7 @@ impl Clone for Atom {
     #[inline(always)]
     fn clone(&self) -> Atom {
         unsafe {
-            match string_cache_shared::from_packed_dynamic(self.data) {
+            match from_packed_dynamic(self.data) {
                 Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     (*entry).ref_count.fetch_add(1, SeqCst);
@@ -192,7 +197,7 @@ impl Drop for Atom {
         }
 
         unsafe {
-            match string_cache_shared::from_packed_dynamic(self.data) {
+            match from_packed_dynamic(self.data) {
                 Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
@@ -214,7 +219,7 @@ impl ops::Deref for Atom {
         unsafe {
             match self.unpack() {
                 Inline(..) => {
-                    let buf = string_cache_shared::inline_orig_bytes(&self.data);
+                    let buf = inline_orig_bytes(&self.data);
                     str::from_utf8(buf).unwrap()
                 },
                 Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
@@ -289,6 +294,121 @@ impl Deserialize for Atom {
     }
 }
 
+// Atoms use a compact representation which fits this enum in a single u64.
+// Inlining avoids actually constructing the unpacked representation in memory.
+#[allow(missing_copy_implementations)]
+enum UnpackedAtom {
+    /// Pointer to a dynamic table entry.  Must be 16-byte aligned!
+    Dynamic(*mut ()),
+
+    /// Length + bytes of string.
+    Inline(u8, [u8; 7]),
+
+    /// Index in static interning table.
+    Static(u32),
+}
+
+struct RawSlice {
+    data: *const u8,
+    len: usize,
+}
+
+#[cfg(target_endian = "little")]  // Not implemented yet for big-endian
+#[inline(always)]
+unsafe fn inline_atom_slice(x: &u64) -> RawSlice {
+    let x: *const u64 = x;
+    RawSlice {
+        data: (x as *const u8).offset(1),
+        len: 7,
+    }
+}
+
+impl UnpackedAtom {
+    #[inline(always)]
+    unsafe fn pack(self) -> u64 {
+        match self {
+            Static(n) => pack_static(n),
+            Dynamic(p) => {
+                let n = p as u64;
+                debug_assert!(0 == n & TAG_MASK);
+                n
+            }
+            Inline(len, buf) => {
+                debug_assert!((len as usize) <= MAX_INLINE_LEN);
+                let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
+                {
+                    let raw_slice = inline_atom_slice(&mut data);
+                    let dest: &mut [u8] = slice::from_raw_parts_mut(
+                        raw_slice.data as *mut u8, raw_slice.len);
+                    copy_memory(&buf[..], dest);
+                }
+                data
+            }
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn from_packed(data: u64) -> UnpackedAtom {
+        debug_assert!(DYNAMIC_TAG == 0); // Dynamic is untagged
+
+        match (data & TAG_MASK) as u8 {
+            DYNAMIC_TAG => Dynamic(data as *mut ()),
+            STATIC_TAG => Static((data >> STATIC_SHIFT_BITS) as u32),
+            INLINE_TAG => {
+                let len = ((data & 0xf0) >> 4) as usize;
+                debug_assert!(len <= MAX_INLINE_LEN);
+                let mut buf: [u8; 7] = [0; 7];
+                let raw_slice = inline_atom_slice(&data);
+                let src: &[u8] = slice::from_raw_parts(raw_slice.data, raw_slice.len);
+                copy_memory(src, &mut buf[..]);
+                Inline(len as u8, buf)
+            },
+            _ => debug_unreachable!(),
+        }
+    }
+}
+
+/// Used for a fast path in Clone and Drop.
+#[inline(always)]
+unsafe fn from_packed_dynamic(data: u64) -> Option<*mut ()> {
+    if (DYNAMIC_TAG as u64) == (data & TAG_MASK) {
+        Some(data as *mut ())
+    } else {
+        None
+    }
+}
+
+/// For as_slice on inline atoms, we need a pointer into the original
+/// string contents.
+///
+/// It's undefined behavior to call this on a non-inline atom!!
+#[inline(always)]
+unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
+    match UnpackedAtom::from_packed(*data) {
+        Inline(len, _) => {
+            let raw_slice = inline_atom_slice(&data);
+            let src: &[u8] = slice::from_raw_parts(raw_slice.data, raw_slice.len);
+            &src[..(len as usize)]
+        }
+        _ => debug_unreachable!(),
+    }
+}
+
+
+/// Copy of std::slice::bytes::copy_memory, which is unstable.
+#[inline]
+fn copy_memory(src: &[u8], dst: &mut [u8]) {
+    let len_src = src.len();
+    assert!(dst.len() >= len_src);
+    // `dst` is unaliasable, so we know statically it doesn't overlap
+    // with `src`.
+    unsafe {
+        ptr::copy_nonoverlapping(src.as_ptr(),
+                                 dst.as_mut_ptr(),
+                                 len_src);
+    }
+}
+
 #[cfg(all(test, feature = "unstable"))]
 mod bench;
 
@@ -296,8 +416,9 @@ mod bench;
 mod tests {
     use std::mem;
     use std::thread;
-    use super::{Atom, StringCacheEntry};
-    use string_cache_shared::{Static, Inline, Dynamic, ENTRY_ALIGNMENT};
+    use super::{Atom, StringCacheEntry, STATIC_ATOM_SET};
+    use super::UnpackedAtom::{Dynamic, Inline, Static};
+    use shared::ENTRY_ALIGNMENT;
 
     #[test]
     fn test_as_slice() {
@@ -435,7 +556,6 @@ mod tests {
         }
 
         fn check_static(s: &str, x: Atom) {
-            use string_cache_shared::STATIC_ATOM_SET;
             assert_eq_fmt!("0x{:016X}", x.data, Atom::from(s).data);
             assert_eq!(0x2, x.data & 0xFFFF_FFFF);
             // The index is unspecified by phf.
@@ -526,7 +646,7 @@ mod tests {
     #[cfg(feature = "unstable")]
     #[test]
     fn atom_drop_is_idempotent() {
-        use string_cache_shared::from_packed_dynamic;
+        use super::from_packed_dynamic;
         unsafe {
             assert_eq!(from_packed_dynamic(mem::POST_DROP_U64), None);
         }
