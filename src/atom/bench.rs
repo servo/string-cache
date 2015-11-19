@@ -32,7 +32,7 @@ use test::{Bencher, black_box};
 
 // Just shorthand
 fn mk(x: &str) -> Atom {
-    Atom::from_slice(x)
+    Atom::from(x)
 }
 
 macro_rules! check_type (($name:ident, $x:expr, $p:pat) => (
@@ -79,20 +79,20 @@ macro_rules! bench_one (
     (intern $x:expr, $_y:expr) => (
         #[bench]
         fn intern(b: &mut Bencher) {
-            let x = $x.as_slice().to_string();
+            let x = $x.to_string();
             b.iter(|| {
-                black_box(Atom::from_slice(&x));
+                black_box(Atom::from(&*x));
             });
         }
     );
 
-    (as_slice $x:expr, $_y:expr) => (
+    (as_ref $x:expr, $_y:expr) => (
         #[bench]
-        fn as_slice_x_1000(b: &mut Bencher) {
+        fn as_ref_x_1000(b: &mut Bencher) {
             let x = $x;
             b.iter(|| {
                 for _ in 0..1000 {
-                    black_box(x.as_slice());
+                    black_box(x.as_ref());
                 }
             });
         }
@@ -156,22 +156,22 @@ bench_all!([eq ne lt clone_string] for medium_string = "xyzzy01", "xyzzy02");
 bench_all!([eq ne lt clone_string]
     for longer_string = super::longer_dynamic_a, super::longer_dynamic_b);
 
-bench_all!([eq ne intern as_slice clone is_static lt]
+bench_all!([eq ne intern as_ref clone is_static lt]
     for static_atom = atom!(a), atom!(b));
 
-bench_all!([intern as_slice clone is_inline]
+bench_all!([intern as_ref clone is_inline]
     for short_inline_atom = mk("e"), mk("f"));
 
-bench_all!([eq ne intern as_slice clone is_inline lt]
+bench_all!([eq ne intern as_ref clone is_inline lt]
     for medium_inline_atom = mk("xyzzy01"), mk("xyzzy02"));
 
-bench_all!([intern as_slice clone is_dynamic]
+bench_all!([intern as_ref clone is_dynamic]
     for min_dynamic_atom = mk("xyzzy001"), mk("xyzzy002"));
 
-bench_all!([eq ne intern as_slice clone is_dynamic lt]
+bench_all!([eq ne intern as_ref clone is_dynamic lt]
     for longer_dynamic_atom = mk(super::longer_dynamic_a), mk(super::longer_dynamic_b));
 
-bench_all!([intern as_slice clone is_static]
+bench_all!([intern as_ref clone is_static]
     for static_at_runtime = mk("a"), mk("b"));
 
 bench_all!([ne lt x_static y_inline]
@@ -205,7 +205,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
                 *n = (*n % 0x40) + 0x20;
             }
             let s = str::from_utf8(&buf[..]).unwrap();
-            black_box(Atom::from_slice(s));
+            black_box(Atom::from(s));
         });
     }
 ));

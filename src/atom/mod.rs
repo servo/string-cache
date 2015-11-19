@@ -140,9 +140,11 @@ impl Atom {
     unsafe fn unpack(&self) -> UnpackedAtom {
         UnpackedAtom::from_packed(self.data)
     }
+}
 
+impl<'a> From<&'a str> for Atom {
     #[inline]
-    pub fn from_slice(string_to_add: &str) -> Atom {
+    fn from(string_to_add: &str) -> Atom {
         let unpacked = match STATIC_ATOM_SET.get_index_or_hash(string_to_add) {
             Ok(id) => Static(id as u32),
             Err(hash) => {
@@ -160,23 +162,6 @@ impl Atom {
         let data = unsafe { unpacked.pack() };
         log!(Event::Intern(data));
         Atom { data: data }
-    }
-
-    #[inline]
-    pub fn as_slice<'t>(&'t self) -> &'t str {
-        unsafe {
-            match self.unpack() {
-                Inline(..) => {
-                    let buf = string_cache_shared::inline_orig_bytes(&self.data);
-                    str::from_utf8(buf).unwrap()
-                },
-                Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
-                Dynamic(entry) => {
-                    let entry = entry as *mut StringCacheEntry;
-                    &(*entry).string
-                }
-            }
-        }
     }
 }
 
@@ -226,7 +211,19 @@ impl ops::Deref for Atom {
 
     #[inline]
     fn deref(&self) -> &str {
-        self.as_slice()
+        unsafe {
+            match self.unpack() {
+                Inline(..) => {
+                    let buf = string_cache_shared::inline_orig_bytes(&self.data);
+                    str::from_utf8(buf).unwrap()
+                },
+                Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
+                Dynamic(entry) => {
+                    let entry = entry as *mut StringCacheEntry;
+                    &(*entry).string
+                }
+            }
+        }
     }
 }
 
@@ -248,7 +245,7 @@ impl fmt::Debug for Atom {
             }
         };
 
-        write!(f, "Atom('{}' type={})", self.as_slice(), ty_str)
+        write!(f, "Atom('{}' type={})", &*self, ty_str)
     }
 }
 
@@ -258,7 +255,7 @@ impl PartialOrd for Atom {
         if self.data == other.data {
             return Some(Equal);
         }
-        self.as_slice().partial_cmp(other.as_slice())
+        self.as_ref().partial_cmp(other.as_ref())
     }
 }
 
@@ -268,7 +265,7 @@ impl Ord for Atom {
         if self.data == other.data {
             return Equal;
         }
-        self.as_slice().cmp(other.as_slice())
+        self.as_ref().cmp(other.as_ref())
     }
 }
 
@@ -288,7 +285,7 @@ impl Serialize for Atom {
 impl Deserialize for Atom {
     fn deserialize<D>(deserializer: &mut D) -> Result<Atom,D::Error> where D: Deserializer {
         let string: String = try!(Deserialize::deserialize(deserializer));
-        Ok(Atom::from_slice(&*string))
+        Ok(Atom::from(&*string))
     }
 }
 
@@ -304,27 +301,27 @@ mod tests {
 
     #[test]
     fn test_as_slice() {
-        let s0 = Atom::from_slice("");
-        assert!(s0.as_slice() == "");
+        let s0 = Atom::from("");
+        assert!(s0.as_ref() == "");
 
-        let s1 = Atom::from_slice("class");
-        assert!(s1.as_slice() == "class");
+        let s1 = Atom::from("class");
+        assert!(s1.as_ref() == "class");
 
-        let i0 = Atom::from_slice("blah");
-        assert!(i0.as_slice() == "blah");
+        let i0 = Atom::from("blah");
+        assert!(i0.as_ref() == "blah");
 
-        let s0 = Atom::from_slice("BLAH");
-        assert!(s0.as_slice() == "BLAH");
+        let s0 = Atom::from("BLAH");
+        assert!(s0.as_ref() == "BLAH");
 
-        let d0 = Atom::from_slice("zzzzzzzzzz");
-        assert!(d0.as_slice() == "zzzzzzzzzz");
+        let d0 = Atom::from("zzzzzzzzzz");
+        assert!(d0.as_ref() == "zzzzzzzzzz");
 
-        let d1 = Atom::from_slice("ZZZZZZZZZZ");
-        assert!(d1.as_slice() == "ZZZZZZZZZZ");
+        let d1 = Atom::from("ZZZZZZZZZZ");
+        assert!(d1.as_ref() == "ZZZZZZZZZZ");
     }
 
     macro_rules! unpacks_to (($e:expr, $t:pat) => (
-        match unsafe { Atom::from_slice($e).unpack() } {
+        match unsafe { Atom::from($e).unpack() } {
             $t => (),
             _ => panic!("atom has wrong type"),
         }
@@ -348,17 +345,17 @@ mod tests {
 
     #[test]
     fn test_equality() {
-        let s0 = Atom::from_slice("fn");
-        let s1 = Atom::from_slice("fn");
-        let s2 = Atom::from_slice("loop");
+        let s0 = Atom::from("fn");
+        let s1 = Atom::from("fn");
+        let s2 = Atom::from("loop");
 
-        let i0 = Atom::from_slice("blah");
-        let i1 = Atom::from_slice("blah");
-        let i2 = Atom::from_slice("blah2");
+        let i0 = Atom::from("blah");
+        let i1 = Atom::from("blah");
+        let i2 = Atom::from("blah2");
 
-        let d0 = Atom::from_slice("zzzzzzzz");
-        let d1 = Atom::from_slice("zzzzzzzz");
-        let d2 = Atom::from_slice("zzzzzzzzz");
+        let d0 = Atom::from("zzzzzzzz");
+        let d1 = Atom::from("zzzzzzzz");
+        let d2 = Atom::from("zzzzzzzzz");
 
         assert!(s0 == s1);
         assert!(s0 != s2);
@@ -377,9 +374,9 @@ mod tests {
     #[test]
     fn ord() {
         fn check(x: &str, y: &str) {
-            assert_eq!(x < y, Atom::from_slice(x) < Atom::from_slice(y));
-            assert_eq!(x.cmp(y), Atom::from_slice(x).cmp(&Atom::from_slice(y)));
-            assert_eq!(x.partial_cmp(y), Atom::from_slice(x).partial_cmp(&Atom::from_slice(y)));
+            assert_eq!(x < y, Atom::from(x) < Atom::from(y));
+            assert_eq!(x.cmp(y), Atom::from(x).cmp(&Atom::from(y)));
+            assert_eq!(x.partial_cmp(y), Atom::from(x).partial_cmp(&Atom::from(y)));
         }
 
         check("a", "body");
@@ -395,17 +392,17 @@ mod tests {
 
     #[test]
     fn clone() {
-        let s0 = Atom::from_slice("fn");
+        let s0 = Atom::from("fn");
         let s1 = s0.clone();
-        let s2 = Atom::from_slice("loop");
+        let s2 = Atom::from("loop");
 
-        let i0 = Atom::from_slice("blah");
+        let i0 = Atom::from("blah");
         let i1 = i0.clone();
-        let i2 = Atom::from_slice("blah2");
+        let i2 = Atom::from("blah2");
 
-        let d0 = Atom::from_slice("zzzzzzzz");
+        let d0 = Atom::from("zzzzzzzz");
         let d1 = d0.clone();
-        let d2 = Atom::from_slice("zzzzzzzzz");
+        let d2 = Atom::from("zzzzzzzzz");
 
         assert!(s0 == s1);
         assert!(s0 != s2);
@@ -434,12 +431,12 @@ mod tests {
     #[test]
     fn repr() {
         fn check(s: &str, data: u64) {
-            assert_eq_fmt!("0x{:016X}", Atom::from_slice(s).data, data);
+            assert_eq_fmt!("0x{:016X}", Atom::from(s).data, data);
         }
 
         fn check_static(s: &str, x: Atom) {
             use string_cache_shared::STATIC_ATOM_SET;
-            assert_eq_fmt!("0x{:016X}", x.data, Atom::from_slice(s).data);
+            assert_eq_fmt!("0x{:016X}", x.data, Atom::from(s).data);
             assert_eq!(0x2, x.data & 0xFFFF_FFFF);
             // The index is unspecified by phf.
             assert!((x.data >> 32) <= STATIC_ATOM_SET.iter().len() as u64);
@@ -460,7 +457,7 @@ mod tests {
         check("xyzzy01", 0x3130_797A_7A79_7871);
 
         // Dynamic atoms. This is a pointer so we can't verify every bit.
-        assert_eq!(0x00, Atom::from_slice("a dynamic string").data & 0xf);
+        assert_eq!(0x00, Atom::from("a dynamic string").data & 0xf);
     }
 
     #[test]
@@ -475,34 +472,34 @@ mod tests {
     fn test_threads() {
         for _ in 0_u32..100 {
             thread::spawn(move || {
-                let _ = Atom::from_slice("a dynamic string");
-                let _ = Atom::from_slice("another string");
+                let _ = Atom::from("a dynamic string");
+                let _ = Atom::from("another string");
             });
         }
     }
 
     #[test]
     fn atom_macro() {
-        assert_eq!(atom!(body), Atom::from_slice("body"));
-        assert_eq!(atom!("body"), Atom::from_slice("body"));
-        assert_eq!(atom!("font-weight"), Atom::from_slice("font-weight"));
+        assert_eq!(atom!(body), Atom::from("body"));
+        assert_eq!(atom!("body"), Atom::from("body"));
+        assert_eq!(atom!("font-weight"), Atom::from("font-weight"));
     }
 
     #[test]
     fn match_atom() {
-        assert_eq!(2, match Atom::from_slice("head") {
+        assert_eq!(2, match Atom::from("head") {
             atom!(br) => 1,
             atom!(html) | atom!(head) => 2,
             _ => 3,
         });
 
-        assert_eq!(3, match Atom::from_slice("body") {
+        assert_eq!(3, match Atom::from("body") {
             atom!(br) => 1,
             atom!(html) | atom!(head) => 2,
             _ => 3,
         });
 
-        assert_eq!(3, match Atom::from_slice("zzzzzz") {
+        assert_eq!(3, match Atom::from("zzzzzz") {
             atom!(br) => 1,
             atom!(html) | atom!(head) => 2,
             _ => 3,
@@ -512,14 +509,14 @@ mod tests {
     #[test]
     fn ensure_deref() {
         // Ensure we can Deref to a &str
-        let atom = Atom::from_slice("foobar");
+        let atom = Atom::from("foobar");
         let _: &str = &atom;
     }
 
     #[test]
     fn ensure_as_ref() {
         // Ensure we can as_ref to a &str
-        let atom = Atom::from_slice("foobar");
+        let atom = Atom::from("foobar");
         let _: &str = atom.as_ref();
     }
 

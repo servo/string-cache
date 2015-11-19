@@ -42,27 +42,27 @@ mod tests {
 
     #[test]
     fn ns_macro() {
-        assert_eq!(ns!(""),     Namespace(Atom::from_slice("")));
+        assert_eq!(ns!(""),     Namespace(Atom::from("")));
 
-        assert_eq!(ns!(html),   Namespace(Atom::from_slice("http://www.w3.org/1999/xhtml")));
-        assert_eq!(ns!(xml),    Namespace(Atom::from_slice("http://www.w3.org/XML/1998/namespace")));
-        assert_eq!(ns!(xmlns),  Namespace(Atom::from_slice("http://www.w3.org/2000/xmlns/")));
-        assert_eq!(ns!(xlink),  Namespace(Atom::from_slice("http://www.w3.org/1999/xlink")));
-        assert_eq!(ns!(svg),    Namespace(Atom::from_slice("http://www.w3.org/2000/svg")));
-        assert_eq!(ns!(mathml), Namespace(Atom::from_slice("http://www.w3.org/1998/Math/MathML")));
+        assert_eq!(ns!(html),   Namespace(Atom::from("http://www.w3.org/1999/xhtml")));
+        assert_eq!(ns!(xml),    Namespace(Atom::from("http://www.w3.org/XML/1998/namespace")));
+        assert_eq!(ns!(xmlns),  Namespace(Atom::from("http://www.w3.org/2000/xmlns/")));
+        assert_eq!(ns!(xlink),  Namespace(Atom::from("http://www.w3.org/1999/xlink")));
+        assert_eq!(ns!(svg),    Namespace(Atom::from("http://www.w3.org/2000/svg")));
+        assert_eq!(ns!(mathml), Namespace(Atom::from("http://www.w3.org/1998/Math/MathML")));
 
-        assert_eq!(ns!(HtMl),   Namespace(Atom::from_slice("http://www.w3.org/1999/xhtml")));
-        assert_eq!(ns!(xMl),    Namespace(Atom::from_slice("http://www.w3.org/XML/1998/namespace")));
-        assert_eq!(ns!(XmLnS),  Namespace(Atom::from_slice("http://www.w3.org/2000/xmlns/")));
-        assert_eq!(ns!(xLiNk),  Namespace(Atom::from_slice("http://www.w3.org/1999/xlink")));
-        assert_eq!(ns!(SvG),    Namespace(Atom::from_slice("http://www.w3.org/2000/svg")));
-        assert_eq!(ns!(mAtHmL), Namespace(Atom::from_slice("http://www.w3.org/1998/Math/MathML")));
+        assert_eq!(ns!(HtMl),   Namespace(Atom::from("http://www.w3.org/1999/xhtml")));
+        assert_eq!(ns!(xMl),    Namespace(Atom::from("http://www.w3.org/XML/1998/namespace")));
+        assert_eq!(ns!(XmLnS),  Namespace(Atom::from("http://www.w3.org/2000/xmlns/")));
+        assert_eq!(ns!(xLiNk),  Namespace(Atom::from("http://www.w3.org/1999/xlink")));
+        assert_eq!(ns!(SvG),    Namespace(Atom::from("http://www.w3.org/2000/svg")));
+        assert_eq!(ns!(mAtHmL), Namespace(Atom::from("http://www.w3.org/1998/Math/MathML")));
     }
 
     #[test]
     fn qualname() {
         assert_eq!(QualName::new(ns!(""), atom!("")),
-            QualName { ns: ns!(""), local: Atom::from_slice("") });
+            QualName { ns: ns!(""), local: Atom::from("") });
         assert_eq!(QualName::new(ns!(XML), atom!(base)),
             QualName { ns: ns!(XML), local: atom!(base) });
     }
