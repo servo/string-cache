@@ -161,23 +161,6 @@ impl Atom {
         log!(Event::Intern(data));
         Atom { data: data }
     }
-
-    #[inline]
-    pub fn as_slice<'t>(&'t self) -> &'t str {
-        unsafe {
-            match self.unpack() {
-                Inline(..) => {
-                    let buf = string_cache_shared::inline_orig_bytes(&self.data);
-                    str::from_utf8(buf).unwrap()
-                },
-                Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
-                Dynamic(entry) => {
-                    let entry = entry as *mut StringCacheEntry;
-                    &(*entry).string
-                }
-            }
-        }
-    }
 }
 
 impl Clone for Atom {
@@ -226,7 +209,19 @@ impl ops::Deref for Atom {
 
     #[inline]
     fn deref(&self) -> &str {
-        self.as_slice()
+        unsafe {
+            match self.unpack() {
+                Inline(..) => {
+                    let buf = string_cache_shared::inline_orig_bytes(&self.data);
+                    str::from_utf8(buf).unwrap()
+                },
+                Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
+                Dynamic(entry) => {
+                    let entry = entry as *mut StringCacheEntry;
+                    &(*entry).string
+                }
+            }
+        }
     }
 }
 
@@ -248,7 +243,7 @@ impl fmt::Debug for Atom {
             }
         };
 
-        write!(f, "Atom('{}' type={})", self.as_slice(), ty_str)
+        write!(f, "Atom('{}' type={})", &*self, ty_str)
     }
 }
 
@@ -258,7 +253,7 @@ impl PartialOrd for Atom {
         if self.data == other.data {
             return Some(Equal);
         }
-        self.as_slice().partial_cmp(other.as_slice())
+        self.as_ref().partial_cmp(other.as_ref())
     }
 }
 
@@ -268,7 +263,7 @@ impl Ord for Atom {
         if self.data == other.data {
             return Equal;
         }
-        self.as_slice().cmp(other.as_slice())
+        self.as_ref().cmp(other.as_ref())
     }
 }
 
@@ -305,22 +300,22 @@ mod tests {
     #[test]
     fn test_as_slice() {
         let s0 = Atom::from_slice("");
-        assert!(s0.as_slice() == "");
+        assert!(s0.as_ref() == "");
 
         let s1 = Atom::from_slice("class");
-        assert!(s1.as_slice() == "class");
+        assert!(s1.as_ref() == "class");
 
         let i0 = Atom::from_slice("blah");
-        assert!(i0.as_slice() == "blah");
+        assert!(i0.as_ref() == "blah");
 
         let s0 = Atom::from_slice("BLAH");
-        assert!(s0.as_slice() == "BLAH");
+        assert!(s0.as_ref() == "BLAH");
 
         let d0 = Atom::from_slice("zzzzzzzzzz");
-        assert!(d0.as_slice() == "zzzzzzzzzz");
+        assert!(d0.as_ref() == "zzzzzzzzzz");
 
         let d1 = Atom::from_slice("ZZZZZZZZZZ");
-        assert!(d1.as_slice() == "ZZZZZZZZZZ");
+        assert!(d1.as_ref() == "ZZZZZZZZZZ");
     }
 
     macro_rules! unpacks_to (($e:expr, $t:pat) => (
