@@ -1,60 +1,73 @@
-extern crate string_cache_shared;
+extern crate phf_shared;
+extern crate phf_generator;
 
-use string_cache_shared::{STATIC_ATOM_SET, ALL_NS, pack_static};
+#[path = "src/shared.rs"] #[allow(dead_code)] mod shared;
+#[path = "src/static_atom_list.rs"] mod static_atom_list;
 
 use std::env;
-use std::ascii::AsciiExt;
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::mem;
 use std::path::Path;
+use std::slice;
 
 fn main() {
-    let path = Path::new(&env::var("OUT_DIR").unwrap()).join("ns_atom_macros_without_plugin.rs");
+    let hash_state = generate();
+    write_static_atom_set(&hash_state);
+    write_atom_macro(&hash_state);
+}
+
+fn generate() -> phf_generator::HashState {
+    let mut set = std::collections::HashSet::new();
+    for atom in static_atom_list::ATOMS {
+        if !set.insert(atom) {
+            panic!("duplicate static atom `{:?}`", atom);
+        }
+    }
+    phf_generator::generate_hash(static_atom_list::ATOMS)
+}
+
+fn write_static_atom_set(hash_state: &phf_generator::HashState) {
+    let path = Path::new(&std::env::var("OUT_DIR").unwrap()).join("static_atom_set.rs");
+    let mut file = BufWriter::new(File::create(&path).unwrap());
+    macro_rules! w {
+        ($($arg: expr),+) => { (writeln!(&mut file, $($arg),+).unwrap()) }
+    }
+    w!("pub static STATIC_ATOM_SET: StaticAtomSet = StaticAtomSet {{");
+    w!("    key: {},", hash_state.key);
+    w!("    disps: &[");
+    for &(d1, d2) in &hash_state.disps {
+        w!("        ({}, {}),", d1, d2);
+    }
+    w!("    ],");
+    w!("    atoms: &[");
+    for &idx in &hash_state.map {
+        w!("        {:?},", static_atom_list::ATOMS[idx]);
+    }
+    w!("    ],");
+    w!("}};");
+}
+
+fn write_atom_macro(hash_state: &phf_generator::HashState) {
+    let set = shared::StaticAtomSet {
+        key: hash_state.key,
+        disps: leak(hash_state.disps.clone()),
+        atoms: leak(hash_state.map.iter().map(|&idx| static_atom_list::ATOMS[idx]).collect()),
+    };
+
+    let path = Path::new(&env::var("OUT_DIR").unwrap()).join("atom_macro.rs");
     let mut file = BufWriter::new(File::create(&path).unwrap());
     writeln!(file, r"#[macro_export]").unwrap();
-    writeln!(file, r"macro_rules! ns {{").unwrap();
-    writeln!(file, "(\"\") => {{ $crate::Namespace({}) }};", atom("")).unwrap();
-    for &(prefix, url) in ALL_NS {
-        if !prefix.is_empty() {
-            generate_combination("".to_owned(), prefix, url, &mut file);
-        }
-    }
-    writeln!(file, r"}}").unwrap();
-
-    writeln!(file, r"#[macro_export]").unwrap();
     writeln!(file, r"macro_rules! atom {{").unwrap();
-    for &s in STATIC_ATOM_SET.iter() {
-        if is_ident(s) {
-            writeln!(file, r"( {} ) => {{ {} }};", s, atom(s)).unwrap();
-        }
-        writeln!(file, r"({:?}) => {{ {} }};", s, atom(s)).unwrap();
+    for &s in set.iter() {
+        let data = shared::pack_static(set.get_index_or_hash(s).unwrap() as u32);
+        writeln!(file, r"({:?}) => {{ $crate::Atom {{ data: 0x{:x} }} }};", s, data).unwrap();
     }
     writeln!(file, r"}}").unwrap();
 }
 
-fn generate_combination(prefix1: String, suffix: &str, url: &str, file: &mut BufWriter<File>) {
-    if suffix.is_empty() {
-        writeln!(file, r"({:?}) => {{ $crate::Namespace({}) }};", prefix1, atom(url)).unwrap();
-        writeln!(file, r"( {} ) => {{ $crate::Namespace({}) }};", prefix1, atom(url)).unwrap();
-    } else {
-        let prefix2 = prefix1.clone();
-        generate_combination(prefix1 + &*suffix[..1].to_ascii_lowercase(), &suffix[1..], url, file);
-        generate_combination(prefix2 + &*suffix[..1].to_ascii_uppercase(), &suffix[1..], url, file);
-    }
-}
-
-fn atom(s: &str) -> String {
-    let data = pack_static(STATIC_ATOM_SET.get_index_or_hash(s).unwrap() as u32);
-    format!("$crate::Atom {{ data: 0x{:x} }}", data)
-}
-
-fn is_ident(s: &str) -> bool {
-    let mut chars = s.chars();
-    !s.is_empty() && match chars.next().unwrap() {
-        'a'...'z' | 'A'...'Z' | '_' => true,
-        _ => false
-    } && chars.all(|c| match c {
-        'a'...'z' | 'A'...'Z' | '_' | '0'...'9' => true,
-        _ => false
-    })
+fn leak<T>(v: Vec<T>) -> &'static [T] {
+    let slice = unsafe { slice::from_raw_parts(v.as_ptr(), v.len()) };
+    mem::forget(v);
+    slice
 }
