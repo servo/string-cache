@@ -740,6 +740,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "notin",
     "notprsubset",
     "notsubset",
+    "novalidate",
     "nowrap",
     "number",
     "numoctaves",
