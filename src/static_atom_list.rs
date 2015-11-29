@@ -494,6 +494,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "format",
     "formenctype",
     "formmethod",
+    "formnovalidate",
     "formtarget",
     "frameborder",
     "framespacing",
