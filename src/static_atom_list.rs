@@ -619,6 +619,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "list-style-type",
     "ln",
     "load",
+    "loadstart",
     "loadend",
     "local",
     "log",
