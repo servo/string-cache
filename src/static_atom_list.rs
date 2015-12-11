@@ -258,6 +258,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "cellpadding",
     "cellspacing",
     "center",
+    "change",
     "char",
     "charoff",
     "charset",
