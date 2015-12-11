@@ -103,6 +103,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "active",
     "actuate",
     "additive",
+    "afterscriptexecute",
     "align",
     "alignment-baseline",
     "alignmentscope",
