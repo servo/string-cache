@@ -927,6 +927,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "rationals",
     "rb",
     "readonly",
+    "readystatechange",
     "real",
     "reals",
     "rect",
