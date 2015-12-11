@@ -215,6 +215,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "bbox",
     "bdi",
     "bdo",
+    "beforescriptexecute",
     "beforeunload",
     "begin",
     "bevelled",
