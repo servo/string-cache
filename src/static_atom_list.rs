@@ -368,6 +368,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "dl",
     "domain",
     "domainofapplication",
+    "DOMContentLoaded",
     "dominant-baseline",
     "draggable",
     "dur",
