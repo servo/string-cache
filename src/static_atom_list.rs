@@ -89,6 +89,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "http://www.w3.org/1998/Math/MathML",
 
     "abbr",
+    "abort",
     "abs",
     "accent",
     "accent-height",
