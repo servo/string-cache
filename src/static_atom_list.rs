@@ -1168,6 +1168,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "v-mathematical",
     "vspace",
     "wbr",
+    "webglcontextcreationerror",
     "week",
     "when",
     "white-space",
