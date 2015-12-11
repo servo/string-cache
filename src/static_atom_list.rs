@@ -1049,6 +1049,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "stop",
     "stop-color",
     "stop-opacity",
+    "storage",
     "stretchy",
     "strike",
     "strikethrough-position",
