@@ -683,6 +683,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "menu",
     "menuitem",
     "merror",
+    "message",
     "metadata",
     "meter",
     "method",
