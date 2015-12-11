@@ -565,6 +565,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "intercept",
     "intersect",
     "interval",
+    "invalid",
     "inverse",
     "irrelevant",
     "isindex",
