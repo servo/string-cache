@@ -17,6 +17,7 @@ use std::ops;
 use std::ptr;
 use std::slice;
 use std::str;
+use std::ascii::AsciiExt;
 use std::cmp::Ordering::{self, Equal};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
@@ -291,6 +292,31 @@ impl Deserialize for Atom {
     fn deserialize<D>(deserializer: &mut D) -> Result<Atom,D::Error> where D: Deserializer {
         let string: String = try!(Deserialize::deserialize(deserializer));
         Ok(Atom::from(&*string))
+    }
+}
+
+// AsciiExt requires mutating methods, so we just implement the non-mutating ones.
+// We don't need to implement is_ascii because there's no performance improvement
+// over the one from &str.
+impl Atom {
+    pub fn to_ascii_uppercase(&self) -> Atom {
+        if self.chars().all(char::is_uppercase) {
+            self.clone()
+        } else {
+            Atom::from(&*((&**self).to_ascii_uppercase()))
+        }
+    }
+
+    pub fn to_ascii_lowercase(&self) -> Atom {
+        if self.chars().all(char::is_lowercase) {
+            self.clone()
+        } else {
+            Atom::from(&*((&**self).to_ascii_lowercase()))
+        }
+    }
+
+    pub fn eq_ignore_ascii_case(&self, other: &Self) -> bool {
+        (self == other) || (&**self).eq_ignore_ascii_case(&**other)
     }
 }
 
@@ -655,4 +681,35 @@ mod tests {
     fn string_cache_entry_alignment_is_sufficient() {
         assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
     }
+
+    #[test]
+    fn test_ascii_lowercase() {
+        assert_eq!(Atom::from("").to_ascii_lowercase(), Atom::from(""));
+        assert_eq!(Atom::from("aZ9").to_ascii_lowercase(), Atom::from("az9"));
+        assert_eq!(Atom::from("The Quick Brown Fox!").to_ascii_lowercase(), Atom::from("the quick brown fox!"));
+        assert_eq!(Atom::from("JE VAIS À PARIS").to_ascii_lowercase(), Atom::from("je vais À paris"));
+    }
+
+    #[test]
+    fn test_ascii_uppercase() {
+        assert_eq!(Atom::from("").to_ascii_uppercase(), Atom::from(""));
+        assert_eq!(Atom::from("aZ9").to_ascii_uppercase(), Atom::from("AZ9"));
+        assert_eq!(Atom::from("The Quick Brown Fox!").to_ascii_uppercase(), Atom::from("THE QUICK BROWN FOX!"));
+        assert_eq!(Atom::from("Je vais à Paris").to_ascii_uppercase(), Atom::from("JE VAIS à PARIS"));
+    }
+
+    #[test]
+    fn test_eq_ignore_ascii_case() {
+        assert!(Atom::from("").eq_ignore_ascii_case(&Atom::from("")));
+        assert!(Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("aZ9")));
+        assert!(Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("Az9")));
+        assert!(Atom::from("The Quick Brown Fox!").eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!")));
+        assert!(Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("je VAIS à PARIS")));
+        assert!(!Atom::from("").eq_ignore_ascii_case(&Atom::from("az9")));
+        assert!(!Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("")));
+        assert!(!Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("9Za")));
+        assert!(!Atom::from("The Quick Brown Fox!").eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!!")));
+        assert!(!Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("JE vais À paris")));
+    }
+
 }
