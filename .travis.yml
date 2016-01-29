@@ -13,6 +13,8 @@ script:
   - cargo test --features log-events
   - "if [ $TRAVIS_RUST_VERSION = nightly ]; then cargo test --features unstable; fi"
   - "if [ $TRAVIS_RUST_VERSION = nightly ]; then cargo test --features heap_size; fi"
-  - "cd examples/summarize-events/ && cargo build"
+  - "cd examples/summarize-events/ && cargo build && cd ../.."
+  - "cd string-cache-codegen/ && cargo build && cd .."
+  - "cd string-cache-codegen/test/ && cargo test && cd ../.."
 notifications:
   webhooks: http://build.servo.org:54856/travis
