@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+pub use phf; // Expose to users of string_cache_codegen
 use phf_shared;
 
 // FIXME(rust-lang/rust#18153): generate these from an enum
@@ -24,31 +25,10 @@ pub fn pack_static(n: u32) -> u64 {
     (STATIC_TAG as u64) | ((n as u64) << STATIC_SHIFT_BITS)
 }
 
-pub struct StaticAtomSet {
-    pub key: u64,
-    pub disps: &'static [(u32, u32)],
-    pub atoms: &'static [&'static str],
+#[inline(always)]
+pub fn dynamic_hash(s: &str) -> u64 {
+    // First return value of the RNG in phf_generator 0.7.11
+    let key = 1897749892740154578u64;
+    phf_shared::hash(s, key)
 }
 
-impl StaticAtomSet {
-    #[inline]
-    pub fn get_index_or_hash(&self, s: &str) -> Result<u32, u64> {
-        let hash = phf_shared::hash(s, self.key);
-        let index = phf_shared::get_index(hash, self.disps, self.atoms.len());
-        if self.atoms[index as usize] == s {
-            Ok(index)
-        } else {
-            Err(hash)
-        }
-    }
-
-    #[inline]
-    pub fn index(&self, i: u32) -> Option<&'static str> {
-        self.atoms.get(i as usize).map(|&s| s)
-    }
-
-    #[inline]
-    pub fn iter(&self) -> ::std::slice::Iter<&'static str> {
-        self.atoms.iter()
-    }
-}
