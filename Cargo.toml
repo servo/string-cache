@@ -8,6 +8,7 @@ license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/string-cache"
 documentation = "http://doc.servo.org/string_cache/"
 build = "build.rs"
+exclude = ["string-cache-codegen/**/*"]
 
 [lib]
 name = "string_cache"
