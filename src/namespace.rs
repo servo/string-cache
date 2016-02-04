@@ -20,6 +20,7 @@ pub struct Namespace(pub Atom);
 
 /// A name with a namespace.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
+#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct QualName {
     pub ns: Namespace,
     pub local: Atom,
