@@ -56,6 +56,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "param",
     "plaintext",
     "pre",
+    "preload",
     "rp",
     "rt",
     "script",
