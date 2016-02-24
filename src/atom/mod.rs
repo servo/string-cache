@@ -110,7 +110,7 @@ impl StringCache {
         ptr
     }
 
-    fn remove(&mut self, key: u64) {
+    fn remove(&mut self, key: u64) -> String {
         let ptr = key as *mut StringCacheEntry;
         let bucket_index = {
             let value: &StringCacheEntry = unsafe { &*ptr };
@@ -124,16 +124,16 @@ impl StringCache {
         loop {
             let entry_ptr: *mut StringCacheEntry = match current.as_mut() {
                 Some(entry) => &mut **entry,
-                None => break,
+                None => unreachable!(),
             };
             if entry_ptr == ptr {
+                let string = mem::replace(unsafe { &mut (*entry_ptr).string }, "".to_owned());
                 mem::drop(mem::replace(current, unsafe { (*entry_ptr).next_in_bucket.take() }));
-                break;
+                log!(Event::Remove(key));
+                return string;
             }
             current = unsafe { &mut (*entry_ptr).next_in_bucket };
         }
-
-        log!(Event::Remove(key));
     }
 }
 
@@ -192,6 +192,20 @@ impl From<String> for Atom {
     }
 }
 
+impl From<Atom> for String {
+    fn from(atom: Atom) -> String {
+        unsafe {
+            if let Some(entry) = from_packed_dynamic(atom.data) {
+                let entry = entry as *mut StringCacheEntry;
+                if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
+                    return remove_dynamic(atom.data);
+                }
+            }
+        }
+        (&*atom).to_owned()
+    }
+}
+
 impl Clone for Atom {
     #[inline(always)]
     fn clone(&self) -> Atom {
@@ -213,23 +227,23 @@ impl Clone for Atom {
 impl Drop for Atom {
     #[inline]
     fn drop(&mut self) {
-        // Out of line to guide inlining.
-        fn drop_slow(this: &mut Atom) {
-            STRING_CACHE.lock().unwrap().remove(this.data);
-        }
-
         unsafe {
             match from_packed_dynamic(self.data) {
                 Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
-                        drop_slow(self);
+                        remove_dynamic(self.data);
                     }
                 }
                 _ => (),
             }
         }
     }
+}
+
+// Out of line to guide inlining.
+fn remove_dynamic(key: u64) -> String {
+    STRING_CACHE.lock().unwrap().remove(key)
 }
 
 
@@ -735,6 +749,8 @@ mod tests {
 
     #[test]
     fn test_from_string() {
-        assert!(Atom::from("camembert".to_owned()) == Atom::from("camembert"));
+        let camembert = "camembert".to_owned();
+        let ptr = camembert.as_ptr();
+        assert_eq!(String::from(Atom::from(camembert)).as_ptr(), ptr);
     }
 }
