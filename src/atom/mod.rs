@@ -9,6 +9,9 @@
 
 #![allow(non_upper_case_globals)]
 
+#[cfg(feature = "heap_size")]
+use heapsize::HeapSizeOf;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::fmt;
@@ -37,14 +40,34 @@ macro_rules! log (($e:expr) => (()));
 
 const NB_BUCKETS: usize = 1 << 12;  // 4096
 const BUCKET_MASK: u64 = (1 << 12) - 1;
+
 struct StringCache {
     buckets: [Option<Box<StringCacheEntry>>; NB_BUCKETS],
+}
+
+#[cfg(feature = "heap_size")]
+impl HeapSizeOf for StringCache {
+    fn heap_size_of_children(&self) -> usize {
+        self.buckets.iter().fold(0, |size, bucket| size + bucket.heap_size_of_children())
+    }
 }
 
 lazy_static! {
     static ref STRING_CACHE: Mutex<StringCache> = Mutex::new(StringCache::new());
 }
 
+/// A token that represents the heap used by the dynamic string cache.
+#[cfg(feature = "heap_size")]
+pub struct StringCacheHeap;
+
+#[cfg(feature = "heap_size")]
+impl HeapSizeOf for StringCacheHeap {
+    fn heap_size_of_children(&self) -> usize {
+        STRING_CACHE.lock().unwrap().heap_size_of_children()
+    }
+}
+
+#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 struct StringCacheEntry {
     next_in_bucket: Option<Box<StringCacheEntry>>,
     hash: u64,
