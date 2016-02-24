@@ -13,6 +13,7 @@ pub static ATOMS: &'static [&'static str] = &[
 
     "a",
     "address",
+    "after",
     "applet",
     "area",
     "article",
@@ -20,6 +21,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "b",
     "base",
     "basefont",
+    "before",
     "bgsound",
     "big",
     "blockquote",
