@@ -4,6 +4,9 @@ rust:
   - nightly
   - beta
   - stable
+os:
+  - linux
+  - osx
 script:
   - cargo build
   - cargo test
