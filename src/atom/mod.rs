@@ -14,14 +14,15 @@ use heapsize::HeapSizeOf;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use std::ascii::AsciiExt;
+use std::borrow::Cow;
+use std::cmp::Ordering::{self, Equal};
 use std::fmt;
 use std::mem;
 use std::ops;
 use std::ptr;
 use std::slice;
 use std::str;
-use std::ascii::AsciiExt;
-use std::cmp::Ordering::{self, Equal};
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
@@ -76,13 +77,13 @@ struct StringCacheEntry {
 }
 
 impl StringCacheEntry {
-    fn new(next: Option<Box<StringCacheEntry>>, hash: u64, string_to_add: &str)
+    fn new(next: Option<Box<StringCacheEntry>>, hash: u64, string: String)
            -> StringCacheEntry {
         StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
             ref_count: AtomicIsize::new(1),
-            string: String::from(string_to_add),
+            string: string,
         }
     }
 }
@@ -94,14 +95,14 @@ impl StringCache {
         }
     }
 
-    fn add(&mut self, string_to_add: &str, hash: u64) -> *mut StringCacheEntry {
+    fn add(&mut self, string: Cow<str>, hash: u64) -> *mut StringCacheEntry {
         let bucket_index = (hash & BUCKET_MASK) as usize;
         {
             let mut ptr: Option<&mut Box<StringCacheEntry>> =
                 self.buckets[bucket_index].as_mut();
 
             while let Some(entry) = ptr.take() {
-                if entry.hash == hash && entry.string == string_to_add {
+                if entry.hash == hash && entry.string == &*string {
                     if entry.ref_count.fetch_add(1, SeqCst) > 0 {
                         return &mut **entry;
                     }
@@ -117,11 +118,17 @@ impl StringCache {
             }
         }
         debug_assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
+        let string = string.into_owned();
+        let _string_clone = if cfg!(feature = "log-events") {
+            string.clone()
+        } else {
+            "".to_owned()
+        };
         let mut entry = Box::new(StringCacheEntry::new(
-            self.buckets[bucket_index].take(), hash, string_to_add));
+            self.buckets[bucket_index].take(), hash, string));
         let ptr: *mut StringCacheEntry = &mut *entry;
         self.buckets[bucket_index] = Some(entry);
-        log!(Event::Insert(ptr as u64, String::from(string_to_add)));
+        log!(Event::Insert(ptr as u64, _string_clone));
 
         ptr
     }
@@ -171,10 +178,10 @@ impl Atom {
     }
 }
 
-impl<'a> From<&'a str> for Atom {
+impl<'a> From<Cow<'a, str>> for Atom {
     #[inline]
-    fn from(string_to_add: &str) -> Atom {
-        let unpacked = match STATIC_ATOM_SET.get_index_or_hash(string_to_add) {
+    fn from(string_to_add: Cow<'a, str>) -> Atom {
+        let unpacked = match STATIC_ATOM_SET.get_index_or_hash(&*string_to_add) {
             Ok(id) => Static(id as u32),
             Err(hash) => {
                 let len = string_to_add.len();
@@ -191,6 +198,20 @@ impl<'a> From<&'a str> for Atom {
         let data = unsafe { unpacked.pack() };
         log!(Event::Intern(data));
         Atom { data: data }
+    }
+}
+
+impl<'a> From<&'a str> for Atom {
+    #[inline]
+    fn from(string_to_add: &str) -> Atom {
+        Atom::from(Cow::Borrowed(string_to_add))
+    }
+}
+
+impl From<String> for Atom {
+    #[inline]
+    fn from(string_to_add: String) -> Atom {
+        Atom::from(Cow::Owned(string_to_add))
     }
 }
 
@@ -735,4 +756,8 @@ mod tests {
         assert!(!Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("JE vais À paris")));
     }
 
+    #[test]
+    fn test_from_string() {
+        assert!(Atom::from("camembert".to_owned()) == Atom::from("camembert"));
+    }
 }
