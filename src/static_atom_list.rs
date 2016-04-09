@@ -379,6 +379,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "diffuseConstant",
     "dir",
     "direction",
+    "dirname",
     "disabled",
     "discard",
     "display",
