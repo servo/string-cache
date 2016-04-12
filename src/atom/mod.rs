@@ -176,6 +176,10 @@ impl Atom {
     unsafe fn unpack(&self) -> UnpackedAtom {
         UnpackedAtom::from_packed(self.data)
     }
+
+    pub fn get_hash(&self) -> u32 {
+        ((self.data >> 32) ^ self.data) as u32
+    }
 }
 
 impl<'a> From<Cow<'a, str>> for Atom {
