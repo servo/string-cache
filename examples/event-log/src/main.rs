@@ -13,19 +13,21 @@ use string_cache::Atom;
 use string_cache::event;
 
 use std::io;
+use std::io::prelude::*;
 
 fn main() {
     println!("Reading stdin to end of file");
-    let stdin = io::stdin().read_to_string().unwrap();
+    let mut stdin = String::new();
+    io::stdin().read_to_string(&mut stdin).unwrap();
     let mut atoms = vec![];
-    for word in stdin.as_slice().split(|c: char| c.is_whitespace()) {
-        atoms.push(Atom::from_slice(word));
+    for word in stdin.split(|c: char| c.is_whitespace()) {
+        atoms.push(Atom::from(word));
     }
 
-    let log = event::LOG.lock();
+    let log = event::LOG.lock().unwrap();
 
-    println!("Created {:u} atoms, logged {:u} events:", atoms.len(), log.len());
+    println!("Created {} atoms, logged {} events:", atoms.len(), log.len());
     for e in log.iter() {
-        println!("{}", e);
+        println!("{:?}", e);
     }
 }
