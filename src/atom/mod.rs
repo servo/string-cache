@@ -182,6 +182,18 @@ impl Atom {
     }
 }
 
+impl PartialEq<str> for Atom {
+    fn eq(&self, other: &str) -> bool {
+        &self[..] == other
+    }
+}
+
+impl PartialEq<Atom> for str {
+    fn eq(&self, other: &Atom) -> bool {
+        self == &other[..]
+    }
+}
+
 impl<'a> From<Cow<'a, str>> for Atom {
     #[inline]
     fn from(string_to_add: Cow<'a, str>) -> Atom {
