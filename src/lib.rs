@@ -25,8 +25,8 @@
 extern crate serde;
 extern crate phf_shared;
 
-pub use atom::Atom;
-pub use namespace::{Namespace, QualName};
+pub use atom::{Atom, BorrowedAtom};
+pub use namespace::{BorrowedNamespace, Namespace, QualName};
 
 #[macro_export]
 macro_rules! qualname {

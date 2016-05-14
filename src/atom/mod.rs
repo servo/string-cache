@@ -171,6 +171,21 @@ pub struct Atom {
     pub data: u64,
 }
 
+pub struct BorrowedAtom<'a>(pub &'a Atom);
+
+impl<'a> ops::Deref for BorrowedAtom<'a> {
+    type Target = Atom;
+    fn deref(&self) -> &Atom {
+        self.0
+    }
+}
+
+impl<'a> PartialEq<Atom> for BorrowedAtom<'a> {
+    fn eq(&self, other: &Atom) -> bool {
+        self.0 == other
+    }
+}
+
 impl Atom {
     #[inline(always)]
     unsafe fn unpack(&self) -> UnpackedAtom {
@@ -179,6 +194,11 @@ impl Atom {
 
     pub fn get_hash(&self) -> u32 {
         ((self.data >> 32) ^ self.data) as u32
+    }
+
+    pub fn with_str<F, Output>(&self, cb: F) -> Output
+                               where F: FnOnce(&str) -> Output {
+        cb(self)
     }
 }
 
@@ -376,7 +396,11 @@ impl Atom {
     }
 
     pub fn eq_ignore_ascii_case(&self, other: &Self) -> bool {
-        (self == other) || (&**self).eq_ignore_ascii_case(&**other)
+        (self == other) || self.eq_str_ignore_ascii_case(&**other)
+    }
+
+    pub fn eq_str_ignore_ascii_case(&self, other: &str) -> bool {
+        (&**self).eq_ignore_ascii_case(other)
     }
 }
 
