@@ -103,6 +103,13 @@ pub static ATOMS: &'static [&'static str] = &[
     "Netscape",
     "Win32",
 
+    // Font families
+    "serif",
+    "sans-serif",
+    "cursive",
+    "fantasy",
+    "monospace",
+
     "abbr",
     "abort",
     "abs",
@@ -1054,7 +1061,6 @@ pub static ATOMS: &'static [&'static str] = &[
     "sep",
     "separator",
     "separators",
-    "serif",
     "set",
     "setdiff",
     "shape",
