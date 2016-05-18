@@ -10,6 +10,7 @@
 //! **Note:** This may move as string-cache becomes less Web-specific.
 
 use atom::Atom;
+use std::ops;
 
 /// An atom that is meant to represent a namespace in the HTML / XML sense.
 /// Whether a given string represents a namespace is contextual, so this is
@@ -17,6 +18,21 @@ use atom::Atom;
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
 #[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct Namespace(pub Atom);
+
+pub struct BorrowedNamespace<'a>(pub &'a Namespace);
+
+impl<'a> ops::Deref for BorrowedNamespace<'a> {
+    type Target = Namespace;
+    fn deref(&self) -> &Namespace {
+        self.0
+    }
+}
+
+impl<'a> PartialEq<Namespace> for BorrowedNamespace<'a> {
+    fn eq(&self, other: &Namespace) -> bool {
+        self.0 == other
+    }
+}
 
 /// A name with a namespace.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
