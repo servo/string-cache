@@ -49,6 +49,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "marquee",
     "meta",
     "noframes",
+    "nonce",
     "noscript",
     "object",
     "optgroup",
