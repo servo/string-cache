@@ -57,13 +57,36 @@ fn write_atom_macro(hash_state: &phf_generator::HashState) {
 
     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("atom_macro.rs");
     let mut file = BufWriter::new(File::create(&path).unwrap());
-    writeln!(file, r"#[macro_export]").unwrap();
-    writeln!(file, r"macro_rules! atom {{").unwrap();
+    write_macro_header(&mut file);
     for &s in set.iter() {
         let data = shared::pack_static(set.get_index_or_hash(s).unwrap() as u32);
-        writeln!(file, r"({:?}) => {{ $crate::Atom {{ data: 0x{:x} }} }};", s, data).unwrap();
+        write_macro_value(&mut file, s, data);
     }
     writeln!(file, r"}}").unwrap();
+}
+
+#[cfg(feature = "unstable")]
+fn write_macro_header(file: &mut BufWriter<File>) {
+    writeln!(file, r"extern crate core;").unwrap();
+    writeln!(file, r"use core::nonzero::NonZero;").unwrap();
+    writeln!(file, r"#[macro_export]").unwrap();
+    writeln!(file, r"macro_rules! atom {{").unwrap();
+}
+
+#[cfg(not(feature = "unstable"))]
+fn write_macro_header(file: &mut BufWriter<File>) {
+    writeln!(file, r"#[macro_export]").unwrap();
+    writeln!(file, r"macro_rules! atom {{").unwrap();
+}
+
+#[cfg(feature = "unstable")]
+fn write_macro_value(file: &mut BufWriter<File>, s: &str, data: u64) {
+    writeln!(file, r"({:?}) => {{ $crate::Atom {{ data: NonZero::new(0x{:x}) }} }};", s, data).unwrap();
+}
+
+#[cfg(not(feature = "unstable"))]
+fn write_macro_value(file: &mut BufWriter<File>, s: &str, data: u64) {
+    writeln!(file, r"({:?}) => {{ $crate::Atom {{ data: 0x{:x} }} }};", s, data).unwrap();
 }
 
 fn leak<T>(v: Vec<T>) -> &'static [T] {
