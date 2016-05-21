@@ -11,6 +11,8 @@
 
 #[cfg(feature = "heap_size")]
 use heapsize::HeapSizeOf;
+#[cfg(feature = "unstable")]
+use core::nonzero::NonZero;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -168,6 +170,10 @@ impl StringCache {
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
     /// You should not otherwise access this field.
+    #[cfg(feature = "unstable")]
+    pub data: NonZero<u64>,
+
+    #[cfg(not(feature = "unstable"))]
     pub data: u64,
 }
 
@@ -188,10 +194,23 @@ impl<'a> PartialEq<Atom> for BorrowedAtom<'a> {
 
 impl Atom {
     #[inline(always)]
+    #[cfg(feature = "unstable")]
+    unsafe fn unpack(&self) -> UnpackedAtom {
+        UnpackedAtom::from_packed(*self.data)
+    }
+
+    #[inline(always)]
+    #[cfg(not(feature = "unstable"))]
     unsafe fn unpack(&self) -> UnpackedAtom {
         UnpackedAtom::from_packed(self.data)
     }
 
+    #[cfg(feature = "unstable")]
+    pub fn get_hash(&self) -> u32 {
+        ((*self.data >> 32) ^ *self.data) as u32
+    }
+
+    #[cfg(not(feature = "unstable"))]
     pub fn get_hash(&self) -> u32 {
         ((self.data >> 32) ^ self.data) as u32
     }
@@ -216,22 +235,17 @@ impl PartialEq<Atom> for str {
 
 impl<'a> From<Cow<'a, str>> for Atom {
     #[inline]
+    #[cfg(feature = "unstable")]
     fn from(string_to_add: Cow<'a, str>) -> Atom {
-        let unpacked = match STATIC_ATOM_SET.get_index_or_hash(&*string_to_add) {
-            Ok(id) => Static(id as u32),
-            Err(hash) => {
-                let len = string_to_add.len();
-                if len <= MAX_INLINE_LEN {
-                    let mut buf: [u8; 7] = [0; 7];
-                    copy_memory(string_to_add.as_bytes(), &mut buf);
-                    Inline(len as u8, buf)
-                } else {
-                    Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
-                }
-            }
-        };
+        let data = from_cow_string(string_to_add);
+        log!(Event::Intern(data));
+        unsafe { Atom { data: NonZero::new(data) } }
+    }
 
-        let data = unsafe { unpacked.pack() };
+    #[inline]
+    #[cfg(not(feature = "unstable"))]
+    fn from(string_to_add: Cow<'a, str>) -> Atom {
+        let data = from_cow_string(string_to_add);
         log!(Event::Intern(data));
         Atom { data: data }
     }
@@ -253,6 +267,24 @@ impl From<String> for Atom {
 
 impl Clone for Atom {
     #[inline(always)]
+    #[cfg(feature = "unstable")]
+    fn clone(&self) -> Atom {
+        unsafe {
+            match from_packed_dynamic(*self.data) {
+                Some(entry) => {
+                    let entry = entry as *mut StringCacheEntry;
+                    (*entry).ref_count.fetch_add(1, SeqCst);
+                },
+                None => (),
+            }
+        }
+        Atom {
+            data: NonZero::new((*self.data).clone())
+        }
+    }
+
+    #[inline(always)]
+    #[cfg(not(feature = "unstable"))]
     fn clone(&self) -> Atom {
         unsafe {
             match from_packed_dynamic(self.data) {
@@ -271,6 +303,28 @@ impl Clone for Atom {
 
 impl Drop for Atom {
     #[inline]
+    #[cfg(feature = "unstable")]
+    fn drop(&mut self) {
+        // Out of line to guide inlining.
+        fn drop_slow(this: &mut Atom) {
+            STRING_CACHE.lock().unwrap().remove(*this.data);
+        }
+
+        unsafe {
+            match from_packed_dynamic(*self.data) {
+                Some(entry) => {
+                    let entry = entry as *mut StringCacheEntry;
+                    if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
+                        drop_slow(self);
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+
+    #[inline]
+    #[cfg(not(feature = "unstable"))]
     fn drop(&mut self) {
         // Out of line to guide inlining.
         fn drop_slow(this: &mut Atom) {
@@ -478,6 +532,25 @@ impl UnpackedAtom {
     }
 }
 
+#[inline]
+fn from_cow_string<'a>(string_to_add: Cow<'a, str>) -> u64 {
+    let unpacked = match STATIC_ATOM_SET.get_index_or_hash(&*string_to_add) {
+        Ok(id) => Static(id as u32),
+        Err(hash) => {
+            let len = string_to_add.len();
+            if len <= MAX_INLINE_LEN {
+                let mut buf: [u8; 7] = [0; 7];
+                copy_memory(string_to_add.as_bytes(), &mut buf);
+                Inline(len as u8, buf)
+            } else {
+                Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
+            }
+        }
+    };
+
+    unsafe { unpacked.pack() }    
+}
+
 /// Used for a fast path in Clone and Drop.
 #[inline(always)]
 unsafe fn from_packed_dynamic(data: u64) -> Option<*mut ()> {
@@ -529,6 +602,12 @@ mod tests {
     use super::{Atom, StringCacheEntry, STATIC_ATOM_SET};
     use super::UnpackedAtom::{Dynamic, Inline, Static};
     use shared::ENTRY_ALIGNMENT;
+
+    #[cfg(feature = "unstable")]
+    extern crate core;
+
+    #[cfg(feature = "unstable")]
+    use core::nonzero::NonZero;
 
     #[test]
     fn test_as_slice() {
