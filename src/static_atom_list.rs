@@ -892,6 +892,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "onscroll",
     "onselect",
     "onselectstart",
+    "onstatechange",
     "onstart",
     "onstop",
     "onstorage",
