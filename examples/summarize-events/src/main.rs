@@ -88,7 +88,7 @@ fn main() {
 
                     // FIXME: We really shouldn't be allowed to do this. It's a memory-safety
                     // hazard; the field is only public for the atom!() macro.
-                    _ => Atom { data: ev.id }.to_string(),
+                    _ => Atom { unsafe_data: ev.id }.to_string(),
                 };
 
                 match summary.entry(string) {

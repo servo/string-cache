@@ -168,7 +168,8 @@ impl StringCache {
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
     /// You should not otherwise access this field.
-    pub data: u64,
+    #[doc(hidden)]
+    pub unsafe_data: u64,
 }
 
 pub struct BorrowedAtom<'a>(pub &'a Atom);
@@ -189,11 +190,11 @@ impl<'a> PartialEq<Atom> for BorrowedAtom<'a> {
 impl Atom {
     #[inline(always)]
     unsafe fn unpack(&self) -> UnpackedAtom {
-        UnpackedAtom::from_packed(self.data)
+        UnpackedAtom::from_packed(self.unsafe_data)
     }
 
     pub fn get_hash(&self) -> u32 {
-        ((self.data >> 32) ^ self.data) as u32
+        ((self.unsafe_data >> 32) ^ self.unsafe_data) as u32
     }
 
     pub fn with_str<F, Output>(&self, cb: F) -> Output
@@ -233,7 +234,7 @@ impl<'a> From<Cow<'a, str>> for Atom {
 
         let data = unsafe { unpacked.pack() };
         log!(Event::Intern(data));
-        Atom { data: data }
+        Atom { unsafe_data: data }
     }
 }
 
@@ -255,7 +256,7 @@ impl Clone for Atom {
     #[inline(always)]
     fn clone(&self) -> Atom {
         unsafe {
-            match from_packed_dynamic(self.data) {
+            match from_packed_dynamic(self.unsafe_data) {
                 Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     (*entry).ref_count.fetch_add(1, SeqCst);
@@ -264,7 +265,7 @@ impl Clone for Atom {
             }
         }
         Atom {
-            data: self.data
+            unsafe_data: self.unsafe_data
         }
     }
 }
@@ -274,11 +275,11 @@ impl Drop for Atom {
     fn drop(&mut self) {
         // Out of line to guide inlining.
         fn drop_slow(this: &mut Atom) {
-            STRING_CACHE.lock().unwrap().remove(this.data);
+            STRING_CACHE.lock().unwrap().remove(this.unsafe_data);
         }
 
         unsafe {
-            match from_packed_dynamic(self.data) {
+            match from_packed_dynamic(self.unsafe_data) {
                 Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
@@ -300,7 +301,7 @@ impl ops::Deref for Atom {
         unsafe {
             match self.unpack() {
                 Inline(..) => {
-                    let buf = inline_orig_bytes(&self.data);
+                    let buf = inline_orig_bytes(&self.unsafe_data);
                     str::from_utf8(buf).unwrap()
                 },
                 Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
@@ -338,7 +339,7 @@ impl fmt::Debug for Atom {
 impl PartialOrd for Atom {
     #[inline]
     fn partial_cmp(&self, other: &Atom) -> Option<Ordering> {
-        if self.data == other.data {
+        if self.unsafe_data == other.unsafe_data {
             return Some(Equal);
         }
         self.as_ref().partial_cmp(other.as_ref())
@@ -348,7 +349,7 @@ impl PartialOrd for Atom {
 impl Ord for Atom {
     #[inline]
     fn cmp(&self, other: &Atom) -> Ordering {
-        if self.data == other.data {
+        if self.unsafe_data == other.unsafe_data {
             return Equal;
         }
         self.as_ref().cmp(other.as_ref())
@@ -662,14 +663,14 @@ mod tests {
     #[test]
     fn repr() {
         fn check(s: &str, data: u64) {
-            assert_eq_fmt!("0x{:016X}", Atom::from(s).data, data);
+            assert_eq_fmt!("0x{:016X}", Atom::from(s).unsafe_data, data);
         }
 
         fn check_static(s: &str, x: Atom) {
-            assert_eq_fmt!("0x{:016X}", x.data, Atom::from(s).data);
-            assert_eq!(0x2, x.data & 0xFFFF_FFFF);
+            assert_eq_fmt!("0x{:016X}", x.unsafe_data, Atom::from(s).unsafe_data);
+            assert_eq!(0x2, x.unsafe_data & 0xFFFF_FFFF);
             // The index is unspecified by phf.
-            assert!((x.data >> 32) <= STATIC_ATOM_SET.iter().len() as u64);
+            assert!((x.unsafe_data >> 32) <= STATIC_ATOM_SET.iter().len() as u64);
         }
 
         // This test is here to make sure we don't change atom representation
@@ -687,7 +688,7 @@ mod tests {
         check("xyzzy01", 0x3130_797A_7A79_7871);
 
         // Dynamic atoms. This is a pointer so we can't verify every bit.
-        assert_eq!(0x00, Atom::from("a dynamic string").data & 0xf);
+        assert_eq!(0x00, Atom::from("a dynamic string").unsafe_data & 0xf);
     }
 
     #[test]
