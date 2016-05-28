@@ -73,7 +73,7 @@ struct StringCacheEntry {
     next_in_bucket: Option<Box<StringCacheEntry>>,
     hash: u64,
     ref_count: AtomicIsize,
-    string: String,
+    string: Box<str>,
 }
 
 impl StringCacheEntry {
@@ -83,7 +83,7 @@ impl StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
             ref_count: AtomicIsize::new(1),
-            string: string,
+            string: string.into_boxed_str(),
         }
     }
 }
@@ -102,7 +102,7 @@ impl StringCache {
                 self.buckets[bucket_index].as_mut();
 
             while let Some(entry) = ptr.take() {
-                if entry.hash == hash && entry.string == &*string {
+                if entry.hash == hash && &*entry.string == &*string {
                     if entry.ref_count.fetch_add(1, SeqCst) > 0 {
                         return &mut **entry;
                     }
@@ -696,7 +696,7 @@ mod tests {
         // Guard against accidental changes to the sizes of things.
         use std::mem;
         assert_eq!(if cfg!(feature = "unstable") { 8 } else { 16 }, mem::size_of::<super::Atom>());
-        assert_eq!(48, mem::size_of::<super::StringCacheEntry>());
+        assert_eq!(40, mem::size_of::<super::StringCacheEntry>());
     }
 
     #[test]
