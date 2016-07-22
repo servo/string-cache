@@ -19,6 +19,12 @@ use std::ops;
 #[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct Namespace(pub Atom);
 
+impl Default for Namespace {
+    fn default() -> Self {
+        ns!()
+    }
+}
+
 pub struct BorrowedNamespace<'a>(pub &'a Namespace);
 
 impl<'a> ops::Deref for BorrowedNamespace<'a> {
