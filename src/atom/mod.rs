@@ -203,6 +203,12 @@ impl Atom {
     }
 }
 
+impl Default for Atom {
+    fn default() -> Self {
+        atom!("")
+    }
+}
+
 impl PartialEq<str> for Atom {
     fn eq(&self, other: &str) -> bool {
         &self[..] == other
@@ -212,6 +218,12 @@ impl PartialEq<str> for Atom {
 impl PartialEq<Atom> for str {
     fn eq(&self, other: &Atom) -> bool {
         self == &other[..]
+    }
+}
+
+impl PartialEq<String> for Atom {
+    fn eq(&self, other: &String) -> bool {
+        &self[..] == &other[..]
     }
 }
 
