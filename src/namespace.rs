@@ -15,15 +15,9 @@ use std::ops;
 /// An atom that is meant to represent a namespace in the HTML / XML sense.
 /// Whether a given string represents a namespace is contextual, so this is
 /// a transparent wrapper that will not catch all mistakes.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Default)]
 #[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct Namespace(pub Atom);
-
-impl Default for Namespace {
-    fn default() -> Self {
-        ns!()
-    }
-}
 
 pub struct BorrowedNamespace<'a>(pub &'a Namespace);
 
