@@ -29,7 +29,7 @@ heap_size = ["heapsize", "heapsize_plugin"]
 
 [dependencies]
 lazy_static = "0.2"
-serde = ">=0.6, <0.8"
+serde = ">=0.6, <0.9"
 phf_shared = "0.7.4"
 debug_unreachable = "0.1.1"
 
