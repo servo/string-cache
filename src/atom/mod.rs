@@ -9,7 +9,7 @@
 
 #![allow(non_upper_case_globals)]
 
-#[cfg(feature = "heap_size")]
+#[cfg(feature = "heapsize")]
 use heapsize::HeapSizeOf;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -46,7 +46,7 @@ struct StringCache {
     buckets: [Option<Box<StringCacheEntry>>; NB_BUCKETS],
 }
 
-#[cfg(feature = "heap_size")]
+#[cfg(feature = "heapsize")]
 impl HeapSizeOf for StringCache {
     fn heap_size_of_children(&self) -> usize {
         self.buckets.iter().fold(0, |size, bucket| size + bucket.heap_size_of_children())
@@ -58,22 +58,29 @@ lazy_static! {
 }
 
 /// A token that represents the heap used by the dynamic string cache.
-#[cfg(feature = "heap_size")]
+#[cfg(feature = "heapsize")]
 pub struct StringCacheHeap;
 
-#[cfg(feature = "heap_size")]
+#[cfg(feature = "heapsize")]
 impl HeapSizeOf for StringCacheHeap {
     fn heap_size_of_children(&self) -> usize {
         STRING_CACHE.lock().unwrap().heap_size_of_children()
     }
 }
 
-#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 struct StringCacheEntry {
     next_in_bucket: Option<Box<StringCacheEntry>>,
     hash: u64,
     ref_count: AtomicIsize,
     string: Box<str>,
+}
+
+#[cfg(feature = "heapsize")]
+impl HeapSizeOf for StringCacheEntry {
+    fn heap_size_of_children(&self) -> usize {
+        self.next_in_bucket.heap_size_of_children() +
+        self.string.heap_size_of_children()
+    }
 }
 
 impl StringCacheEntry {
@@ -163,7 +170,6 @@ impl StringCache {
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
 #[cfg_attr(feature = "unstable", unsafe_no_drop_flag)]  // See tests::atom_drop_is_idempotent
-#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 #[derive(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
@@ -171,6 +177,9 @@ pub struct Atom {
     #[doc(hidden)]
     pub unsafe_data: u64,
 }
+
+#[cfg(feature = "heapsize")]
+known_heap_size!(0, Atom);
 
 pub struct BorrowedAtom<'a>(pub &'a Atom);
 

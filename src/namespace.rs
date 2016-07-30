@@ -16,8 +16,10 @@ use std::ops;
 /// Whether a given string represents a namespace is contextual, so this is
 /// a transparent wrapper that will not catch all mistakes.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Default)]
-#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct Namespace(pub Atom);
+
+#[cfg(feature = "heapsize")]
+known_heap_size!(0, Namespace);
 
 pub struct BorrowedNamespace<'a>(pub &'a Namespace);
 
@@ -36,11 +38,13 @@ impl<'a> PartialEq<Namespace> for BorrowedNamespace<'a> {
 
 /// A name with a namespace.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
-#[cfg_attr(feature = "heap_size", derive(HeapSizeOf))]
 pub struct QualName {
     pub ns: Namespace,
     pub local: Atom,
 }
+
+#[cfg(feature = "heapsize")]
+known_heap_size!(0, QualName);
 
 impl QualName {
     #[inline]

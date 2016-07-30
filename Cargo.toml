@@ -25,7 +25,7 @@ log-events = ["rustc-serialize"]
 unstable = []
 
 # HeapSizeOf support
-heap_size = ["heapsize", "heapsize_plugin"]
+heap_size = ["heapsize"]
 
 [dependencies]
 lazy_static = "0.2"
@@ -42,10 +42,6 @@ optional = true
 
 [dependencies.heapsize]
 version = ">=0.1.1, <0.4"
-optional = true
-
-[dependencies.heapsize_plugin]
-version = "0.1.4"
 optional = true
 
 [build-dependencies]
