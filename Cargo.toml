@@ -12,9 +12,6 @@ build = "build.rs"
 [lib]
 name = "string_cache"
 
-# https://github.com/rust-lang/cargo/issues/1512
-doctest = false
-
 [features]
 
 # Enable event logging for generating benchmark traces.
