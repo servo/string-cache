@@ -10,6 +10,7 @@
 //! **Note:** This may move as string-cache becomes less Web-specific.
 
 use atom::Atom;
+use std::fmt;
 use std::ops;
 
 /// An atom that is meant to represent a namespace in the HTML / XML sense.
@@ -33,6 +34,13 @@ impl<'a> ops::Deref for BorrowedNamespace<'a> {
 impl<'a> PartialEq<Namespace> for BorrowedNamespace<'a> {
     fn eq(&self, other: &Namespace) -> bool {
         self.0 == other
+    }
+}
+
+impl fmt::Display for Namespace {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        <str as fmt::Display>::fmt(&self.0, f)
     }
 }
 
