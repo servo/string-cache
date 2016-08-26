@@ -11,8 +11,7 @@
 #![crate_type = "rlib"]
 
 #![cfg_attr(test, deny(warnings))]
-#![cfg_attr(all(test, feature = "unstable"), feature(test, filling_drop))]
-#![cfg_attr(feature = "unstable", feature(unsafe_no_drop_flag))]
+#![cfg_attr(all(test, feature = "unstable"), feature(test))]
 
 #[cfg(all(test, feature = "unstable"))] extern crate test;
 #[cfg(feature = "log-events")] extern crate rustc_serialize;
