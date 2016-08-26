@@ -169,7 +169,6 @@ impl StringCache {
 
 // NOTE: Deriving Eq here implies that a given string must always
 // be interned the same way.
-#[cfg_attr(feature = "unstable", unsafe_no_drop_flag)]  // See tests::atom_drop_is_idempotent
 #[derive(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
@@ -714,9 +713,16 @@ mod tests {
 
     #[test]
     fn assert_sizes() {
-        // Guard against accidental changes to the sizes of things.
         use std::mem;
-        assert_eq!(if cfg!(feature = "unstable") { 8 } else { 16 }, mem::size_of::<super::Atom>());
+        struct EmptyWithDrop;
+        impl Drop for EmptyWithDrop {
+            fn drop(&mut self) {}
+        }
+        let compiler_uses_inline_drop_flags = mem::size_of::<EmptyWithDrop>() > 0;
+
+        // Guard against accidental changes to the sizes of things.
+        assert_eq!(mem::size_of::<super::Atom>(),
+                   if compiler_uses_inline_drop_flags { 16 } else { 8 });
         assert_eq!(40, mem::size_of::<super::StringCacheEntry>());
     }
 
@@ -769,18 +775,6 @@ mod tests {
         // Ensure we can as_ref to a &str
         let atom = Atom::from("foobar");
         let _: &str = atom.as_ref();
-    }
-
-    /// Atom uses #[unsafe_no_drop_flag] to stay small, so drop() may be called more than once.
-    /// In calls after the first one, the atom will be filled with a POST_DROP value.
-    /// drop() must be a no-op in this case.
-    #[cfg(feature = "unstable")]
-    #[test]
-    fn atom_drop_is_idempotent() {
-        use super::from_packed_dynamic;
-        unsafe {
-            assert_eq!(from_packed_dynamic(mem::POST_DROP_U64), None);
-        }
     }
 
     #[test]
