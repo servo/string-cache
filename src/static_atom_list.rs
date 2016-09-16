@@ -124,6 +124,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "acronym",
     "action",
     "actiontype",
+    "activate",
     "active",
     "actuate",
     "additive",
