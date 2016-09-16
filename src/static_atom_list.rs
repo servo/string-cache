@@ -815,6 +815,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "ol",
     "on",
     "onabort",
+    "activate",
     "onactivate",
     "onafterprint",
     "onafterupdate",
