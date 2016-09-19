@@ -740,6 +740,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "mi",
     "min",
     "min-height",
+    "minlength",
     "minsize",
     "minus",
     "min-width",
