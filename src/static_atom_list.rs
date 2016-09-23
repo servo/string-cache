@@ -1004,6 +1004,7 @@ pub static ATOMS: &'static [&'static str] = &[
     "real",
     "reals",
     "rect",
+    "referrerpolicy",
     "refx",
     "refX",
     "refy",
