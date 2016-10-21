@@ -322,7 +322,7 @@ impl ops::Deref for Atom {
             match self.unpack() {
                 Inline(..) => {
                     let buf = inline_orig_bytes(&self.unsafe_data);
-                    str::from_utf8(buf).unwrap()
+                    str::from_utf8_unchecked(buf)
                 },
                 Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
                 Dynamic(entry) => {
