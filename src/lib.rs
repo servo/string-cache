@@ -61,13 +61,3 @@ pub mod event;
 pub mod atom;
 pub mod namespace;
 pub mod shared;
-
-// A private module so that macro-expanded idents like
-// `::string_cache::atom::Atom` will also work in this crate.
-//
-// `libstd` uses the same trick.
-#[doc(hidden)]
-mod string_cache {
-    pub use atom;
-    pub use namespace;
-}
