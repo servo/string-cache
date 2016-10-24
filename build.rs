@@ -61,7 +61,12 @@ fn write_atom_macro(hash_state: &phf_generator::HashState) {
     writeln!(file, r"macro_rules! atom {{").unwrap();
     for &s in set.iter() {
         let data = shared::pack_static(set.get_index_or_hash(s).unwrap() as u32);
-        writeln!(file, r"({:?}) => {{ $crate::Atom {{ unsafe_data: 0x{:x} }} }};", s, data).unwrap();
+        writeln!(
+            file,
+            r"({:?}) => {{ $crate::Atom {{ unsafe_data: 0x{:x}, phantom: ::std::marker::PhantomData }} }};",
+            s,
+            data
+        ).unwrap();
     }
     writeln!(file, r"}}").unwrap();
 }

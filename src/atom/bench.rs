@@ -27,8 +27,16 @@ and cheap to move around, which isn't reflected in these tests.
 
 */
 
-use atom::Atom;
+use atom::tests::Atom;
 use test::{Bencher, black_box};
+
+macro_rules! test_atom {
+    ($tt: tt) => {{
+        // Add type annotation to help inference
+        let atom: Atom = atom!($tt);
+        atom
+    }}
+}
 
 // Just shorthand
 fn mk(x: &str) -> Atom {
@@ -134,7 +142,7 @@ macro_rules! bench_all (
             use std::string::ToString;
             use std::iter::repeat;
 
-            use atom::Atom;
+            use atom::tests::Atom;
             use atom::UnpackedAtom::{Static, Inline, Dynamic};
 
             use super::mk;
@@ -157,7 +165,7 @@ bench_all!([eq ne lt clone_string]
     for longer_string = super::longer_dynamic_a, super::longer_dynamic_b);
 
 bench_all!([eq ne intern as_ref clone is_static lt]
-    for static_atom = atom!("a"), atom!("b"));
+    for static_atom = test_atom!("a"), test_atom!("b"));
 
 bench_all!([intern as_ref clone is_inline]
     for short_inline_atom = mk("e"), mk("f"));
@@ -175,10 +183,10 @@ bench_all!([intern as_ref clone is_static]
     for static_at_runtime = mk("a"), mk("b"));
 
 bench_all!([ne lt x_static y_inline]
-    for static_vs_inline  = atom!("a"), mk("f"));
+    for static_vs_inline  = test_atom!("a"), mk("f"));
 
 bench_all!([ne lt x_static y_dynamic]
-    for static_vs_dynamic = atom!("a"), mk(super::longer_dynamic_b));
+    for static_vs_dynamic = test_atom!("a"), mk(super::longer_dynamic_b));
 
 bench_all!([ne lt x_inline y_dynamic]
     for inline_vs_dynamic = mk("e"), mk(super::longer_dynamic_b));
