@@ -18,6 +18,7 @@ use std::ascii::AsciiExt;
 use std::borrow::Cow;
 use std::cmp::Ordering::{self, Equal};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::mem;
 use std::ops;
 use std::ptr;
@@ -167,9 +168,6 @@ impl StringCache {
     }
 }
 
-// NOTE: Deriving Eq here implies that a given string must always
-// be interned the same way.
-#[derive(Eq, Hash, PartialEq)]
 pub struct Atom {
     /// This field is public so that the `atom!()` macro can use it.
     /// You should not otherwise access this field.
@@ -199,6 +197,23 @@ impl Atom {
 impl Default for Atom {
     fn default() -> Self {
         atom!("")
+    }
+}
+
+impl Hash for Atom {
+    #[inline]
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
+        self.unsafe_data.hash(state)
+    }
+}
+
+impl Eq for Atom {}
+
+impl PartialEq for Atom {
+// NOTE: This impl requires that a given string must always be interned the same way.
+    #[inline]
+    fn eq(&self, other: &Atom) -> bool {
+        self.unsafe_data == other.unsafe_data
     }
 }
 
@@ -296,7 +311,6 @@ impl Drop for Atom {
         }
     }
 }
-
 
 impl ops::Deref for Atom {
     type Target = str;
