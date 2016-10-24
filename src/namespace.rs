@@ -11,7 +11,6 @@
 
 use atom::Atom;
 use std::fmt;
-use std::ops;
 
 /// An atom that is meant to represent a namespace in the HTML / XML sense.
 /// Whether a given string represents a namespace is contextual, so this is
@@ -21,21 +20,6 @@ pub struct Namespace(pub Atom);
 
 #[cfg(feature = "heapsize")]
 known_heap_size!(0, Namespace);
-
-pub struct BorrowedNamespace<'a>(pub &'a Namespace);
-
-impl<'a> ops::Deref for BorrowedNamespace<'a> {
-    type Target = Namespace;
-    fn deref(&self) -> &Namespace {
-        self.0
-    }
-}
-
-impl<'a> PartialEq<Namespace> for BorrowedNamespace<'a> {
-    fn eq(&self, other: &Namespace) -> bool {
-        self.0 == other
-    }
-}
 
 impl fmt::Display for Namespace {
     #[inline]

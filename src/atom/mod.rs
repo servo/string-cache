@@ -180,21 +180,6 @@ pub struct Atom {
 #[cfg(feature = "heapsize")]
 known_heap_size!(0, Atom);
 
-pub struct BorrowedAtom<'a>(pub &'a Atom);
-
-impl<'a> ops::Deref for BorrowedAtom<'a> {
-    type Target = Atom;
-    fn deref(&self) -> &Atom {
-        self.0
-    }
-}
-
-impl<'a> PartialEq<Atom> for BorrowedAtom<'a> {
-    fn eq(&self, other: &Atom) -> bool {
-        self.0 == other
-    }
-}
-
 impl Atom {
     #[inline(always)]
     unsafe fn unpack(&self) -> UnpackedAtom {
