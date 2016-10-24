@@ -23,34 +23,6 @@ extern crate serde;
 extern crate phf_shared;
 
 pub use atom::Atom;
-pub use namespace::{Namespace, QualName};
-
-#[macro_export]
-macro_rules! qualname {
-    ("", $local:tt) => {
-        $crate::namespace::QualName {
-            ns: ns!(),
-            local: atom!($local),
-        }
-    };
-    ($ns:tt, $local:tt) => {
-        $crate::namespace::QualName {
-            ns: ns!($ns),
-            local: atom!($local),
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! ns {
-    () => { $crate::Namespace(atom!("")) };
-    (html) => { $crate::Namespace(atom!("http://www.w3.org/1999/xhtml")) };
-    (xml) => { $crate::Namespace(atom!("http://www.w3.org/XML/1998/namespace")) };
-    (xmlns) => { $crate::Namespace(atom!("http://www.w3.org/2000/xmlns/")) };
-    (xlink) => { $crate::Namespace(atom!("http://www.w3.org/1999/xlink")) };
-    (svg) => { $crate::Namespace(atom!("http://www.w3.org/2000/svg")) };
-    (mathml) => { $crate::Namespace(atom!("http://www.w3.org/1998/Math/MathML")) };
-}
 
 include!(concat!(env!("OUT_DIR"), "/atom_macro.rs"));
 
@@ -59,5 +31,4 @@ include!(concat!(env!("OUT_DIR"), "/atom_macro.rs"));
 pub mod event;
 
 pub mod atom;
-pub mod namespace;
 pub mod shared;
