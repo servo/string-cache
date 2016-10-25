@@ -13,6 +13,7 @@ script:
   - cargo test --features log-events
   - "if [ $TRAVIS_RUST_VERSION = nightly ]; then cargo test --features unstable; fi"
   - cargo test --features heapsize
+  - "cd string-cache-codegen/ && cargo build && cd .."
   - "cd examples/event-log/ && cargo build && cd ../.."
   - "cd examples/summarize-events/ && cargo build && cd ../.."
 notifications:

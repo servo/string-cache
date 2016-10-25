@@ -27,20 +27,12 @@ and cheap to move around, which isn't reflected in these tests.
 
 */
 
-use atom::tests::Atom;
+use atom::tests::TestAtom;
 use test::{Bencher, black_box};
 
-macro_rules! test_atom {
-    ($tt: tt) => {{
-        // Add type annotation to help inference
-        let atom: Atom = atom!($tt);
-        atom
-    }}
-}
-
 // Just shorthand
-fn mk(x: &str) -> Atom {
-    Atom::from(x)
+fn mk(x: &str) -> TestAtom {
+    TestAtom::from(x)
 }
 
 macro_rules! check_type (($name:ident, $x:expr, $p:pat) => (
@@ -89,7 +81,7 @@ macro_rules! bench_one (
         fn intern(b: &mut Bencher) {
             let x = $x.to_string();
             b.iter(|| {
-                black_box(Atom::from(&*x));
+                black_box(TestAtom::from(&*x));
             });
         }
     );
@@ -142,7 +134,7 @@ macro_rules! bench_all (
             use std::string::ToString;
             use std::iter::repeat;
 
-            use atom::tests::Atom;
+            use atom::tests::TestAtom;
             use atom::UnpackedAtom::{Static, Inline, Dynamic};
 
             use super::mk;
@@ -213,7 +205,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
                 *n = (*n % 0x40) + 0x20;
             }
             let s = str::from_utf8(&buf[..]).unwrap();
-            black_box(Atom::from(s));
+            black_box(TestAtom::from(s));
         });
     }
 ));
