@@ -564,6 +564,7 @@ fn copy_memory(src: &[u8], dst: &mut [u8]) {
 }
 
 #[cfg(all(test, feature = "unstable"))]
+#[path = "bench.rs"]
 mod bench;
 
 #[cfg(test)]
