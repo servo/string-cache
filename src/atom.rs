@@ -170,6 +170,7 @@ impl StringCache {
 
 pub trait StaticAtomSet {
     fn get() -> &'static PhfStrSet;
+    fn empty_string_index() -> u32;
 }
 
 pub struct PhfStrSet {
@@ -190,6 +191,10 @@ impl StaticAtomSet for EmptyStaticAtomSet {
             atoms: &[""],
         };
         &SET
+    }
+
+    fn empty_string_index() -> u32 {
+        0
     }
 }
 
@@ -231,8 +236,12 @@ impl<Static: StaticAtomSet> Atom<Static> {
 }
 
 impl<Static: StaticAtomSet> Default for Atom<Static> {
+    #[inline]
     fn default() -> Self {
-        Self::from("")
+        Atom {
+            unsafe_data: pack_static(Static::empty_string_index()),
+            phantom: PhantomData
+        }
     }
 }
 
@@ -661,6 +670,12 @@ mod tests {
         assert!(s0 != i0);
         assert!(s0 != d0);
         assert!(i0 != d0);
+    }
+
+    #[test]
+    fn default() {
+        assert_eq!(TestAtom::default(), test_atom!(""));
+        assert_eq!(&*TestAtom::default(), "");
     }
 
     #[test]

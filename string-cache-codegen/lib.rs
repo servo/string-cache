@@ -46,13 +46,11 @@ impl AtomType {
     ///    // Expands to: $crate::foo::FooAtom { … }
     /// }
     pub fn new(path: &str, macro_name: &str) -> Self {
-        let mut set = HashSet::new();
-        set.insert(String::new());  // rust-phf requires a non-empty set
-        assert!(macro_name.ends_with('!'));
+        assert!(macro_name.ends_with("!"));
         AtomType {
             path: path.to_owned(),
-            macro_name: macro_name[..macro_name.len() - 1].to_owned(),
-            atoms: set,
+            macro_name: macro_name[..macro_name.len() - "!".len()].to_owned(),
+            atoms: HashSet::new(),
         }
     }
 
@@ -70,10 +68,16 @@ impl AtomType {
     }
 
     /// Write generated code to `destination`.
-    pub fn write_to<W>(&self, mut destination: W) -> io::Result<()> where W: Write {
+    pub fn write_to<W>(&mut self, mut destination: W) -> io::Result<()> where W: Write {
+        // `impl Default for Atom` requires the empty string to be in the static set.
+        // This also makes sure the set in non-empty,
+        // which would cause divisions by zero in rust-phf.
+        self.atoms.insert(String::new());
+
         let atoms: Vec<&str> = self.atoms.iter().map(|s| &**s).collect();
         let hash_state = phf_generator::generate_hash(&atoms);
         let atoms: Vec<&str> = hash_state.map.iter().map(|&idx| atoms[idx]).collect();
+        let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap();
 
         let type_name = if let Some(position) = self.path.rfind("::") {
             &self.path[position + "::".len() ..]
@@ -90,11 +94,14 @@ impl AtomType {
         w!("impl ::string_cache::StaticAtomSet for {}StaticSet {{", type_name);
         w!("    fn get() -> &'static ::string_cache::PhfStrSet {{");
         w!("        static SET: ::string_cache::PhfStrSet = ::string_cache::PhfStrSet {{");
-        w!("            key: {:#?},", hash_state.key);
+        w!("            key: {},", hash_state.key);
         w!("            disps: &{:?},", hash_state.disps);
         w!("            atoms: &{:#?},", atoms);
         w!("        }};");
         w!("        &SET");
+        w!("    }}");
+        w!("    fn empty_string_index() -> u32 {{");
+        w!("        {}", empty_string_index);
         w!("    }}");
         w!("}}");
         w!("#[macro_export]");
@@ -114,7 +121,7 @@ impl AtomType {
     ///
     /// Typical usage:
     /// `.write_to_file(&Path::new(&env::var("OUT_DIR").unwrap()).join("foo_atom.rs"))`
-    pub fn write_to_file(&self, path: &Path) -> io::Result<()> {
+    pub fn write_to_file(&mut self, path: &Path) -> io::Result<()> {
         self.write_to(BufWriter::new(try!(File::create(path))))
     }
 }
