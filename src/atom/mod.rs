@@ -723,7 +723,8 @@ mod tests {
         // Guard against accidental changes to the sizes of things.
         assert_eq!(mem::size_of::<super::Atom>(),
                    if compiler_uses_inline_drop_flags { 16 } else { 8 });
-        assert_eq!(40, mem::size_of::<super::StringCacheEntry>());
+        assert_eq!(mem::size_of::<super::StringCacheEntry>(),
+                   8 + 4 * mem::size_of::<usize>());
     }
 
     #[test]
