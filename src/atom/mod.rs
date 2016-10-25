@@ -169,7 +169,9 @@ impl StringCache {
     }
 }
 
-pub trait StaticAtomSet {}
+pub trait StaticAtomSet {
+    fn get() -> &'static PhfStrSet;
+}
 
 pub struct Atom<Static: StaticAtomSet> {
     /// This field is public so that the `atom!()` macro can use it.
@@ -249,7 +251,7 @@ impl<Static: StaticAtomSet> PartialEq<String> for Atom<Static> {
 impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
     #[inline]
     fn from(string_to_add: Cow<'a, str>) -> Self {
-        let unpacked = match STATIC_ATOM_SET.get_index_or_hash(&*string_to_add) {
+        let unpacked = match Static::get().get_index_or_hash(&*string_to_add) {
             Ok(id) => Static(id as u32),
             Err(hash) => {
                 let len = string_to_add.len();
@@ -335,7 +337,7 @@ impl<Static: StaticAtomSet> ops::Deref for Atom<Static> {
                     let buf = inline_orig_bytes(&self.unsafe_data);
                     str::from_utf8_unchecked(buf)
                 },
-                Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
+                Static(idx) => Static::get().index(idx).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string
@@ -561,11 +563,15 @@ mod tests {
     use super::Atom as GenericAtom;
     use super::{StaticAtomSet, StringCacheEntry, STATIC_ATOM_SET};
     use super::UnpackedAtom::{Dynamic, Inline, Static};
-    use shared::ENTRY_ALIGNMENT;
+    use shared::{ENTRY_ALIGNMENT, PhfStrSet};
 
-    pub type Atom = GenericAtom<DummyStatic>;
-    pub struct DummyStatic;
-    impl StaticAtomSet for DummyStatic {}
+    pub type Atom = GenericAtom<DefaultStatic>;
+    pub struct DefaultStatic;
+    impl StaticAtomSet for DefaultStatic {
+        fn get() -> &'static PhfStrSet {
+            &STATIC_ATOM_SET
+        }
+    }
 
     #[test]
     fn test_as_slice() {
@@ -706,7 +712,7 @@ mod tests {
             assert_eq_fmt!("0x{:016X}", x.unsafe_data, Atom::from(s).unsafe_data);
             assert_eq!(0x2, x.unsafe_data & 0xFFFF_FFFF);
             // The index is unspecified by phf.
-            assert!((x.unsafe_data >> 32) <= STATIC_ATOM_SET.iter().len() as u64);
+            assert!((x.unsafe_data >> 32) <= DefaultStatic::get().iter().len() as u64);
         }
 
         // This test is here to make sure we don't change atom representation
