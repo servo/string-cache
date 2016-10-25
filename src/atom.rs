@@ -180,6 +180,24 @@ pub struct PhfStrSet {
     pub atoms: &'static [&'static str],
 }
 
+pub struct EmptyStaticAtomSet;
+
+impl StaticAtomSet for EmptyStaticAtomSet {
+    fn get() -> &'static PhfStrSet {
+        // The name is a lie: this set is not empty (it contains the empty string)
+        // but that’s only to avoid divisions by zero in rust-phf.
+        static SET: PhfStrSet = PhfStrSet {
+            key: 0,
+            disps: &[(0, 0)],
+            atoms: &[""],
+        };
+        &SET
+    }
+}
+
+/// Use this if you don’t care about static atoms.
+pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
+
 pub struct Atom<Static: StaticAtomSet> {
     /// This field is public so that the `atom!()` macro can use it.
     /// You should not otherwise access this field.
