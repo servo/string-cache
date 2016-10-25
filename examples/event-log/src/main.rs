@@ -9,7 +9,7 @@
 
 extern crate string_cache;
 
-use string_cache::Atom;
+use string_cache::DefaultAtom;
 use string_cache::event;
 
 use std::io;
@@ -21,7 +21,7 @@ fn main() {
     io::stdin().read_to_string(&mut stdin).unwrap();
     let mut atoms = vec![];
     for word in stdin.split(|c: char| c.is_whitespace()) {
-        atoms.push(Atom::from(word));
+        atoms.push(DefaultAtom::from(word));
     }
 
     let log = event::LOG.lock().unwrap();
