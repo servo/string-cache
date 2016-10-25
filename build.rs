@@ -33,7 +33,7 @@ fn write_static_atom_set(hash_state: &phf_generator::HashState) {
     macro_rules! w {
         ($($arg: expr),+) => { (writeln!(&mut file, $($arg),+).unwrap()) }
     }
-    w!("pub static STATIC_ATOM_SET: StaticAtomSet = StaticAtomSet {{");
+    w!("pub static STATIC_ATOM_SET: PhfStrSet = PhfStrSet {{");
     w!("    key: {},", hash_state.key);
     w!("    disps: &[");
     for &(d1, d2) in &hash_state.disps {
@@ -49,7 +49,7 @@ fn write_static_atom_set(hash_state: &phf_generator::HashState) {
 }
 
 fn write_atom_macro(hash_state: &phf_generator::HashState) {
-    let set = shared::StaticAtomSet {
+    let set = shared::PhfStrSet {
         key: hash_state.key,
         disps: leak(hash_state.disps.clone()),
         atoms: leak(hash_state.map.iter().map(|&idx| static_atom_list::ATOMS[idx]).collect()),

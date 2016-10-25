@@ -29,7 +29,7 @@ use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
 use shared::{STATIC_TAG, INLINE_TAG, DYNAMIC_TAG, TAG_MASK, MAX_INLINE_LEN, STATIC_SHIFT_BITS,
-             ENTRY_ALIGNMENT, pack_static, StaticAtomSet};
+             ENTRY_ALIGNMENT, pack_static, PhfStrSet};
 use self::UnpackedAtom::{Dynamic, Inline, Static};
 
 #[cfg(feature = "log-events")]

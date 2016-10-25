@@ -24,13 +24,13 @@ pub fn pack_static(n: u32) -> u64 {
     (STATIC_TAG as u64) | ((n as u64) << STATIC_SHIFT_BITS)
 }
 
-pub struct StaticAtomSet {
+pub struct PhfStrSet {
     pub key: u64,
     pub disps: &'static [(u32, u32)],
     pub atoms: &'static [&'static str],
 }
 
-impl StaticAtomSet {
+impl PhfStrSet {
     #[inline]
     pub fn get_index_or_hash(&self, s: &str) -> Result<u32, u64> {
         let hash = phf_shared::hash(s, self.key);
