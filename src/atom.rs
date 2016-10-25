@@ -37,8 +37,6 @@ use self::UnpackedAtom::{Dynamic, Inline, Static};
 #[cfg(feature = "log-events")]
 use event::Event;
 
-include!(concat!(env!("OUT_DIR"), "/static_atom_set.rs"));
-
 #[cfg(not(feature = "log-events"))]
 macro_rules! log (($e:expr) => (()));
 
@@ -199,7 +197,7 @@ impl StaticAtomSet for EmptyStaticAtomSet {
 pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
 
 pub struct Atom<Static: StaticAtomSet> {
-    /// This field is public so that the `atom!()` macro can use it.
+    /// This field is public so that the `atom!()` macros can use it.
     /// You should not otherwise access this field.
     #[doc(hidden)]
     pub unsafe_data: u64,
@@ -234,7 +232,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
 
 impl<Static: StaticAtomSet> Default for Atom<Static> {
     fn default() -> Self {
-        atom!("")
+        Self::from("")
     }
 }
 
@@ -581,26 +579,17 @@ fn copy_memory(src: &[u8], dst: &mut [u8]) {
     }
 }
 
-#[cfg(all(test, feature = "unstable"))]
-#[path = "bench.rs"]
-mod bench;
-
 #[cfg(test)]
+#[macro_use]
 mod tests {
     use std::mem;
     use std::thread;
-    use super::Atom as GenericAtom;
-    use super::{StaticAtomSet, StringCacheEntry, STATIC_ATOM_SET, PhfStrSet};
+    use super::{StaticAtomSet, StringCacheEntry};
     use super::UnpackedAtom::{Dynamic, Inline, Static};
     use shared::ENTRY_ALIGNMENT;
 
-    pub type Atom = GenericAtom<DefaultStatic>;
-    pub struct DefaultStatic;
-    impl StaticAtomSet for DefaultStatic {
-        fn get() -> &'static PhfStrSet {
-            &STATIC_ATOM_SET
-        }
-    }
+    include!(concat!(env!("OUT_DIR"), "/test_atom.rs"));
+    pub type Atom = TestAtom;
 
     #[test]
     fn test_as_slice() {
@@ -741,7 +730,7 @@ mod tests {
             assert_eq_fmt!("0x{:016X}", x.unsafe_data, Atom::from(s).unsafe_data);
             assert_eq!(0x2, x.unsafe_data & 0xFFFF_FFFF);
             // The index is unspecified by phf.
-            assert!((x.unsafe_data >> 32) <= DefaultStatic::get().atoms.len() as u64);
+            assert!((x.unsafe_data >> 32) <= TestAtomStaticSet::get().atoms.len() as u64);
         }
 
         // This test is here to make sure we don't change atom representation
@@ -749,9 +738,9 @@ mod tests {
         // static atom table, the tag values, etc.
 
         // Static atoms
-        check_static("a",       atom!("a"));
-        check_static("address", atom!("address"));
-        check_static("area",    atom!("area"));
+        check_static("a",       test_atom!("a"));
+        check_static("address", test_atom!("address"));
+        check_static("area",    test_atom!("area"));
 
         // Inline atoms
         check("e",       0x0000_0000_0000_6511);
@@ -790,27 +779,27 @@ mod tests {
 
     #[test]
     fn atom_macro() {
-        assert_eq!(atom!("body"), Atom::from("body"));
-        assert_eq!(atom!("font-weight"), Atom::from("font-weight"));
+        assert_eq!(test_atom!("body"), Atom::from("body"));
+        assert_eq!(test_atom!("font-weight"), Atom::from("font-weight"));
     }
 
     #[test]
     fn match_atom() {
         assert_eq!(2, match Atom::from("head") {
-            atom!("br") => 1,
-            atom!("html") | atom!("head") => 2,
+            test_atom!("br") => 1,
+            test_atom!("html") | test_atom!("head") => 2,
             _ => 3,
         });
 
         assert_eq!(3, match Atom::from("body") {
-            atom!("br") => 1,
-            atom!("html") | atom!("head") => 2,
+            test_atom!("br") => 1,
+            test_atom!("html") | test_atom!("head") => 2,
             _ => 3,
         });
 
         assert_eq!(3, match Atom::from("zzzzzz") {
-            atom!("br") => 1,
-            atom!("html") | atom!("head") => 2,
+            test_atom!("br") => 1,
+            test_atom!("html") | test_atom!("head") => 2,
             _ => 3,
         });
     }
@@ -869,3 +858,7 @@ mod tests {
         assert!(Atom::from("camembert".to_owned()) == Atom::from("camembert"));
     }
 }
+
+#[cfg(all(test, feature = "unstable"))]
+#[path = "bench.rs"]
+mod bench;

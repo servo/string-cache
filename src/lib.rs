@@ -24,11 +24,17 @@ extern crate phf_shared;
 
 pub use atom::{Atom, StaticAtomSet, PhfStrSet, EmptyStaticAtomSet, DefaultAtom};
 
-include!(concat!(env!("OUT_DIR"), "/atom_macro.rs"));
-
 #[cfg(feature = "log-events")]
 #[macro_use]
 pub mod event;
 
 pub mod atom;
-pub mod shared;
+
+#[path = "../string-cache-codegen/shared.rs"]
+mod shared;
+
+// Make test_atom! macro work in this crate.
+// `$crate` would not be appropriate for other crates creating such macros
+mod string_cache {
+    pub use {Atom, StaticAtomSet, PhfStrSet};
+}

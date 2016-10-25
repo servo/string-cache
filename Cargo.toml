@@ -9,6 +9,12 @@ repository = "https://github.com/servo/string-cache"
 documentation = "https://docs.rs/string_cache/"
 build = "build.rs"
 
+# Do not `exclude` ./string-cache-codegen because we want to include
+# ./string-cache-codegen/shared.rs, and `include` is a pain to use
+# (It has to be exhaustive.)
+# This means that packages for this crate include some unused files,
+# but they’re not too big so that shouldn’t be a problem.
+
 [lib]
 name = "string_cache"
 
@@ -36,4 +42,4 @@ heapsize = { version = "0.3", optional = true }
 rand = "0.3"
 
 [build-dependencies]
-phf_generator = "0.7.4"
+string_cache_codegen = { version = "0.3", path = "./string-cache-codegen" }

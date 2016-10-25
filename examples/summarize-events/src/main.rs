@@ -12,7 +12,7 @@ extern crate string_cache;
 extern crate rustc_serialize;
 extern crate phf_shared;
 
-#[path = "../../../src/shared.rs"]
+#[path = "../../../string-cache-codegen/shared.rs"]
 #[allow(dead_code)]
 mod shared;
 
