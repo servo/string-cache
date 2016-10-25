@@ -1,0 +1,11 @@
+[package]
+name = "string_cache_codegen_test"
+authors = [ "The Servo Project Developers" ]
+version = "0.0.0"
+build = "build.rs"
+
+[build-dependencies.string_cache_codegen]
+path = ".."
+
+[dependencies.string_cache]
+path = "../.."

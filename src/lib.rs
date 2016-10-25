@@ -20,6 +20,7 @@
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate debug_unreachable;
 extern crate serde;
+pub extern crate phf;
 extern crate phf_shared;
 
 pub use atom::{Atom, BorrowedAtom};
@@ -52,7 +53,7 @@ macro_rules! ns {
     (mathml) => { $crate::Namespace(atom!("http://www.w3.org/1998/Math/MathML")) };
 }
 
-include!(concat!(env!("OUT_DIR"), "/atom_macro.rs"));
+include!(concat!(env!("OUT_DIR"), "/static_atoms.rs"));
 
 #[cfg(feature = "log-events")]
 #[macro_use]
@@ -70,4 +71,5 @@ pub mod shared;
 mod string_cache {
     pub use atom;
     pub use namespace;
+    pub use shared;
 }

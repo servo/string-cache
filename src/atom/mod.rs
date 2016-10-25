@@ -23,18 +23,18 @@ use std::ops;
 use std::ptr;
 use std::slice;
 use std::str;
+use std::hash::Hash;
+use std::marker::PhantomData;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
 use shared::{STATIC_TAG, INLINE_TAG, DYNAMIC_TAG, TAG_MASK, MAX_INLINE_LEN, STATIC_SHIFT_BITS,
-             ENTRY_ALIGNMENT, pack_static, StaticAtomSet};
+             ENTRY_ALIGNMENT, pack_static, dynamic_hash};
 use self::UnpackedAtom::{Dynamic, Inline, Static};
 
 #[cfg(feature = "log-events")]
 use event::Event;
-
-include!(concat!(env!("OUT_DIR"), "/static_atom_set.rs"));
 
 #[cfg(not(feature = "log-events"))]
 macro_rules! log (($e:expr) => (()));
@@ -167,35 +167,99 @@ impl StringCache {
     }
 }
 
+pub trait Kind: Eq + Hash + Ord + PartialEq + PartialOrd {
+    #[inline]
+    fn get_index_or_hash(s: &str) -> Result<u32, u64>;
+
+    #[inline]
+    fn index(i: u32) -> Option<&'static str>;
+}
+
+// Although DefaultKind isn't used right now, it will be when ServoAtomKind is
+// removed. Note it will only be used for dynamic atoms.
+#[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct DefaultKind;
+impl Kind for DefaultKind {
+    // There are no static atoms for DefaultKind so there's never an index
+    #[inline]
+    fn get_index_or_hash(s: &str) -> Result<u32, u64> {
+        Err(dynamic_hash(s))
+    }
+
+    #[inline]
+    fn index(_: u32) -> Option<&'static str> {
+        None
+    }
+}
+
+pub type Atom = BaseAtom<super::ServoAtomKind>;
+
 // NOTE: Deriving Eq here implies that a given string must always
-// be interned the same way.
+// be interned the same way for the same kind.
 #[derive(Eq, Hash, PartialEq)]
-pub struct Atom {
+// After RFC 213 (tracking issue https://github.com/rust-lang/rust/issues/27336),
+// rename `BaseAtom` to `Atom` and use `K=super::ServoAtomKind`.
+pub struct BaseAtom<K> where K: Kind {
     /// This field is public so that the `atom!()` macro can use it.
     /// You should not otherwise access this field.
     #[doc(hidden)]
     pub unsafe_data: u64,
+    /// This field exists to allow different sets of static atoms to exist
+    /// while ensuring they aren't ever compared for equality.
+    #[doc(hidden)]
+    pub kind: PhantomData<K>,
 }
 
-#[cfg(feature = "heapsize")]
-known_heap_size!(0, Atom);
+// #[derive] incorrectly attempts to impose HeapSizeOf bounds to generic types
+// https://github.com/rust-lang/rust/issues/26925
+#[cfg(feature = "heap_size")]
+impl<K> HeapSizeOf for BaseAtom<K> where K: Kind {
+    fn heap_size_of_children(&self) -> usize {
+        0
+    }
+}
 
-pub struct BorrowedAtom<'a>(pub &'a Atom);
+// Ideally codegen would just set up type aliases and all dependees would get
+// Borrowed*. Unfortunately, it's not possible to construct a struct from a
+// type alias (#26264, #31659), so we need to duplicate the whole definition
+// to let Servo work. Other crates are out of luck and must either use the
+// BorrowedAtomBase constructor, wait until the issue is fixed or get codegen
+// to recreate the whole Borrowed* type (as done manually for Servo below).
+pub struct BorrowedBaseAtom<'a, K: 'a>(pub &'a BaseAtom<K>) where K: Kind;
 
-impl<'a> ops::Deref for BorrowedAtom<'a> {
-    type Target = Atom;
-    fn deref(&self) -> &Atom {
+impl<'a, K> ops::Deref for BorrowedBaseAtom<'a, K> where K: Kind {
+    type Target = BaseAtom<K>;
+    fn deref(&self) -> &BaseAtom<K> {
         self.0
     }
 }
 
-impl<'a> PartialEq<Atom> for BorrowedAtom<'a> {
-    fn eq(&self, other: &Atom) -> bool {
+impl<'a, K> PartialEq<BaseAtom<K>> for BorrowedBaseAtom<'a, K> where K: Kind {
+    fn eq(&self, other: &BaseAtom<K>) -> bool {
         self.0 == other
     }
 }
 
-impl Atom {
+// Change to BaseAtom<super::ServoAtomKind> when heapsize 0.3.7 is released
+#[cfg(feature = "heapsize")]
+known_heap_size!(0, Atom);
+
+pub struct BorrowedAtom<'a>(pub &'a BaseAtom<super::ServoAtomKind>);
+
+impl<'a> ops::Deref for BorrowedAtom<'a> {
+    type Target = BaseAtom<super::ServoAtomKind>;
+    fn deref(&self) -> &BaseAtom<super::ServoAtomKind> {
+        self.0
+    }
+}
+
+impl<'a> PartialEq<BaseAtom<super::ServoAtomKind>> for BorrowedAtom<'a> {
+    fn eq(&self, other: &BaseAtom<super::ServoAtomKind>) -> bool {
+        self.0 == other
+    }
+}
+
+impl<K> BaseAtom<K> where K: Kind {
     #[inline(always)]
     unsafe fn unpack(&self) -> UnpackedAtom {
         UnpackedAtom::from_packed(self.unsafe_data)
@@ -235,11 +299,11 @@ impl PartialEq<String> for Atom {
     }
 }
 
-impl<'a> From<Cow<'a, str>> for Atom {
+impl<'a, K> From<Cow<'a, str>> for BaseAtom<K> where K: Kind {
     #[inline]
-    fn from(string_to_add: Cow<'a, str>) -> Atom {
-        let unpacked = match STATIC_ATOM_SET.get_index_or_hash(&*string_to_add) {
-            Ok(id) => Static(id as u32),
+    fn from(string_to_add: Cow<'a, str>) -> BaseAtom<K> {
+        let unpacked = match K::get_index_or_hash(&*string_to_add) {
+            Ok(id) => Static(id),
             Err(hash) => {
                 let len = string_to_add.len();
                 if len <= MAX_INLINE_LEN {
@@ -254,27 +318,27 @@ impl<'a> From<Cow<'a, str>> for Atom {
 
         let data = unsafe { unpacked.pack() };
         log!(Event::Intern(data));
-        Atom { unsafe_data: data }
+        BaseAtom { unsafe_data: data, kind: PhantomData }
     }
 }
 
-impl<'a> From<&'a str> for Atom {
+impl<'a, K> From<&'a str> for BaseAtom<K> where K: Kind {
     #[inline]
-    fn from(string_to_add: &str) -> Atom {
-        Atom::from(Cow::Borrowed(string_to_add))
+    fn from(string_to_add: &str) -> BaseAtom<K> {
+        BaseAtom::from(Cow::Borrowed(string_to_add))
     }
 }
 
-impl From<String> for Atom {
+impl<K> From<String> for BaseAtom<K> where K: Kind {
     #[inline]
-    fn from(string_to_add: String) -> Atom {
-        Atom::from(Cow::Owned(string_to_add))
+    fn from(string_to_add: String) -> BaseAtom<K> {
+        BaseAtom::from(Cow::Owned(string_to_add))
     }
 }
 
-impl Clone for Atom {
+impl<K> Clone for BaseAtom<K> where K: Kind {
     #[inline(always)]
-    fn clone(&self) -> Atom {
+    fn clone(&self) -> BaseAtom<K> {
         unsafe {
             match from_packed_dynamic(self.unsafe_data) {
                 Some(entry) => {
@@ -284,17 +348,18 @@ impl Clone for Atom {
                 None => (),
             }
         }
-        Atom {
-            unsafe_data: self.unsafe_data
+        BaseAtom {
+            unsafe_data: self.unsafe_data,
+            kind: PhantomData,
         }
     }
 }
 
-impl Drop for Atom {
+impl<K> Drop for BaseAtom<K> where K: Kind {
     #[inline]
     fn drop(&mut self) {
         // Out of line to guide inlining.
-        fn drop_slow(this: &mut Atom) {
+        fn drop_slow<K>(this: &mut BaseAtom<K>) where K: Kind {
             STRING_CACHE.lock().unwrap().remove(this.unsafe_data);
         }
 
@@ -313,7 +378,7 @@ impl Drop for Atom {
 }
 
 
-impl ops::Deref for Atom {
+impl<K> ops::Deref for BaseAtom<K> where K: Kind {
     type Target = str;
 
     #[inline]
@@ -324,7 +389,7 @@ impl ops::Deref for Atom {
                     let buf = inline_orig_bytes(&self.unsafe_data);
                     str::from_utf8_unchecked(buf)
                 },
-                Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
+                Static(idx) => K::index(idx).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string
@@ -334,14 +399,14 @@ impl ops::Deref for Atom {
     }
 }
 
-impl fmt::Display for Atom {
+impl<K> fmt::Display for BaseAtom<K> where K: Kind {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         <str as fmt::Display>::fmt(self, f)
     }
 }
 
-impl fmt::Debug for Atom {
+impl<K> fmt::Debug for BaseAtom<K> where K: Kind {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ty_str = unsafe {
@@ -356,9 +421,9 @@ impl fmt::Debug for Atom {
     }
 }
 
-impl PartialOrd for Atom {
+impl<K> PartialOrd for BaseAtom<K> where K: Kind {
     #[inline]
-    fn partial_cmp(&self, other: &Atom) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &BaseAtom<K>) -> Option<Ordering> {
         if self.unsafe_data == other.unsafe_data {
             return Some(Equal);
         }
@@ -366,9 +431,9 @@ impl PartialOrd for Atom {
     }
 }
 
-impl Ord for Atom {
+impl<K> Ord for BaseAtom<K> where K: Kind {
     #[inline]
-    fn cmp(&self, other: &Atom) -> Ordering {
+    fn cmp(&self, other: &BaseAtom<K>) -> Ordering {
         if self.unsafe_data == other.unsafe_data {
             return Equal;
         }
@@ -376,43 +441,43 @@ impl Ord for Atom {
     }
 }
 
-impl AsRef<str> for Atom {
+impl<K> AsRef<str> for BaseAtom<K> where K: Kind {
     fn as_ref(&self) -> &str {
         &self
     }
 }
 
-impl Serialize for Atom {
+impl<K> Serialize for BaseAtom<K> where K: Kind {
     fn serialize<S>(&self, serializer: &mut S) -> Result<(),S::Error> where S: Serializer {
         let string: &str = self.as_ref();
         string.serialize(serializer)
     }
 }
 
-impl Deserialize for Atom {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Atom,D::Error> where D: Deserializer {
+impl<K> Deserialize for BaseAtom<K> where K: Kind {
+    fn deserialize<D>(deserializer: &mut D) -> Result<BaseAtom<K>,D::Error> where D: Deserializer {
         let string: String = try!(Deserialize::deserialize(deserializer));
-        Ok(Atom::from(&*string))
+        Ok(BaseAtom::from(&*string))
     }
 }
 
 // AsciiExt requires mutating methods, so we just implement the non-mutating ones.
 // We don't need to implement is_ascii because there's no performance improvement
 // over the one from &str.
-impl Atom {
-    pub fn to_ascii_uppercase(&self) -> Atom {
+impl<K> BaseAtom<K> where K: Kind {
+    pub fn to_ascii_uppercase(&self) -> BaseAtom<K> {
         if self.chars().all(char::is_uppercase) {
             self.clone()
         } else {
-            Atom::from(&*((&**self).to_ascii_uppercase()))
+            BaseAtom::from(&*((&**self).to_ascii_uppercase()))
         }
     }
 
-    pub fn to_ascii_lowercase(&self) -> Atom {
+    pub fn to_ascii_lowercase(&self) -> BaseAtom<K> {
         if self.chars().all(char::is_lowercase) {
             self.clone()
         } else {
-            Atom::from(&*((&**self).to_ascii_lowercase()))
+            BaseAtom::from(&*((&**self).to_ascii_lowercase()))
         }
     }
 
@@ -547,7 +612,8 @@ mod bench;
 mod tests {
     use std::mem;
     use std::thread;
-    use super::{Atom, StringCacheEntry, STATIC_ATOM_SET};
+    use super::{Atom, StringCacheEntry};
+    use super::super::STATIC_ATOM_SET;
     use super::UnpackedAtom::{Dynamic, Inline, Static};
     use shared::ENTRY_ALIGNMENT;
 

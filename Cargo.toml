@@ -8,6 +8,7 @@ license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/string-cache"
 documentation = "http://doc.servo.org/string_cache/"
 build = "build.rs"
+exclude = ["string-cache-codegen/**/*"]
 
 [lib]
 name = "string_cache"
@@ -27,7 +28,8 @@ heap_size = ["heapsize"]
 [dependencies]
 lazy_static = "0.2"
 serde = ">=0.6, <0.9"
-phf_shared = "0.7.4"
+phf = "0.7.15"
+phf_shared = "0.7.15"
 debug_unreachable = "0.1.1"
 
 [dev-dependencies]
@@ -41,6 +43,6 @@ optional = true
 version = ">=0.1.1, <0.4"
 optional = true
 
-[build-dependencies]
-phf_generator = "0.7.4"
-phf_shared = "0.7.4"
+[build-dependencies.string_cache_codegen]
+version = "0.2.27"
+path = "string-cache-codegen"
