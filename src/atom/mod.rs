@@ -12,6 +12,7 @@
 #[cfg(feature = "heapsize")]
 use heapsize::HeapSizeOf;
 
+use phf_shared;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::ascii::AsciiExt;
@@ -30,7 +31,7 @@ use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
 use shared::{STATIC_TAG, INLINE_TAG, DYNAMIC_TAG, TAG_MASK, MAX_INLINE_LEN, STATIC_SHIFT_BITS,
-             ENTRY_ALIGNMENT, pack_static, PhfStrSet};
+             ENTRY_ALIGNMENT, pack_static};
 use self::UnpackedAtom::{Dynamic, Inline, Static};
 
 #[cfg(feature = "log-events")]
@@ -173,6 +174,12 @@ pub trait StaticAtomSet {
     fn get() -> &'static PhfStrSet;
 }
 
+pub struct PhfStrSet {
+    pub key: u64,
+    pub disps: &'static [(u32, u32)],
+    pub atoms: &'static [&'static str],
+}
+
 pub struct Atom<Static: StaticAtomSet> {
     /// This field is public so that the `atom!()` macro can use it.
     /// You should not otherwise access this field.
@@ -251,17 +258,20 @@ impl<Static: StaticAtomSet> PartialEq<String> for Atom<Static> {
 impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
     #[inline]
     fn from(string_to_add: Cow<'a, str>) -> Self {
-        let unpacked = match Static::get().get_index_or_hash(&*string_to_add) {
-            Ok(id) => Static(id as u32),
-            Err(hash) => {
-                let len = string_to_add.len();
-                if len <= MAX_INLINE_LEN {
-                    let mut buf: [u8; 7] = [0; 7];
-                    copy_memory(string_to_add.as_bytes(), &mut buf);
-                    Inline(len as u8, buf)
-                } else {
-                    Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
-                }
+        let static_set = Static::get();
+        let hash = phf_shared::hash(&*string_to_add, static_set.key);
+        let index = phf_shared::get_index(hash, static_set.disps, static_set.atoms.len());
+
+        let unpacked = if static_set.atoms[index as usize] == string_to_add {
+            Static(index)
+        } else {
+            let len = string_to_add.len();
+            if len <= MAX_INLINE_LEN {
+                let mut buf: [u8; 7] = [0; 7];
+                copy_memory(string_to_add.as_bytes(), &mut buf);
+                Inline(len as u8, buf)
+            } else {
+                Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
             }
         };
 
@@ -337,7 +347,7 @@ impl<Static: StaticAtomSet> ops::Deref for Atom<Static> {
                     let buf = inline_orig_bytes(&self.unsafe_data);
                     str::from_utf8_unchecked(buf)
                 },
-                Static(idx) => Static::get().index(idx).expect("bad static atom"),
+                Static(idx) => Static::get().atoms.get(idx as usize).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string
@@ -561,9 +571,9 @@ mod tests {
     use std::mem;
     use std::thread;
     use super::Atom as GenericAtom;
-    use super::{StaticAtomSet, StringCacheEntry, STATIC_ATOM_SET};
+    use super::{StaticAtomSet, StringCacheEntry, STATIC_ATOM_SET, PhfStrSet};
     use super::UnpackedAtom::{Dynamic, Inline, Static};
-    use shared::{ENTRY_ALIGNMENT, PhfStrSet};
+    use shared::ENTRY_ALIGNMENT;
 
     pub type Atom = GenericAtom<DefaultStatic>;
     pub struct DefaultStatic;
@@ -712,7 +722,7 @@ mod tests {
             assert_eq_fmt!("0x{:016X}", x.unsafe_data, Atom::from(s).unsafe_data);
             assert_eq!(0x2, x.unsafe_data & 0xFFFF_FFFF);
             // The index is unspecified by phf.
-            assert!((x.unsafe_data >> 32) <= DefaultStatic::get().iter().len() as u64);
+            assert!((x.unsafe_data >> 32) <= DefaultStatic::get().atoms.len() as u64);
         }
 
         // This test is here to make sure we don't change atom representation

@@ -22,8 +22,7 @@
 extern crate serde;
 extern crate phf_shared;
 
-pub use atom::{Atom, StaticAtomSet};
-pub use shared::PhfStrSet;
+pub use atom::{Atom, StaticAtomSet, PhfStrSet};
 
 include!(concat!(env!("OUT_DIR"), "/atom_macro.rs"));
 

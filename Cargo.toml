@@ -37,4 +37,3 @@ rand = "0.3"
 
 [build-dependencies]
 phf_generator = "0.7.4"
-phf_shared = "0.7.4"
