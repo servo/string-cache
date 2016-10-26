@@ -21,6 +21,7 @@
 #[macro_use] extern crate debug_unreachable;
 extern crate serde;
 extern crate phf_shared;
+extern crate selectors_bloom;
 
 pub use atom::{Atom, BorrowedAtom};
 pub use namespace::{BorrowedNamespace, Namespace, QualName};

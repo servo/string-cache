@@ -201,6 +201,7 @@ impl Atom {
         UnpackedAtom::from_packed(self.unsafe_data)
     }
 
+    #[inline]
     pub fn get_hash(&self) -> u32 {
         ((self.unsafe_data >> 32) ^ self.unsafe_data) as u32
     }
@@ -393,6 +394,13 @@ impl Deserialize for Atom {
     fn deserialize<D>(deserializer: &mut D) -> Result<Atom,D::Error> where D: Deserializer {
         let string: String = try!(Deserialize::deserialize(deserializer));
         Ok(Atom::from(&*string))
+    }
+}
+
+impl ::selectors_bloom::BloomHash for Atom {
+    #[inline]
+    fn bloom_hash(&self) -> u32 {
+        self.get_hash()
     }
 }
 
