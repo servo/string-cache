@@ -44,6 +44,13 @@ impl fmt::Display for Namespace {
     }
 }
 
+impl ::selectors_bloom::BloomHash for Namespace {
+    #[inline]
+    fn bloom_hash(&self) -> u32 {
+        self.0.get_hash()
+    }
+}
+
 /// A name with a namespace.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
 pub struct QualName {
