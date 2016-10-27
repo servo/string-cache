@@ -1,4 +1,4 @@
-# string-cache
+# String-Cache
 
 [![Build Status](https://travis-ci.org/servo/string-cache.svg?branch=master)](https://travis-ci.org/servo/string-cache)
 
