@@ -1,7 +1,7 @@
 [package]
 
 name = "string_cache"
-version = "0.3.0"
+version = "0.3.0"  # Also update README.md when making a semver-breaking change
 authors = [ "The Servo Project Developers" ]
 description = "A string interning library for Rust, developed as part of the Servo project."
 license = "MIT / Apache-2.0"
