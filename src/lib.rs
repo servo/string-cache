@@ -21,6 +21,7 @@
 #[macro_use] extern crate debug_unreachable;
 extern crate serde;
 extern crate phf_shared;
+extern crate string_cache_shared as shared;
 
 pub use atom::{Atom, StaticAtomSet, PhfStrSet, EmptyStaticAtomSet, DefaultAtom};
 
@@ -29,9 +30,6 @@ pub use atom::{Atom, StaticAtomSet, PhfStrSet, EmptyStaticAtomSet, DefaultAtom};
 pub mod event;
 
 pub mod atom;
-
-#[path = "../string-cache-codegen/shared.rs"]
-mod shared;
 
 // Make test_atom! macro work in this crate.
 // `$crate` would not be appropriate for other crates creating such macros

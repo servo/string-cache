@@ -8,14 +8,12 @@
 // except according to those terms.
 
 extern crate phf_generator;
+extern crate string_cache_shared as shared;
 
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, Write, BufWriter};
 use std::path::Path;
-
-#[allow(dead_code)]
-mod shared;
 
 /// A builder for a static atom set and relevant macros
 pub struct AtomType {
