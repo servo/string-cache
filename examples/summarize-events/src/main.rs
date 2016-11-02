@@ -12,14 +12,15 @@ extern crate string_cache;
 extern crate rustc_serialize;
 extern crate phf_shared;
 
-#[path = "../../../src/shared.rs"]
+#[path = "../../../string-cache-codegen/shared.rs"]
 #[allow(dead_code)]
 mod shared;
 
-use string_cache::Atom;
+use string_cache::DefaultAtom as Atom;
 
 use std::{env, cmp};
 use std::collections::hash_map::{HashMap, Entry};
+use std::marker::PhantomData;
 use std::path::Path;
 
 #[derive(RustcDecodable, Debug)]
@@ -88,7 +89,7 @@ fn main() {
 
                     // FIXME: We really shouldn't be allowed to do this. It's a memory-safety
                     // hazard; the field is only public for the atom!() macro.
-                    _ => Atom { unsafe_data: ev.id }.to_string(),
+                    _ => Atom { unsafe_data: ev.id, phantom: PhantomData }.to_string(),
                 };
 
                 match summary.entry(string) {

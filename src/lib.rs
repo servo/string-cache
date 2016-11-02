@@ -22,52 +22,19 @@
 extern crate serde;
 extern crate phf_shared;
 
-pub use atom::{Atom, BorrowedAtom};
-pub use namespace::{BorrowedNamespace, Namespace, QualName};
-
-#[macro_export]
-macro_rules! qualname {
-    ("", $local:tt) => {
-        $crate::namespace::QualName {
-            ns: ns!(),
-            local: atom!($local),
-        }
-    };
-    ($ns:tt, $local:tt) => {
-        $crate::namespace::QualName {
-            ns: ns!($ns),
-            local: atom!($local),
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! ns {
-    () => { $crate::Namespace(atom!("")) };
-    (html) => { $crate::Namespace(atom!("http://www.w3.org/1999/xhtml")) };
-    (xml) => { $crate::Namespace(atom!("http://www.w3.org/XML/1998/namespace")) };
-    (xmlns) => { $crate::Namespace(atom!("http://www.w3.org/2000/xmlns/")) };
-    (xlink) => { $crate::Namespace(atom!("http://www.w3.org/1999/xlink")) };
-    (svg) => { $crate::Namespace(atom!("http://www.w3.org/2000/svg")) };
-    (mathml) => { $crate::Namespace(atom!("http://www.w3.org/1998/Math/MathML")) };
-}
-
-include!(concat!(env!("OUT_DIR"), "/atom_macro.rs"));
+pub use atom::{Atom, StaticAtomSet, PhfStrSet, EmptyStaticAtomSet, DefaultAtom};
 
 #[cfg(feature = "log-events")]
 #[macro_use]
 pub mod event;
 
 pub mod atom;
-pub mod namespace;
-pub mod shared;
 
-// A private module so that macro-expanded idents like
-// `::string_cache::atom::Atom` will also work in this crate.
-//
-// `libstd` uses the same trick.
-#[doc(hidden)]
+#[path = "../string-cache-codegen/shared.rs"]
+mod shared;
+
+// Make test_atom! macro work in this crate.
+// `$crate` would not be appropriate for other crates creating such macros
 mod string_cache {
-    pub use atom;
-    pub use namespace;
+    pub use {Atom, StaticAtomSet, PhfStrSet};
 }

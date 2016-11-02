@@ -1,13 +1,19 @@
 [package]
 
 name = "string_cache"
-version = "0.2.30"
+version = "0.3.0"  # Also update README.md when making a semver-breaking change
 authors = [ "The Servo Project Developers" ]
 description = "A string interning library for Rust, developed as part of the Servo project."
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/string-cache"
-documentation = "http://doc.servo.org/string_cache/"
+documentation = "https://docs.rs/string_cache/"
 build = "build.rs"
+
+# Do not `exclude` ./string-cache-codegen because we want to include
+# ./string-cache-codegen/shared.rs, and `include` is a pain to use
+# (It has to be exhaustive.)
+# This means that packages for this crate include some unused files,
+# but they’re not too big so that shouldn’t be a problem.
 
 [lib]
 name = "string_cache"
@@ -26,21 +32,14 @@ heap_size = ["heapsize"]
 
 [dependencies]
 lazy_static = "0.2"
-serde = ">=0.6, <0.9"
+serde = "0.8"
 phf_shared = "0.7.4"
 debug_unreachable = "0.1.1"
+rustc-serialize = { version = "0.3", optional = true }
+heapsize = { version = "0.3", optional = true }
 
 [dev-dependencies]
 rand = "0.3"
 
-[dependencies.rustc-serialize]
-version = "0.3"
-optional = true
-
-[dependencies.heapsize]
-version = ">=0.1.1, <0.4"
-optional = true
-
 [build-dependencies]
-phf_generator = "0.7.4"
-phf_shared = "0.7.4"
+string_cache_codegen = { version = "0.3", path = "./string-cache-codegen" }

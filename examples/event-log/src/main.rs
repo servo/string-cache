@@ -9,7 +9,7 @@
 
 extern crate string_cache;
 
-use string_cache::Atom;
+use string_cache::DefaultAtom as Atom;
 use string_cache::event;
 
 use std::io;

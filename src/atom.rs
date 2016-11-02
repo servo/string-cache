@@ -12,12 +12,15 @@
 #[cfg(feature = "heapsize")]
 use heapsize::HeapSizeOf;
 
+use phf_shared;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::ascii::AsciiExt;
 use std::borrow::Cow;
 use std::cmp::Ordering::{self, Equal};
 use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
 use std::mem;
 use std::ops;
 use std::ptr;
@@ -28,13 +31,11 @@ use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 
 use shared::{STATIC_TAG, INLINE_TAG, DYNAMIC_TAG, TAG_MASK, MAX_INLINE_LEN, STATIC_SHIFT_BITS,
-             ENTRY_ALIGNMENT, pack_static, StaticAtomSet};
+             ENTRY_ALIGNMENT, pack_static};
 use self::UnpackedAtom::{Dynamic, Inline, Static};
 
 #[cfg(feature = "log-events")]
 use event::Event;
-
-include!(concat!(env!("OUT_DIR"), "/static_atom_set.rs"));
 
 #[cfg(not(feature = "log-events"))]
 macro_rules! log (($e:expr) => (()));
@@ -167,35 +168,58 @@ impl StringCache {
     }
 }
 
-// NOTE: Deriving Eq here implies that a given string must always
-// be interned the same way.
-#[derive(Eq, Hash, PartialEq)]
-pub struct Atom {
-    /// This field is public so that the `atom!()` macro can use it.
+pub trait StaticAtomSet {
+    fn get() -> &'static PhfStrSet;
+    fn empty_string_index() -> u32;
+}
+
+pub struct PhfStrSet {
+    pub key: u64,
+    pub disps: &'static [(u32, u32)],
+    pub atoms: &'static [&'static str],
+}
+
+pub struct EmptyStaticAtomSet;
+
+impl StaticAtomSet for EmptyStaticAtomSet {
+    fn get() -> &'static PhfStrSet {
+        // The name is a lie: this set is not empty (it contains the empty string)
+        // but that’s only to avoid divisions by zero in rust-phf.
+        static SET: PhfStrSet = PhfStrSet {
+            key: 0,
+            disps: &[(0, 0)],
+            atoms: &[""],
+        };
+        &SET
+    }
+
+    fn empty_string_index() -> u32 {
+        0
+    }
+}
+
+/// Use this if you don’t care about static atoms.
+pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
+
+pub struct Atom<Static: StaticAtomSet> {
+    /// This field is public so that the `atom!()` macros can use it.
     /// You should not otherwise access this field.
     #[doc(hidden)]
     pub unsafe_data: u64,
+
+    #[doc(hidden)]
+    pub phantom: PhantomData<Static>,
 }
 
 #[cfg(feature = "heapsize")]
-known_heap_size!(0, Atom);
-
-pub struct BorrowedAtom<'a>(pub &'a Atom);
-
-impl<'a> ops::Deref for BorrowedAtom<'a> {
-    type Target = Atom;
-    fn deref(&self) -> &Atom {
-        self.0
+impl<Static: StaticAtomSet> HeapSizeOf for Atom<Static> {
+    #[inline(always)]
+    fn heap_size_of_children(&self) -> usize {
+        0
     }
 }
 
-impl<'a> PartialEq<Atom> for BorrowedAtom<'a> {
-    fn eq(&self, other: &Atom) -> bool {
-        self.0 == other
-    }
-}
-
-impl Atom {
+impl<Static: StaticAtomSet> Atom<Static> {
     #[inline(always)]
     unsafe fn unpack(&self) -> UnpackedAtom {
         UnpackedAtom::from_packed(self.unsafe_data)
@@ -211,70 +235,94 @@ impl Atom {
     }
 }
 
-impl Default for Atom {
+impl<Static: StaticAtomSet> Default for Atom<Static> {
+    #[inline]
     fn default() -> Self {
-        atom!("")
+        Atom {
+            unsafe_data: pack_static(Static::empty_string_index()),
+            phantom: PhantomData
+        }
     }
 }
 
-impl PartialEq<str> for Atom {
+impl<Static: StaticAtomSet> Hash for Atom<Static> {
+    #[inline]
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
+        self.unsafe_data.hash(state)
+    }
+}
+
+impl<Static: StaticAtomSet> Eq for Atom<Static> {}
+
+// NOTE: This impl requires that a given string must always be interned the same way.
+impl<Static: StaticAtomSet> PartialEq for Atom<Static> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.unsafe_data == other.unsafe_data
+    }
+}
+
+impl<Static: StaticAtomSet> PartialEq<str> for Atom<Static> {
     fn eq(&self, other: &str) -> bool {
         &self[..] == other
     }
 }
 
-impl PartialEq<Atom> for str {
-    fn eq(&self, other: &Atom) -> bool {
+impl<Static: StaticAtomSet> PartialEq<Atom<Static>> for str {
+    fn eq(&self, other: &Atom<Static>) -> bool {
         self == &other[..]
     }
 }
 
-impl PartialEq<String> for Atom {
+impl<Static: StaticAtomSet> PartialEq<String> for Atom<Static> {
     fn eq(&self, other: &String) -> bool {
         &self[..] == &other[..]
     }
 }
 
-impl<'a> From<Cow<'a, str>> for Atom {
+impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
     #[inline]
-    fn from(string_to_add: Cow<'a, str>) -> Atom {
-        let unpacked = match STATIC_ATOM_SET.get_index_or_hash(&*string_to_add) {
-            Ok(id) => Static(id as u32),
-            Err(hash) => {
-                let len = string_to_add.len();
-                if len <= MAX_INLINE_LEN {
-                    let mut buf: [u8; 7] = [0; 7];
-                    copy_memory(string_to_add.as_bytes(), &mut buf);
-                    Inline(len as u8, buf)
-                } else {
-                    Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
-                }
+    fn from(string_to_add: Cow<'a, str>) -> Self {
+        let static_set = Static::get();
+        let hash = phf_shared::hash(&*string_to_add, static_set.key);
+        let index = phf_shared::get_index(hash, static_set.disps, static_set.atoms.len());
+
+        let unpacked = if static_set.atoms[index as usize] == string_to_add {
+            Static(index)
+        } else {
+            let len = string_to_add.len();
+            if len <= MAX_INLINE_LEN {
+                let mut buf: [u8; 7] = [0; 7];
+                copy_memory(string_to_add.as_bytes(), &mut buf);
+                Inline(len as u8, buf)
+            } else {
+                Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
             }
         };
 
         let data = unsafe { unpacked.pack() };
         log!(Event::Intern(data));
-        Atom { unsafe_data: data }
+        Atom { unsafe_data: data, phantom: PhantomData }
     }
 }
 
-impl<'a> From<&'a str> for Atom {
+impl<'a, Static: StaticAtomSet> From<&'a str> for Atom<Static> {
     #[inline]
-    fn from(string_to_add: &str) -> Atom {
+    fn from(string_to_add: &str) -> Self {
         Atom::from(Cow::Borrowed(string_to_add))
     }
 }
 
-impl From<String> for Atom {
+impl<Static: StaticAtomSet> From<String> for Atom<Static> {
     #[inline]
-    fn from(string_to_add: String) -> Atom {
+    fn from(string_to_add: String) -> Self {
         Atom::from(Cow::Owned(string_to_add))
     }
 }
 
-impl Clone for Atom {
+impl<Static: StaticAtomSet> Clone for Atom<Static> {
     #[inline(always)]
-    fn clone(&self) -> Atom {
+    fn clone(&self) -> Self {
         unsafe {
             match from_packed_dynamic(self.unsafe_data) {
                 Some(entry) => {
@@ -285,16 +333,17 @@ impl Clone for Atom {
             }
         }
         Atom {
-            unsafe_data: self.unsafe_data
+            unsafe_data: self.unsafe_data,
+            phantom: PhantomData,
         }
     }
 }
 
-impl Drop for Atom {
+impl<Static: StaticAtomSet> Drop for Atom<Static> {
     #[inline]
     fn drop(&mut self) {
         // Out of line to guide inlining.
-        fn drop_slow(this: &mut Atom) {
+        fn drop_slow<Static: StaticAtomSet>(this: &mut Atom<Static>) {
             STRING_CACHE.lock().unwrap().remove(this.unsafe_data);
         }
 
@@ -312,8 +361,7 @@ impl Drop for Atom {
     }
 }
 
-
-impl ops::Deref for Atom {
+impl<Static: StaticAtomSet> ops::Deref for Atom<Static> {
     type Target = str;
 
     #[inline]
@@ -324,7 +372,7 @@ impl ops::Deref for Atom {
                     let buf = inline_orig_bytes(&self.unsafe_data);
                     str::from_utf8_unchecked(buf)
                 },
-                Static(idx) => STATIC_ATOM_SET.index(idx).expect("bad static atom"),
+                Static(idx) => Static::get().atoms.get(idx as usize).expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string
@@ -334,14 +382,14 @@ impl ops::Deref for Atom {
     }
 }
 
-impl fmt::Display for Atom {
+impl<Static: StaticAtomSet> fmt::Display for Atom<Static> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         <str as fmt::Display>::fmt(self, f)
     }
 }
 
-impl fmt::Debug for Atom {
+impl<Static: StaticAtomSet> fmt::Debug for Atom<Static> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ty_str = unsafe {
@@ -356,9 +404,9 @@ impl fmt::Debug for Atom {
     }
 }
 
-impl PartialOrd for Atom {
+impl<Static: StaticAtomSet> PartialOrd for Atom<Static> {
     #[inline]
-    fn partial_cmp(&self, other: &Atom) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.unsafe_data == other.unsafe_data {
             return Some(Equal);
         }
@@ -366,9 +414,9 @@ impl PartialOrd for Atom {
     }
 }
 
-impl Ord for Atom {
+impl<Static: StaticAtomSet> Ord for Atom<Static> {
     #[inline]
-    fn cmp(&self, other: &Atom) -> Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         if self.unsafe_data == other.unsafe_data {
             return Equal;
         }
@@ -376,21 +424,21 @@ impl Ord for Atom {
     }
 }
 
-impl AsRef<str> for Atom {
+impl<Static: StaticAtomSet> AsRef<str> for Atom<Static> {
     fn as_ref(&self) -> &str {
         &self
     }
 }
 
-impl Serialize for Atom {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(),S::Error> where S: Serializer {
+impl<Static: StaticAtomSet> Serialize for Atom<Static> {
+    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: Serializer {
         let string: &str = self.as_ref();
         string.serialize(serializer)
     }
 }
 
-impl Deserialize for Atom {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Atom,D::Error> where D: Deserializer {
+impl<Static: StaticAtomSet> Deserialize for Atom<Static> {
+    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error> where D: Deserializer {
         let string: String = try!(Deserialize::deserialize(deserializer));
         Ok(Atom::from(&*string))
     }
@@ -399,8 +447,8 @@ impl Deserialize for Atom {
 // AsciiExt requires mutating methods, so we just implement the non-mutating ones.
 // We don't need to implement is_ascii because there's no performance improvement
 // over the one from &str.
-impl Atom {
-    pub fn to_ascii_uppercase(&self) -> Atom {
+impl<Static: StaticAtomSet> Atom<Static> {
+    pub fn to_ascii_uppercase(&self) -> Self {
         if self.chars().all(char::is_uppercase) {
             self.clone()
         } else {
@@ -408,7 +456,7 @@ impl Atom {
         }
     }
 
-    pub fn to_ascii_lowercase(&self) -> Atom {
+    pub fn to_ascii_lowercase(&self) -> Self {
         if self.chars().all(char::is_lowercase) {
             self.clone()
         } else {
@@ -540,16 +588,17 @@ fn copy_memory(src: &[u8], dst: &mut [u8]) {
     }
 }
 
-#[cfg(all(test, feature = "unstable"))]
-mod bench;
-
 #[cfg(test)]
+#[macro_use]
 mod tests {
     use std::mem;
     use std::thread;
-    use super::{Atom, StringCacheEntry, STATIC_ATOM_SET};
+    use super::{StaticAtomSet, StringCacheEntry};
     use super::UnpackedAtom::{Dynamic, Inline, Static};
     use shared::ENTRY_ALIGNMENT;
+
+    include!(concat!(env!("OUT_DIR"), "/test_atom.rs"));
+    pub type Atom = TestAtom;
 
     #[test]
     fn test_as_slice() {
@@ -624,6 +673,12 @@ mod tests {
     }
 
     #[test]
+    fn default() {
+        assert_eq!(TestAtom::default(), test_atom!(""));
+        assert_eq!(&*TestAtom::default(), "");
+    }
+
+    #[test]
     fn ord() {
         fn check(x: &str, y: &str) {
             assert_eq!(x < y, Atom::from(x) < Atom::from(y));
@@ -690,7 +745,7 @@ mod tests {
             assert_eq_fmt!("0x{:016X}", x.unsafe_data, Atom::from(s).unsafe_data);
             assert_eq!(0x2, x.unsafe_data & 0xFFFF_FFFF);
             // The index is unspecified by phf.
-            assert!((x.unsafe_data >> 32) <= STATIC_ATOM_SET.iter().len() as u64);
+            assert!((x.unsafe_data >> 32) <= TestAtomStaticSet::get().atoms.len() as u64);
         }
 
         // This test is here to make sure we don't change atom representation
@@ -698,9 +753,9 @@ mod tests {
         // static atom table, the tag values, etc.
 
         // Static atoms
-        check_static("a",       atom!("a"));
-        check_static("address", atom!("address"));
-        check_static("area",    atom!("area"));
+        check_static("a",       test_atom!("a"));
+        check_static("address", test_atom!("address"));
+        check_static("area",    test_atom!("area"));
 
         // Inline atoms
         check("e",       0x0000_0000_0000_6511);
@@ -721,7 +776,7 @@ mod tests {
         let compiler_uses_inline_drop_flags = mem::size_of::<EmptyWithDrop>() > 0;
 
         // Guard against accidental changes to the sizes of things.
-        assert_eq!(mem::size_of::<super::Atom>(),
+        assert_eq!(mem::size_of::<Atom>(),
                    if compiler_uses_inline_drop_flags { 16 } else { 8 });
         assert_eq!(mem::size_of::<super::StringCacheEntry>(),
                    8 + 4 * mem::size_of::<usize>());
@@ -739,27 +794,27 @@ mod tests {
 
     #[test]
     fn atom_macro() {
-        assert_eq!(atom!("body"), Atom::from("body"));
-        assert_eq!(atom!("font-weight"), Atom::from("font-weight"));
+        assert_eq!(test_atom!("body"), Atom::from("body"));
+        assert_eq!(test_atom!("font-weight"), Atom::from("font-weight"));
     }
 
     #[test]
     fn match_atom() {
         assert_eq!(2, match Atom::from("head") {
-            atom!("br") => 1,
-            atom!("html") | atom!("head") => 2,
+            test_atom!("br") => 1,
+            test_atom!("html") | test_atom!("head") => 2,
             _ => 3,
         });
 
         assert_eq!(3, match Atom::from("body") {
-            atom!("br") => 1,
-            atom!("html") | atom!("head") => 2,
+            test_atom!("br") => 1,
+            test_atom!("html") | test_atom!("head") => 2,
             _ => 3,
         });
 
         assert_eq!(3, match Atom::from("zzzzzz") {
-            atom!("br") => 1,
-            atom!("html") | atom!("head") => 2,
+            test_atom!("br") => 1,
+            test_atom!("html") | test_atom!("head") => 2,
             _ => 3,
         });
     }
@@ -818,3 +873,7 @@ mod tests {
         assert!(Atom::from("camembert".to_owned()) == Atom::from("camembert"));
     }
 }
+
+#[cfg(all(test, feature = "unstable"))]
+#[path = "bench.rs"]
+mod bench;

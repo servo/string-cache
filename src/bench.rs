@@ -27,12 +27,12 @@ and cheap to move around, which isn't reflected in these tests.
 
 */
 
-use atom::Atom;
+use atom::tests::TestAtom;
 use test::{Bencher, black_box};
 
 // Just shorthand
-fn mk(x: &str) -> Atom {
-    Atom::from(x)
+fn mk(x: &str) -> TestAtom {
+    TestAtom::from(x)
 }
 
 macro_rules! check_type (($name:ident, $x:expr, $p:pat) => (
@@ -81,7 +81,7 @@ macro_rules! bench_one (
         fn intern(b: &mut Bencher) {
             let x = $x.to_string();
             b.iter(|| {
-                black_box(Atom::from(&*x));
+                black_box(TestAtom::from(&*x));
             });
         }
     );
@@ -134,7 +134,7 @@ macro_rules! bench_all (
             use std::string::ToString;
             use std::iter::repeat;
 
-            use atom::Atom;
+            use atom::tests::TestAtom;
             use atom::UnpackedAtom::{Static, Inline, Dynamic};
 
             use super::mk;
@@ -157,7 +157,7 @@ bench_all!([eq ne lt clone_string]
     for longer_string = super::longer_dynamic_a, super::longer_dynamic_b);
 
 bench_all!([eq ne intern as_ref clone is_static lt]
-    for static_atom = atom!("a"), atom!("b"));
+    for static_atom = test_atom!("a"), test_atom!("b"));
 
 bench_all!([intern as_ref clone is_inline]
     for short_inline_atom = mk("e"), mk("f"));
@@ -175,10 +175,10 @@ bench_all!([intern as_ref clone is_static]
     for static_at_runtime = mk("a"), mk("b"));
 
 bench_all!([ne lt x_static y_inline]
-    for static_vs_inline  = atom!("a"), mk("f"));
+    for static_vs_inline  = test_atom!("a"), mk("f"));
 
 bench_all!([ne lt x_static y_dynamic]
-    for static_vs_dynamic = atom!("a"), mk(super::longer_dynamic_b));
+    for static_vs_dynamic = test_atom!("a"), mk(super::longer_dynamic_b));
 
 bench_all!([ne lt x_inline y_dynamic]
     for inline_vs_dynamic = mk("e"), mk(super::longer_dynamic_b));
@@ -205,7 +205,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
                 *n = (*n % 0x40) + 0x20;
             }
             let s = str::from_utf8(&buf[..]).unwrap();
-            black_box(Atom::from(s));
+            black_box(TestAtom::from(s));
         });
     }
 ));
