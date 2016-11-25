@@ -15,3 +15,4 @@ path = "lib.rs"
 [dependencies]
 string_cache_shared = {path = "../shared", version = "0.3"}
 phf_generator = "0.7.15"
+quote = "0.3.9"

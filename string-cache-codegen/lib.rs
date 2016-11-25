@@ -9,10 +9,12 @@
 
 extern crate phf_generator;
 extern crate string_cache_shared as shared;
+#[macro_use] extern crate quote;
 
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, Write, BufWriter};
+use std::iter;
 use std::path::Path;
 
 /// A builder for a static atom set and relevant macros
@@ -67,6 +69,18 @@ impl AtomType {
 
     /// Write generated code to `destination`.
     pub fn write_to<W>(&mut self, mut destination: W) -> io::Result<()> where W: Write {
+        destination.write_all(
+            self.to_tokens()
+            .as_str()
+            // Insert some newlines to make the generated code slightly easier to read.
+            .replace(" [ \"", "[\n\"")
+            .replace("\" , ", "\",\n")
+            .replace(" ( \"", "\n( \"")
+            .replace("; ", ";\n")
+            .as_bytes())
+    }
+
+    fn to_tokens(&mut self) -> quote::Tokens {
         // `impl Default for Atom` requires the empty string to be in the static set.
         // This also makes sure the set in non-empty,
         // which would cause divisions by zero in rust-phf.
@@ -74,45 +88,49 @@ impl AtomType {
 
         let atoms: Vec<&str> = self.atoms.iter().map(|s| &**s).collect();
         let hash_state = phf_generator::generate_hash(&atoms);
-        let atoms: Vec<&str> = hash_state.map.iter().map(|&idx| atoms[idx]).collect();
-        let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap();
+        let phf_generator::HashState { key, disps, map } = hash_state;
+        let atoms: Vec<&str> = map.iter().map(|&idx| atoms[idx]).collect();
+        let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
+        let data = (0..atoms.len()).map(|i| quote::Hex(shared::pack_static(i as u32)));
 
         let type_name = if let Some(position) = self.path.rfind("::") {
             &self.path[position + "::".len() ..]
         } else {
             &self.path
         };
+        let static_set_name = quote::Ident::from(format!("{}StaticSet", type_name));
+        let type_name = quote::Ident::from(type_name);
+        let macro_name = quote::Ident::from(&*self.macro_name);
+        let path = iter::repeat(quote::Ident::from(&*self.path));
 
-        macro_rules! w {
-            ($($arg: expr),+) => { try!(writeln!(destination, $($arg),+)) }
+        quote! {
+            pub type #type_name = ::string_cache::Atom<#static_set_name>;
+            pub struct #static_set_name;
+            impl ::string_cache::StaticAtomSet for #static_set_name {
+                fn get() -> &'static ::string_cache::PhfStrSet {
+                    static SET: ::string_cache::PhfStrSet = ::string_cache::PhfStrSet {
+                        key: #key,
+                        disps: &#disps,
+                        atoms: &#atoms,
+                    };
+                    &SET
+                }
+                fn empty_string_index() -> u32 {
+                    #empty_string_index
+                }
+            }
+            #[macro_export]
+            macro_rules! #macro_name {
+                #(
+                    (#atoms) => {
+                        $crate::#path {
+                            unsafe_data: #data,
+                            phantom: ::std::marker::PhantomData,
+                        }
+                    };
+                )*
+            }
         }
-
-        w!("pub type {} = ::string_cache::Atom<{}StaticSet>;", type_name, type_name);
-        w!("pub struct {}StaticSet;", type_name);
-        w!("impl ::string_cache::StaticAtomSet for {}StaticSet {{", type_name);
-        w!("    fn get() -> &'static ::string_cache::PhfStrSet {{");
-        w!("        static SET: ::string_cache::PhfStrSet = ::string_cache::PhfStrSet {{");
-        w!("            key: {},", hash_state.key);
-        w!("            disps: &{:?},", hash_state.disps);
-        w!("            atoms: &{:#?},", atoms);
-        w!("        }};");
-        w!("        &SET");
-        w!("    }}");
-        w!("    fn empty_string_index() -> u32 {{");
-        w!("        {}", empty_string_index);
-        w!("    }}");
-        w!("}}");
-        w!("#[macro_export]");
-        w!("macro_rules! {} {{", self.macro_name);
-        for (i, atom) in atoms.iter().enumerate() {
-            w!("({:?}) => {{ $crate::{} {{ unsafe_data: 0x{:x}, phantom: ::std::marker::PhantomData }} }};",
-               atom,
-               self.path,
-               shared::pack_static(i as u32)
-            );
-        }
-        w!("}}");
-        Ok(())
     }
 
     /// Create a new file at `path` and write generated code there.
