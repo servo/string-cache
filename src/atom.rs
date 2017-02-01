@@ -228,11 +228,6 @@ impl<Static: StaticAtomSet> Atom<Static> {
     pub fn get_hash(&self) -> u32 {
         ((self.unsafe_data >> 32) ^ self.unsafe_data) as u32
     }
-
-    pub fn with_str<F, Output>(&self, cb: F) -> Output
-                               where F: FnOnce(&str) -> Output {
-        cb(self)
-    }
 }
 
 impl<Static: StaticAtomSet> Default for Atom<Static> {
