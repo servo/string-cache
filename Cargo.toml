@@ -27,9 +27,6 @@ log-events = ["rustc-serialize"]
 # Use unstable features to optimize space and time (memory and CPU usage).
 unstable = []
 
-# HeapSizeOf support
-heap_size = ["heapsize"]
-
 [dependencies]
 lazy_static = "0.2"
 serde = "0.8"
