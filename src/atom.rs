@@ -228,11 +228,6 @@ impl<Static: StaticAtomSet> Atom<Static> {
     pub fn get_hash(&self) -> u32 {
         ((self.unsafe_data >> 32) ^ self.unsafe_data) as u32
     }
-
-    pub fn with_str<F, Output>(&self, cb: F) -> Output
-                               where F: FnOnce(&str) -> Output {
-        cb(self)
-    }
 }
 
 impl<Static: StaticAtomSet> Default for Atom<Static> {
@@ -431,16 +426,16 @@ impl<Static: StaticAtomSet> AsRef<str> for Atom<Static> {
 }
 
 impl<Static: StaticAtomSet> Serialize for Atom<Static> {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         let string: &str = self.as_ref();
         string.serialize(serializer)
     }
 }
 
 impl<Static: StaticAtomSet> Deserialize for Atom<Static> {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error> where D: Deserializer {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer {
         let string: String = try!(Deserialize::deserialize(deserializer));
-        Ok(Atom::from(&*string))
+        Ok(Atom::from(string))
     }
 }
 
