@@ -7,7 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![recursion_limit = "128"]
+
 extern crate phf_generator;
+extern crate phf_shared;
 extern crate string_cache_shared as shared;
 #[macro_use] extern crate quote;
 
@@ -93,6 +96,12 @@ impl AtomType {
         let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
         let data = (0..atoms.len()).map(|i| quote::Hex(shared::pack_static(i as u32)));
 
+        let hashes: Vec<u32> =
+            atoms.iter().map(|string| {
+                let hash = phf_shared::hash(string, key);
+                ((hash >> 32) ^ hash) as u32
+            }).collect();
+
         let type_name = if let Some(position) = self.path.rfind("::") {
             &self.path[position + "::".len() ..]
         } else {
@@ -112,6 +121,7 @@ impl AtomType {
                         key: #key,
                         disps: &#disps,
                         atoms: &#atoms,
+                        hashes: &#hashes
                     };
                     &SET
                 }

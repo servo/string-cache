@@ -177,6 +177,7 @@ pub struct PhfStrSet {
     pub key: u64,
     pub disps: &'static [(u32, u32)],
     pub atoms: &'static [&'static str],
+    pub hashes: &'static [u32],
 }
 
 pub struct EmptyStaticAtomSet;
@@ -189,6 +190,8 @@ impl StaticAtomSet for EmptyStaticAtomSet {
             key: 0,
             disps: &[(0, 0)],
             atoms: &[""],
+            // "" SipHash'd, and xored with u64_hash_to_u32.
+            hashes: &[0x3ddddef3],
         };
         &SET
     }
@@ -219,6 +222,17 @@ impl<Static: StaticAtomSet> HeapSizeOf for Atom<Static> {
     }
 }
 
+impl<Static: StaticAtomSet> ::precomputed_hash::PrecomputedHash for Atom<Static> {
+    fn precomputed_hash(&self) -> u32 {
+        self.get_hash()
+    }
+}
+
+fn u64_hash_as_u32(h: u64) -> u32 {
+    // This may or may not be great...
+    ((h >> 32) ^ h) as u32
+}
+
 impl<Static: StaticAtomSet> Atom<Static> {
     #[inline(always)]
     unsafe fn unpack(&self) -> UnpackedAtom {
@@ -226,7 +240,19 @@ impl<Static: StaticAtomSet> Atom<Static> {
     }
 
     pub fn get_hash(&self) -> u32 {
-        ((self.unsafe_data >> 32) ^ self.unsafe_data) as u32
+        match unsafe { self.unpack() } {
+            Static(index) => {
+                let static_set = Static::get();
+                static_set.hashes[index as usize]
+            }
+            Dynamic(entry) => {
+                let entry = entry as *mut StringCacheEntry;
+                u64_hash_as_u32(unsafe { (*entry).hash })
+            }
+            Inline(..) => {
+                u64_hash_as_u32(self.unsafe_data)
+            }
+        }
     }
 }
 
