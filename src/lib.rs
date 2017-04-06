@@ -19,8 +19,9 @@
 #[cfg(test)] extern crate rand;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate debug_unreachable;
-extern crate serde;
 extern crate phf_shared;
+extern crate precomputed_hash;
+extern crate serde;
 extern crate string_cache_shared as shared;
 
 pub use atom::{Atom, StaticAtomSet, PhfStrSet, EmptyStaticAtomSet, DefaultAtom};

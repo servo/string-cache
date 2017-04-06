@@ -28,6 +28,7 @@ log-events = ["rustc-serialize"]
 unstable = []
 
 [dependencies]
+precomputed-hash = "0.1"
 lazy_static = "0.2"
 serde = "0.9"
 phf_shared = "0.7.4"
