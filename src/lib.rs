@@ -14,7 +14,6 @@
 #![cfg_attr(all(test, feature = "unstable"), feature(test))]
 
 #[cfg(all(test, feature = "unstable"))] extern crate test;
-#[cfg(feature = "log-events")] extern crate rustc_serialize;
 #[cfg(feature = "heapsize")] extern crate heapsize;
 #[cfg(test)] extern crate rand;
 #[macro_use] extern crate lazy_static;
