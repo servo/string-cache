@@ -470,19 +470,21 @@ impl<Static: StaticAtomSet> Deserialize for Atom<Static> {
 // over the one from &str.
 impl<Static: StaticAtomSet> Atom<Static> {
     pub fn to_ascii_uppercase(&self) -> Self {
-        if self.chars().all(char::is_uppercase) {
-            self.clone()
-        } else {
-            Atom::from(&*((&**self).to_ascii_uppercase()))
+        for b in self.bytes() {
+            if let b'a' ... b'z' = b {
+                return Atom::from((&**self).to_ascii_uppercase())
+            }
         }
+        self.clone()
     }
 
     pub fn to_ascii_lowercase(&self) -> Self {
-        if self.chars().all(char::is_lowercase) {
-            self.clone()
-        } else {
-            Atom::from(&*((&**self).to_ascii_lowercase()))
+        for b in self.bytes() {
+            if let b'A' ... b'Z' = b {
+                return Atom::from((&**self).to_ascii_lowercase())
+            }
         }
+        self.clone()
     }
 
     pub fn eq_ignore_ascii_case(&self, other: &Self) -> bool {
