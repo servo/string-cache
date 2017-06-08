@@ -469,19 +469,37 @@ impl<Static: StaticAtomSet> Deserialize for Atom<Static> {
 // We don't need to implement is_ascii because there's no performance improvement
 // over the one from &str.
 impl<Static: StaticAtomSet> Atom<Static> {
+    fn from_mutated_str<F: FnOnce(&mut str)>(s: &str, f: F) -> Self {
+        let mut buffer: [u8; 64] = unsafe { mem::uninitialized() };
+        if let Some(buffer_prefix) = buffer.get_mut(..s.len()) {
+            buffer_prefix.copy_from_slice(s.as_bytes());
+            // FIXME: use from std::str when stable https://github.com/rust-lang/rust/issues/41119
+            pub unsafe fn from_utf8_unchecked_mut(v: &mut [u8]) -> &mut str {
+                mem::transmute(v)
+            }
+            let as_str = unsafe { from_utf8_unchecked_mut(buffer_prefix) };
+            f(as_str);
+            Atom::from(&*as_str)
+        } else {
+            let mut string = s.to_owned();
+            f(&mut string);
+            Atom::from(string)
+        }
+    }
+
     pub fn to_ascii_uppercase(&self) -> Self {
-        for b in self.bytes() {
+        for (i, b) in self.bytes().enumerate() {
             if let b'a' ... b'z' = b {
-                return Atom::from((&**self).to_ascii_uppercase())
+                return Atom::from_mutated_str(self, |s| s[i..].make_ascii_uppercase())
             }
         }
         self.clone()
     }
 
     pub fn to_ascii_lowercase(&self) -> Self {
-        for b in self.bytes() {
+        for (i, b) in self.bytes().enumerate() {
             if let b'A' ... b'Z' = b {
-                return Atom::from((&**self).to_ascii_lowercase())
+                return Atom::from_mutated_str(self, |s| s[i..].make_ascii_lowercase())
             }
         }
         self.clone()
