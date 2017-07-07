@@ -23,7 +23,6 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::mem;
 use std::ops;
-use std::ptr;
 use std::slice;
 use std::str;
 use std::sync::Mutex;
@@ -314,7 +313,7 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
             let len = string_to_add.len();
             if len <= MAX_INLINE_LEN {
                 let mut buf: [u8; 7] = [0; 7];
-                copy_memory(string_to_add.as_bytes(), &mut buf);
+                buf[..len].copy_from_slice(string_to_add.as_bytes());
                 Inline(len as u8, buf)
             } else {
                 Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
@@ -528,18 +527,31 @@ enum UnpackedAtom {
     Static(u32),
 }
 
-struct RawSlice {
-    data: *const u8,
-    len: usize,
+#[inline(always)]
+fn inline_atom_slice(x: &u64) -> &[u8] {
+    unsafe {
+        let x: *const u64 = x;
+        let mut data = x as *const u8;
+        // All except the lowest byte, which is first in little-endian, last in big-endian.
+        if cfg!(target_endian = "little") {
+            data = data.offset(1);
+        }
+        let len = 7;
+        slice::from_raw_parts(data, len)
+    }
 }
 
-#[cfg(target_endian = "little")]  // Not implemented yet for big-endian
 #[inline(always)]
-unsafe fn inline_atom_slice(x: &u64) -> RawSlice {
-    let x: *const u64 = x;
-    RawSlice {
-        data: (x as *const u8).offset(1),
-        len: 7,
+fn inline_atom_slice_mut(x: &mut u64) -> &mut [u8] {
+    unsafe {
+        let x: *mut u64 = x;
+        let mut data = x as *mut u8;
+        // All except the lowest byte, which is first in little-endian, last in big-endian.
+        if cfg!(target_endian = "little") {
+            data = data.offset(1);
+        }
+        let len = 7;
+        slice::from_raw_parts_mut(data, len)
     }
 }
 
@@ -557,10 +569,8 @@ impl UnpackedAtom {
                 debug_assert!((len as usize) <= MAX_INLINE_LEN);
                 let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
                 {
-                    let raw_slice = inline_atom_slice(&mut data);
-                    let dest: &mut [u8] = slice::from_raw_parts_mut(
-                        raw_slice.data as *mut u8, raw_slice.len);
-                    copy_memory(&buf[..], dest);
+                    let dest = inline_atom_slice_mut(&mut data);
+                    dest.copy_from_slice(&buf)
                 }
                 data
             }
@@ -578,9 +588,8 @@ impl UnpackedAtom {
                 let len = ((data & 0xf0) >> 4) as usize;
                 debug_assert!(len <= MAX_INLINE_LEN);
                 let mut buf: [u8; 7] = [0; 7];
-                let raw_slice = inline_atom_slice(&data);
-                let src: &[u8] = slice::from_raw_parts(raw_slice.data, raw_slice.len);
-                copy_memory(src, &mut buf[..]);
+                let src = inline_atom_slice(&data);
+                buf.copy_from_slice(src);
                 Inline(len as u8, buf)
             },
             _ => debug_unreachable!(),
@@ -606,26 +615,10 @@ unsafe fn from_packed_dynamic(data: u64) -> Option<*mut ()> {
 unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
     match UnpackedAtom::from_packed(*data) {
         Inline(len, _) => {
-            let raw_slice = inline_atom_slice(&data);
-            let src: &[u8] = slice::from_raw_parts(raw_slice.data, raw_slice.len);
+            let src = inline_atom_slice(&data);
             &src[..(len as usize)]
         }
         _ => debug_unreachable!(),
-    }
-}
-
-
-/// Copy of std::slice::bytes::copy_memory, which is unstable.
-#[inline]
-fn copy_memory(src: &[u8], dst: &mut [u8]) {
-    let len_src = src.len();
-    assert!(dst.len() >= len_src);
-    // `dst` is unaliasable, so we know statically it doesn't overlap
-    // with `src`.
-    unsafe {
-        ptr::copy_nonoverlapping(src.as_ptr(),
-                                 dst.as_mut_ptr(),
-                                 len_src);
     }
 }
 
