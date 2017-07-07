@@ -531,17 +531,40 @@ enum UnpackedAtom {
 struct RawSlice {
     data: *const u8,
     len: usize,
+    original_data: u64,
 }
 
-#[cfg(target_endian = "little")]  // Not implemented yet for big-endian
+#[cfg(target_endian = "little")]
 #[inline(always)]
 unsafe fn inline_atom_slice(x: &u64) -> RawSlice {
     let x: *const u64 = x;
-    RawSlice {
-        data: (x as *const u8).offset(1),
+    let mut tmp = RawSlice {
+        data: ::std::ptr::null(),
         len: 7,
-    }
+        original_data: *x,
+    };
+    tmp.data = (tmp.original_data as *const u8).offset(1);
+    tmp
 }
+
+#[cfg(target_endian = "big")]
+#[inline(always)]
+unsafe fn inline_atom_slice(x: &u64) -> RawSlice {
+    let mut y = 0u64;
+    for offset in 0..size_of::<u64>() * 8 {
+        y = y << 1;
+        y += (x >> offset) & 1;
+    }
+    let x: *const u64 = y;
+    let mut tmp = RawSlice {
+        data: ::std::ptr::null(),
+        len: 7,
+        original_data: y,
+    };
+    tmp.data = (tmp.original_data as *const u8).offset(1);
+    tmp
+}
+
 
 impl UnpackedAtom {
     #[inline(always)]
@@ -660,6 +683,15 @@ mod tests {
 
         let d1 = Atom::from("ZZZZZZZZZZ");
         assert!(d1.as_ref() == "ZZZZZZZZZZ");
+    }
+
+    #[cfg(target_endian = "big")]
+    #[test]
+    fn test_big_endian() {
+        let r = inline_atom_slice(&100);
+        // Since we "reversed" the number in order to read it like a little endian, we expect a big
+        // number.
+        assert_eq!(r.original_data, 2738188573441261568u64);
     }
 
     macro_rules! unpacks_to (($e:expr, $t:pat) => (
