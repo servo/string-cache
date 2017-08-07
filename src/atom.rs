@@ -268,7 +268,7 @@ impl<Static: StaticAtomSet> Default for Atom<Static> {
 impl<Static: StaticAtomSet> Hash for Atom<Static> {
     #[inline]
     fn hash<H>(&self, state: &mut H) where H: Hasher {
-        self.unsafe_data.hash(state)
+        state.write_u32(self.get_hash())
     }
 }
 
