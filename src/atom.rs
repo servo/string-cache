@@ -227,6 +227,12 @@ impl<Static: StaticAtomSet> ::precomputed_hash::PrecomputedHash for Atom<Static>
     }
 }
 
+impl<'a, Static: StaticAtomSet> From<&'a Atom<Static>> for Atom<Static> {
+    fn from(atom: &'a Self) -> Self {
+        atom.clone()
+    }
+}
+
 fn u64_hash_as_u32(h: u64) -> u32 {
     // This may or may not be great...
     ((h >> 32) ^ h) as u32
