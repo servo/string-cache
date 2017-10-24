@@ -9,9 +9,6 @@
 
 #![allow(non_upper_case_globals)]
 
-#[cfg(feature = "heapsize")]
-use heapsize::HeapSizeOf;
-
 use phf_shared;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -46,26 +43,8 @@ struct StringCache {
     buckets: [Option<Box<StringCacheEntry>>; NB_BUCKETS],
 }
 
-#[cfg(feature = "heapsize")]
-impl HeapSizeOf for StringCache {
-    fn heap_size_of_children(&self) -> usize {
-        self.buckets.iter().fold(0, |size, bucket| size + bucket.heap_size_of_children())
-    }
-}
-
 lazy_static! {
     static ref STRING_CACHE: Mutex<StringCache> = Mutex::new(StringCache::new());
-}
-
-/// A token that represents the heap used by the dynamic string cache.
-#[cfg(feature = "heapsize")]
-pub struct StringCacheHeap;
-
-#[cfg(feature = "heapsize")]
-impl HeapSizeOf for StringCacheHeap {
-    fn heap_size_of_children(&self) -> usize {
-        STRING_CACHE.lock().unwrap().heap_size_of_children()
-    }
 }
 
 struct StringCacheEntry {
@@ -73,14 +52,6 @@ struct StringCacheEntry {
     hash: u64,
     ref_count: AtomicIsize,
     string: Box<str>,
-}
-
-#[cfg(feature = "heapsize")]
-impl HeapSizeOf for StringCacheEntry {
-    fn heap_size_of_children(&self) -> usize {
-        self.next_in_bucket.heap_size_of_children() +
-        self.string.heap_size_of_children()
-    }
 }
 
 impl StringCacheEntry {
@@ -211,14 +182,6 @@ pub struct Atom<Static: StaticAtomSet> {
 
     #[doc(hidden)]
     pub phantom: PhantomData<Static>,
-}
-
-#[cfg(feature = "heapsize")]
-impl<Static: StaticAtomSet> HeapSizeOf for Atom<Static> {
-    #[inline(always)]
-    fn heap_size_of_children(&self) -> usize {
-        0
-    }
 }
 
 impl<Static: StaticAtomSet> ::precomputed_hash::PrecomputedHash for Atom<Static> {
