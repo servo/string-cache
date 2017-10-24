@@ -14,7 +14,6 @@
 #![cfg_attr(all(test, feature = "unstable"), feature(test))]
 
 #[cfg(all(test, feature = "unstable"))] extern crate test;
-#[cfg(feature = "heapsize")] extern crate heapsize;
 #[cfg(all(test, feature = "unstable"))] extern crate rand;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate debug_unreachable;
