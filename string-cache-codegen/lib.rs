@@ -6,6 +6,65 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
+//! A crate to create static string caches at compiletime.
+//!
+//! # Examples
+//!
+//! With static atoms:
+//!
+//! In `Cargo.toml`:
+//!
+//! ```toml
+//! [package]
+//! build = "build.rs"
+//!
+//! [dependencies]
+//! string_cache = "0.7"
+//!
+//! [build-dependencies]
+//! string_cache_codegen = "0.4"
+//! ```
+//!
+//! In `build.rs`:
+//!
+//! ```no_run
+//! extern crate string_cache_codegen;
+//!
+//! use std::env;
+//! use std::path::Path;
+//!
+//! fn main() {
+//!     string_cache_codegen::AtomType::new("foo::FooAtom", "foo_atom!")
+//!         .atoms(&["foo", "bar"])
+//!         .write_to_file(&Path::new(&env::var("OUT_DIR").unwrap()).join("foo_atom.rs"))
+//!         .unwrap()
+//! }
+//! ```
+//!
+//! In `lib.rs`:
+//!
+//! ```ignore
+//! extern crate string_cache;
+//!
+//! mod foo {
+//!     include!(concat!(env!("OUT_DIR"), "/foo_atom.rs"));
+//! }
+//! ```
+//!
+//! The generated code will define a `FooAtom` type and a `foo_atom!` macro.
+//! The macro can be used in expression or patterns, with strings listed in `build.rs`.
+//! For example:
+//!
+//! ```ignore
+//! fn compute_something(input: &foo::FooAtom) -> u32 {
+//!     match *input {
+//!         foo_atom!("foo") => 1,
+//!         foo_atom!("bar") => 2,
+//!         _ => 3,
+//!     }
+//! }
+//! ```
+//!
 
 #![recursion_limit = "128"]
 
@@ -24,6 +83,7 @@ use std::path::Path;
 pub struct AtomType {
     path: String,
     macro_name: String,
+    macro_doc: Option<String>,
     atoms: HashSet<String>,
 }
 
@@ -38,7 +98,7 @@ impl AtomType {
     ///
     /// For example, `AtomType::new("foo::FooAtom", "foo_atom!")` will generate:
     ///
-    /// ```rust
+    /// ```ignore
     /// pub type FooAtom = ::string_cache::Atom<FooAtomStaticSet>;
     /// pub struct FooAtomStaticSet;
     /// impl ::string_cache::StaticAtomSet for FooAtomStaticSet {
@@ -53,8 +113,17 @@ impl AtomType {
         AtomType {
             path: path.to_owned(),
             macro_name: macro_name[..macro_name.len() - "!".len()].to_owned(),
+            macro_doc: None,
             atoms: HashSet::new(),
         }
+    }
+
+    /// Add some documentation to the generated macro.
+    ///
+    /// Note that `docs` should not contain the `///` at the front of normal docs.
+    pub fn with_macro_doc(&mut self, docs: &str) -> &mut Self {
+        self.macro_doc = Some(docs.to_owned());
+        self
     }
 
     /// Adds an atom to the builder
@@ -107,6 +176,10 @@ impl AtomType {
         } else {
             &self.path
         };
+        let macro_doc = match self.macro_doc {
+            Some(ref doc) => quote!(#[doc = #doc]),
+            None => quote!()
+        };
         let static_set_name = quote::Ident::from(format!("{}StaticSet", type_name));
         let type_name = quote::Ident::from(type_name);
         let macro_name = quote::Ident::from(&*self.macro_name);
@@ -129,6 +202,7 @@ impl AtomType {
                     #empty_string_index
                 }
             }
+            #macro_doc
             #[macro_export]
             macro_rules! #macro_name {
                 #(
