@@ -138,11 +138,28 @@ impl StringCache {
     }
 }
 
+/// A static `PhfStrSet`
+///
+/// This trait is implemented by static sets of interned strings generated using
+/// `string_cache_codegen`, and `EmptyStaticAtomSet` for when strings will be added dynamically.
+///
+/// It is used by the methods of [`Atom`] to check if a string is present in the static set.
+///
+/// [`Atom`]: struct.Atom.html
 pub trait StaticAtomSet {
+    /// Get the location of the static string set in the binary.
     fn get() -> &'static PhfStrSet;
+    /// Get the index of the empty string, which is in every set and is used for `Atom::default`.
     fn empty_string_index() -> u32;
 }
 
+/// A string set created using a [perfect hash function], specifically
+/// [Hash, Displace and Compress].
+///
+/// See the CHD document for the meaning of the struct fields.
+///
+/// [perfect hash function]: https://en.wikipedia.org/wiki/Perfect_hash_function
+/// [Hash, Displace and Compress]: http://cmph.sourceforge.net/papers/esa09.pdf
 pub struct PhfStrSet {
     pub key: u64,
     pub disps: &'static [(u32, u32)],
@@ -150,6 +167,7 @@ pub struct PhfStrSet {
     pub hashes: &'static [u32],
 }
 
+/// An empty static atom set for when only dynamic strings will be added
 pub struct EmptyStaticAtomSet;
 
 impl StaticAtomSet for EmptyStaticAtomSet {
@@ -174,6 +192,10 @@ impl StaticAtomSet for EmptyStaticAtomSet {
 /// Use this if you don’t care about static atoms.
 pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
 
+/// Represents a string that has been interned.
+///
+/// In reality this contains a complex packed datastructure and the methods to extract information
+/// from it, along with type information to tell the compiler which static set it corresponds to.
 pub struct Atom<Static: StaticAtomSet> {
     /// This field is public so that the `atom!()` macros can use it.
     /// You should not otherwise access this field.
@@ -207,6 +229,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
         UnpackedAtom::from_packed(self.unsafe_data)
     }
 
+    /// Get the hash of the string as it is stored in the set.
     pub fn get_hash(&self) -> u32 {
         match unsafe { self.unpack() } {
             Static(index) => {
@@ -441,11 +464,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
         let mut buffer: [u8; 64] = unsafe { mem::uninitialized() };
         if let Some(buffer_prefix) = buffer.get_mut(..s.len()) {
             buffer_prefix.copy_from_slice(s.as_bytes());
-            // FIXME: use from std::str when stable https://github.com/rust-lang/rust/issues/41119
-            pub unsafe fn from_utf8_unchecked_mut(v: &mut [u8]) -> &mut str {
-                mem::transmute(v)
-            }
-            let as_str = unsafe { from_utf8_unchecked_mut(buffer_prefix) };
+            let as_str = unsafe { ::std::str::from_utf8_unchecked_mut(buffer_prefix) };
             f(as_str);
             Atom::from(&*as_str)
         } else {
@@ -455,6 +474,9 @@ impl<Static: StaticAtomSet> Atom<Static> {
         }
     }
 
+    /// Like [`to_ascii_uppercase`].
+    ///
+    /// [`to_ascii_uppercase`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.to_ascii_uppercase
     pub fn to_ascii_uppercase(&self) -> Self {
         for (i, b) in self.bytes().enumerate() {
             if let b'a' ... b'z' = b {
@@ -464,6 +486,9 @@ impl<Static: StaticAtomSet> Atom<Static> {
         self.clone()
     }
 
+    /// Like [`to_ascii_lowercase`].
+    ///
+    /// [`to_ascii_lowercase`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.to_ascii_lowercase
     pub fn to_ascii_lowercase(&self) -> Self {
         for (i, b) in self.bytes().enumerate() {
             if let b'A' ... b'Z' = b {
@@ -473,10 +498,16 @@ impl<Static: StaticAtomSet> Atom<Static> {
         self.clone()
     }
 
+    /// Like [`eq_ignore_ascii_case`].
+    ///
+    /// [`eq_ignore_ascii_case`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.eq_ignore_ascii_case
     pub fn eq_ignore_ascii_case(&self, other: &Self) -> bool {
         (self == other) || self.eq_str_ignore_ascii_case(&**other)
     }
 
+    /// Like [`eq_ignore_ascii_case`], but takes an unhashed string as `other`.
+    ///
+    /// [`eq_ignore_ascii_case`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.eq_ignore_ascii_case
     pub fn eq_str_ignore_ascii_case(&self, other: &str) -> bool {
         (&**self).eq_ignore_ascii_case(other)
     }
@@ -525,6 +556,8 @@ fn inline_atom_slice_mut(x: &mut u64) -> &mut [u8] {
 }
 
 impl UnpackedAtom {
+    /// Pack a key, fitting it into a u64 with flags and data. See `string_cache_shared` for
+    /// hints for the layout.
     #[inline(always)]
     unsafe fn pack(self) -> u64 {
         match self {
@@ -546,6 +579,7 @@ impl UnpackedAtom {
         }
     }
 
+    /// Unpack a key, extracting information from a single u64 into useable structs.
     #[inline(always)]
     unsafe fn from_packed(data: u64) -> UnpackedAtom {
         debug_assert!(DYNAMIC_TAG == 0); // Dynamic is untagged

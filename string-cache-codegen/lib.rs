@@ -82,6 +82,8 @@ use std::path::Path;
 /// A builder for a static atom set and relevant macros
 pub struct AtomType {
     path: String,
+    atom_doc: Option<String>,
+    static_set_doc: Option<String>,
     macro_name: String,
     macro_doc: Option<String>,
     atoms: HashSet<String>,
@@ -108,14 +110,38 @@ impl AtomType {
     /// macro_rules foo_atom {
     ///    // Expands to: $crate::foo::FooAtom { … }
     /// }
+    /// ```
     pub fn new(path: &str, macro_name: &str) -> Self {
-        assert!(macro_name.ends_with("!"));
+        assert!(macro_name.ends_with("!"), "`macro_name` must end with '!'");
         AtomType {
             path: path.to_owned(),
             macro_name: macro_name[..macro_name.len() - "!".len()].to_owned(),
+            atom_doc: None,
+            static_set_doc: None,
             macro_doc: None,
             atoms: HashSet::new(),
         }
+    }
+
+    /// Add some documentation to the generated Atom type alias.
+    ///
+    /// This can help the user know that the type uses interned strings.
+    ///
+    /// Note that `docs` should not contain the `///` at the front of normal docs.
+    pub fn with_atom_doc(&mut self, docs: &str) -> &mut Self {
+        self.atom_doc = Some(docs.to_owned());
+        self
+    }
+
+    /// Add some documentation to the generated static set.
+    ///
+    /// This can help the user know that this type is zero-sized and just references a static
+    /// lookup table, or point them to the `Atom` type alias for more info.
+    ///
+    /// Note that `docs` should not contain the `///` at the front of normal docs.
+    pub fn with_static_set_doc(&mut self, docs: &str) -> &mut Self {
+        self.static_set_doc = Some(docs.to_owned());
+        self
     }
 
     /// Add some documentation to the generated macro.
@@ -176,6 +202,14 @@ impl AtomType {
         } else {
             &self.path
         };
+        let atom_doc = match self.atom_doc {
+            Some(ref doc) => quote!(#[doc = #doc]),
+            None => quote!()
+        };
+        let static_set_doc = match self.static_set_doc {
+            Some(ref doc) => quote!(#[doc = #doc]),
+            None => quote!()
+        };
         let macro_doc = match self.macro_doc {
             Some(ref doc) => quote!(#[doc = #doc]),
             None => quote!()
@@ -186,7 +220,9 @@ impl AtomType {
         let path = iter::repeat(quote::Ident::from(&*self.path));
 
         quote! {
+            #atom_doc
             pub type #type_name = ::string_cache::Atom<#static_set_name>;
+            #static_set_doc
             pub struct #static_set_name;
             impl ::string_cache::StaticAtomSet for #static_set_name {
                 fn get() -> &'static ::string_cache::PhfStrSet {
