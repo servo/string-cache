@@ -36,7 +36,7 @@ debug_unreachable = "0.1.1"
 string_cache_shared = {path = "./shared", version = "0.3"}
 
 [dev-dependencies]
-rand = "0.3"
+rand = "0.4"
 
 [build-dependencies]
 string_cache_codegen = { version = "0.4", path = "./string-cache-codegen" }
