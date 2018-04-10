@@ -72,6 +72,7 @@ extern crate phf_generator;
 extern crate phf_shared;
 extern crate string_cache_shared as shared;
 #[macro_use] extern crate quote;
+extern crate proc_macro2;
 
 use std::collections::HashSet;
 use std::fs::File;
@@ -169,7 +170,7 @@ impl AtomType {
     pub fn write_to<W>(&mut self, mut destination: W) -> io::Result<()> where W: Write {
         destination.write_all(
             self.to_tokens()
-            .as_str()
+            .to_string()
             // Insert some newlines to make the generated code slightly easier to read.
             .replace(" [ \"", "[\n\"")
             .replace("\" , ", "\",\n")
@@ -187,9 +188,18 @@ impl AtomType {
         let atoms: Vec<&str> = self.atoms.iter().map(|s| &**s).collect();
         let hash_state = phf_generator::generate_hash(&atoms);
         let phf_generator::HashState { key, disps, map } = hash_state;
+        let (disps0, disps1): (Vec<_>, Vec<_>) = disps.into_iter().unzip();
         let atoms: Vec<&str> = map.iter().map(|&idx| atoms[idx]).collect();
+        let atoms_ref = &atoms;
         let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
-        let data = (0..atoms.len()).map(|i| quote::Hex(shared::pack_static(i as u32)));
+        let data = (0..atoms.len()).map(|i| {
+            format!("0x{:X}u64", shared::pack_static(i as u32))
+                .parse::<proc_macro2::TokenStream>()
+                .unwrap()
+                .into_iter()
+                .next()
+                .unwrap()
+        });
 
         let hashes: Vec<u32> =
             atoms.iter().map(|string| {
@@ -214,10 +224,11 @@ impl AtomType {
             Some(ref doc) => quote!(#[doc = #doc]),
             None => quote!()
         };
-        let static_set_name = quote::Ident::from(format!("{}StaticSet", type_name));
-        let type_name = quote::Ident::from(type_name);
-        let macro_name = quote::Ident::from(&*self.macro_name);
-        let path = iter::repeat(quote::Ident::from(&*self.path));
+        let new_term = |string: &str| proc_macro2::Term::new(string, proc_macro2::Span::call_site());
+        let static_set_name = new_term(&format!("{}StaticSet", type_name));
+        let type_name = new_term(type_name);
+        let macro_name = new_term(&*self.macro_name);
+        let path = iter::repeat(self.path.parse::<proc_macro2::TokenStream>().unwrap());
 
         quote! {
             #atom_doc
@@ -228,9 +239,9 @@ impl AtomType {
                 fn get() -> &'static ::string_cache::PhfStrSet {
                     static SET: ::string_cache::PhfStrSet = ::string_cache::PhfStrSet {
                         key: #key,
-                        disps: &#disps,
-                        atoms: &#atoms,
-                        hashes: &#hashes
+                        disps: &[#((#disps0, #disps1)),*],
+                        atoms: &[#(#atoms_ref),*],
+                        hashes: &[#(#hashes),*]
                     };
                     &SET
                 }
@@ -242,7 +253,7 @@ impl AtomType {
             #[macro_export]
             macro_rules! #macro_name {
                 #(
-                    (#atoms) => {
+                    (#atoms_ref) => {
                         $crate::#path {
                             unsafe_data: #data,
                             phantom: ::std::marker::PhantomData,
