@@ -192,7 +192,14 @@ impl AtomType {
         let atoms: Vec<&str> = map.iter().map(|&idx| atoms[idx]).collect();
         let atoms_ref = &atoms;
         let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
-        let data = (0..atoms.len()).map(|i| proc_macro2::Literal::u64_suffixed(shared::pack_static(i as u32)));
+        let data = (0..atoms.len()).map(|i| {
+            format!("0x{:X}u64", shared::pack_static(i as u32))
+                .parse::<proc_macro2::TokenStream>()
+                .unwrap()
+                .into_iter()
+                .next()
+                .unwrap()
+        });
 
         let hashes: Vec<u32> =
             atoms.iter().map(|string| {
@@ -217,11 +224,11 @@ impl AtomType {
             Some(ref doc) => quote!(#[doc = #doc]),
             None => quote!()
         };
-        let produce_term = |string: &str| proc_macro2::Term::new(string, proc_macro2::Span::call_site());
-        let static_set_name = produce_term(&format!("{}StaticSet", type_name));
-        let type_name = produce_term(type_name);
-        let macro_name = produce_term(&*self.macro_name);
-        let path = iter::repeat(produce_term(&*self.path));
+        let new_term = |string: &str| proc_macro2::Term::new(string, proc_macro2::Span::call_site());
+        let static_set_name = new_term(&format!("{}StaticSet", type_name));
+        let type_name = new_term(type_name);
+        let macro_name = new_term(&*self.macro_name);
+        let path = iter::repeat(self.path.parse::<proc_macro2::TokenStream>().unwrap());
 
         quote! {
             #atom_doc
