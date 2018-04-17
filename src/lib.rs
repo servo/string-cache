@@ -32,6 +32,7 @@
 //! ```
 //!
 //! In `build.rs`:
+//!
 //! ```
 //! extern crate string_cache_codegen;
 //!
@@ -47,6 +48,7 @@
 //! ```
 //!
 //! In `lib.rs`:
+//!
 //! ```ignore
 //! extern crate string_cache;
 //!
@@ -71,11 +73,10 @@
 //! ## No compile-time atoms
 //!
 //! ```
-//! extern crate string_cache;
-//!
+//! # extern crate string_cache;
 //! use string_cache::DefaultAtom;
 //!
-//!
+//! # fn main() {
 //! let mut interned_stuff = Vec::new();
 //! let text = "here is a sentence of text that will be tokenised and
 //!             interned and some repeated tokens is of text and";
@@ -96,6 +97,7 @@
 //!     // Atom<Static> to intern a new string.
 //!     interned_stuff.push(DefaultAtom::from(word));
 //! }
+//! # }
 //! ```
 //!
 
