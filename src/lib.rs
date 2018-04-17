@@ -32,7 +32,7 @@
 //! ```
 //!
 //! In `build.rs`:
-//! ```rust
+//! ```
 //! extern crate string_cache_codegen;
 //!
 //! use std::env;
@@ -47,7 +47,7 @@
 //! ```
 //!
 //! In `lib.rs`:
-//! ```rust
+//! ```ignore
 //! extern crate string_cache;
 //!
 //! mod foo {
@@ -70,8 +70,10 @@
 //!
 //! ## No compile-time atoms
 //!
-//! ```rust
+//! ```
 //! extern crate string_cache;
+//!
+//! use string_cache::DefaultAtom;
 //!
 //!
 //! let mut interned_stuff = Vec::new();

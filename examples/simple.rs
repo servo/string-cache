@@ -1,6 +1,6 @@
 extern crate string_cache;
 
-use string_cache::{DefaultAtom, Atom};
+use string_cache::DefaultAtom;
 
 fn main() {
 
