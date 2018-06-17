@@ -12,7 +12,7 @@
 use phf_shared;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::cmp::Ordering::{self, Equal};
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -441,6 +441,12 @@ impl<Static: StaticAtomSet> AsRef<str> for Atom<Static> {
     }
 }
 
+impl<Static: StaticAtomSet> Borrow<str> for Atom<Static> {
+    fn borrow(&self) -> &str {
+        &self
+    }
+}
+
 impl<Static: StaticAtomSet> Serialize for Atom<Static> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         let string: &str = self.as_ref();
@@ -629,6 +635,7 @@ unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
 mod tests {
     use std::mem;
     use std::thread;
+    use std::borrow::Borrow;
     use super::{StaticAtomSet, StringCacheEntry};
     use super::UnpackedAtom::{Dynamic, Inline, Static};
     use shared::ENTRY_ALIGNMENT;
@@ -638,23 +645,18 @@ mod tests {
 
     #[test]
     fn test_as_slice() {
-        let s0 = Atom::from("");
-        assert!(s0.as_ref() == "");
+        fn check(slice: &str) {
+            let s0 = Atom::from(slice);
+            assert_eq!(s0.as_ref(), slice);
+            assert_eq!(Borrow::<str>::borrow(&s0), slice);
+        }
 
-        let s1 = Atom::from("class");
-        assert!(s1.as_ref() == "class");
-
-        let i0 = Atom::from("blah");
-        assert!(i0.as_ref() == "blah");
-
-        let s0 = Atom::from("BLAH");
-        assert!(s0.as_ref() == "BLAH");
-
-        let d0 = Atom::from("zzzzzzzzzz");
-        assert!(d0.as_ref() == "zzzzzzzzzz");
-
-        let d1 = Atom::from("ZZZZZZZZZZ");
-        assert!(d1.as_ref() == "ZZZZZZZZZZ");
+        check("");
+        check("class");
+        check("blah");
+        check("BLAH");
+        check("zzzzzzzzzz");
+        check("ZZZZZZZZZZ");
     }
 
     macro_rules! unpacks_to (($e:expr, $t:pat) => (
