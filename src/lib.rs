@@ -11,7 +11,7 @@
 //! A library for interning things that are `AsRef<str>`.
 //!
 //! Some strings may be interned at compile time using the `string-cache-codegen` crate, or the
-//! `EmptyStaticAtomSet` may be used that has no comiple-time interned strings. An `Atom` is an
+//! `EmptyStaticAtomSet` may be used that has no compile-time interned strings. An `Atom` is an
 //! interned string for a given set (either `EmptyStaticAtomSet` or a generated `StaticAtomSet`).
 //!
 //! Generated `Atom`s will have assocated macros to intern static strings at compile-time.
