@@ -179,7 +179,7 @@ impl AtomType {
             .as_bytes())
     }
 
-    fn to_tokens(&mut self) -> quote::Tokens {
+    fn to_tokens(&mut self) -> proc_macro2::TokenStream {
         // `impl Default for Atom` requires the empty string to be in the static set.
         // This also makes sure the set in non-empty,
         // which would cause divisions by zero in rust-phf.
@@ -224,7 +224,7 @@ impl AtomType {
             Some(ref doc) => quote!(#[doc = #doc]),
             None => quote!()
         };
-        let new_term = |string: &str| proc_macro2::Term::new(string, proc_macro2::Span::call_site());
+        let new_term = |string: &str| proc_macro2::Ident::new(string, proc_macro2::Span::call_site());
         let static_set_name = new_term(&format!("{}StaticSet", type_name));
         let type_name = new_term(type_name);
         let macro_name = new_term(&*self.macro_name);
