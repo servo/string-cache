@@ -15,5 +15,3 @@ script:
   - "cd string-cache-codegen/ && cargo build && cd .."
   - "cd examples/event-log/ && cargo build && cd ../.."
   - "cd examples/summarize-events/ && cargo build && cd ../.."
-notifications:
-  webhooks: http://build.servo.org:54856/travis
