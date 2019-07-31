@@ -1,6 +1,6 @@
 # string-cache
 
-[![Build Status](https://travis-ci.org/servo/string-cache.svg?branch=master)](https://travis-ci.org/servo/string-cache)
+[![Build Status](https://travis-ci.com/servo/string-cache.svg?branch=master)](https://travis-ci.com/servo/string-cache)
 
 [Documentation](https://docs.rs/string_cache/)
 
