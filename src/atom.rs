@@ -478,7 +478,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
     /// [`to_ascii_uppercase`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.to_ascii_uppercase
     pub fn to_ascii_uppercase(&self) -> Self {
         for (i, b) in self.bytes().enumerate() {
-            if let b'a' ... b'z' = b {
+            if let b'a' ..= b'z' = b {
                 return Atom::from_mutated_str(self, |s| s[i..].make_ascii_uppercase())
             }
         }
@@ -490,7 +490,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
     /// [`to_ascii_lowercase`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.to_ascii_lowercase
     pub fn to_ascii_lowercase(&self) -> Self {
         for (i, b) in self.bytes().enumerate() {
-            if let b'A' ... b'Z' = b {
+            if let b'A' ..= b'Z' = b {
                 return Atom::from_mutated_str(self, |s| s[i..].make_ascii_lowercase())
             }
         }
