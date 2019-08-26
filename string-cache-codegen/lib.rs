@@ -269,6 +269,6 @@ impl AtomType {
     /// Typical usage:
     /// `.write_to_file(&Path::new(&env::var("OUT_DIR").unwrap()).join("foo_atom.rs"))`
     pub fn write_to_file(&mut self, path: &Path) -> io::Result<()> {
-        self.write_to(BufWriter::new(try!(File::create(path))))
+        self.write_to(BufWriter::new(File::create(path)?))
     }
 }
