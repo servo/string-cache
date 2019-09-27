@@ -38,4 +38,6 @@ string_cache_shared = {path = "./shared", version = "0.3"}
 members = [
     "string-cache-codegen",
     "integration-tests",
+    "examples/event-log",
+    "examples/summarize-events"
 ]
