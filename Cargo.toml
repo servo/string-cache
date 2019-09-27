@@ -6,7 +6,6 @@ description = "A string interning library for Rust, developed as part of the Ser
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/string-cache"
 documentation = "https://docs.rs/string_cache/"
-build = "build.rs"
 
 # Do not `exclude` ./string-cache-codegen because we want to include
 # ./string-cache-codegen/shared.rs, and `include` is a pain to use
@@ -17,10 +16,6 @@ build = "build.rs"
 [lib]
 name = "string_cache"
 
-[features]
-# Use unstable features to optimize space and time (memory and CPU usage).
-unstable = []
-
 [dependencies]
 precomputed-hash = "0.1"
 lazy_static = "1"
@@ -29,13 +24,12 @@ phf_shared = "0.8"
 new_debug_unreachable = "1.0"
 string_cache_shared = {path = "./shared", version = "0.3"}
 
-[dev-dependencies]
-rand = "0.4"
-string_cache_codegen = { version = "0.4", path = "./string-cache-codegen" }
-
-[build-dependencies]
-string_cache_codegen = { version = "0.4", path = "./string-cache-codegen" }
-
 [[test]]
 name = "small-stack"
 harness = false
+
+[workspace]
+members = [
+    "string-cache-codegen",
+    "integration-tests",
+]

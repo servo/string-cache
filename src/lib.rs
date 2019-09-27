@@ -33,7 +33,7 @@
 //!
 //! In `build.rs`:
 //!
-//! ```
+//! ```ignore
 //! extern crate string_cache_codegen;
 //!
 //! use std::env;
@@ -105,10 +105,7 @@
 #![crate_type = "rlib"]
 
 #![cfg_attr(test, deny(warnings))]
-#![cfg_attr(all(test, feature = "unstable"), feature(test))]
 
-#[cfg(all(test, feature = "unstable"))] extern crate test;
-#[cfg(all(test, feature = "unstable"))] extern crate rand;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate debug_unreachable;
 extern crate phf_shared;
