@@ -4,7 +4,7 @@ use std::env;
 use std::path::Path;
 
 fn main() {
-    string_cache_codegen::AtomType::new("atom::tests::TestAtom", "test_atom!")
+    string_cache_codegen::AtomType::new("TestAtom", "test_atom!")
         .atoms(&[
             "a", "b", "address", "area", "body", "font-weight", "br", "html", "head", "id",
         ])
