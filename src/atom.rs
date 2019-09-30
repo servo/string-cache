@@ -39,7 +39,7 @@ const NB_BUCKETS: usize = 1 << 12;  // 4096
 const BUCKET_MASK: u64 = (1 << 12) - 1;
 
 struct StringCache {
-    buckets: [Option<Box<StringCacheEntry>>; NB_BUCKETS],
+    buckets: Box<[Option<Box<StringCacheEntry>>; NB_BUCKETS]>,
 }
 
 lazy_static! {
@@ -67,8 +67,13 @@ impl StringCacheEntry {
 
 impl StringCache {
     fn new() -> StringCache {
+        type T = Option<Box<StringCacheEntry>>;
+        let _static_assert_size_eq = std::mem::transmute::<T, usize>;
+        let vec = std::mem::ManuallyDrop::new(vec![0_usize; NB_BUCKETS]);
         StringCache {
-            buckets: unsafe { mem::zeroed() },
+            buckets: unsafe {
+                Box::from_raw(vec.as_ptr() as *mut [T; NB_BUCKETS])
+            },
         }
     }
 
