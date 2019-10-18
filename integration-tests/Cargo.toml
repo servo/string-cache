@@ -1,0 +1,25 @@
+[package]
+name = "integration_tests"
+version = "0.0.1"
+authors = [ "The Servo Project Developers" ]
+build = "build.rs"
+publish = false
+
+[lib]
+doctest = false
+test = true
+
+[features]
+
+# Use unstable features to optimize space and time (memory and CPU usage).
+unstable = []
+
+[dependencies]
+string_cache = { version = "0.8", path = ".." }
+
+[dev-dependencies]
+rand = "0.7"
+string_cache_codegen = { version = "0.5", path = "../string-cache-codegen" }
+
+[build-dependencies]
+string_cache_codegen = { version = "0.5", path = "../string-cache-codegen" }

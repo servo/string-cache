@@ -26,8 +26,8 @@ Furthermore, a large part of the point of interning is to make strings small
 and cheap to move around, which isn't reflected in these tests.
 
 */
+use crate::TestAtom;
 
-use atom::tests::TestAtom;
 use test::{Bencher, black_box};
 
 // Just shorthand
@@ -35,14 +35,11 @@ fn mk(x: &str) -> TestAtom {
     TestAtom::from(x)
 }
 
-macro_rules! check_type (($name:ident, $x:expr, $p:pat) => (
+macro_rules! check_type (($name:ident, $x:expr) => (
     // NB: "cargo bench" does not run these!
     #[test]
     fn $name() {
-        match unsafe { $x.unpack() } {
-            $p => (),
-            _ => panic!("atom has wrong type"),
-        }
+        assert!($x, "atom has wrong type");
     }
 ));
 
@@ -62,12 +59,12 @@ macro_rules! bench_tiny_op (($name:ident, $op:ident, $ctor_x:expr, $ctor_y:expr)
 ));
 
 macro_rules! bench_one (
-    (x_static   $x:expr, $y:expr) => (check_type!(check_type_x, $x, Static(..)););
-    (x_inline   $x:expr, $y:expr) => (check_type!(check_type_x, $x, Inline(..)););
-    (x_dynamic  $x:expr, $y:expr) => (check_type!(check_type_x, $x, Dynamic(..)););
-    (y_static   $x:expr, $y:expr) => (check_type!(check_type_y, $y, Static(..)););
-    (y_inline   $x:expr, $y:expr) => (check_type!(check_type_y, $y, Inline(..)););
-    (y_dynamic  $x:expr, $y:expr) => (check_type!(check_type_y, $y, Dynamic(..)););
+    (x_static   $x:expr, $y:expr) => (check_type!(check_type_x, $x.is_static()););
+    (x_inline   $x:expr, $y:expr) => (check_type!(check_type_x, $x.is_inline()););
+    (x_dynamic  $x:expr, $y:expr) => (check_type!(check_type_x, $x.is_dynamic()););
+    (y_static   $x:expr, $y:expr) => (check_type!(check_type_y, $y.is_static()););
+    (y_inline   $x:expr, $y:expr) => (check_type!(check_type_y, $y.is_inline()););
+    (y_dynamic  $x:expr, $y:expr) => (check_type!(check_type_y, $y.is_dynamic()););
     (is_static  $x:expr, $y:expr) => (bench_one!(x_static  $x, $y); bench_one!(y_static  $x, $y););
     (is_inline  $x:expr, $y:expr) => (bench_one!(x_inline  $x, $y); bench_one!(y_inline  $x, $y););
     (is_dynamic $x:expr, $y:expr) => (bench_one!(x_dynamic $x, $y); bench_one!(y_dynamic $x, $y););
@@ -134,8 +131,7 @@ macro_rules! bench_all (
             use std::string::ToString;
             use std::iter::repeat;
 
-            use atom::tests::TestAtom;
-            use atom::UnpackedAtom::{Static, Inline, Dynamic};
+            use crate::TestAtom;
 
             use super::mk;
 
@@ -188,9 +184,9 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
     fn $name(b: &mut Bencher) {
         use std::str;
         use rand;
-        use rand::Rng;
+        use rand::{RngCore, SeedableRng};
 
-        let mut gen = rand::weak_rng();
+        let mut gen = rand::rngs::SmallRng::from_entropy();
         b.iter(|| {
             // We have to generate new atoms on every iter, because
             // the dynamic atom table isn't reset.

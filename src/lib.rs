@@ -25,15 +25,15 @@
 //! In `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! string_cache = "0.7"
+//! string_cache = "0.8"
 //!
 //! [dev-dependencies]
-//! string_cache_codegen = "0.4"
+//! string_cache_codegen = "0.5"
 //! ```
 //!
 //! In `build.rs`:
 //!
-//! ```
+//! ```ignore
 //! extern crate string_cache_codegen;
 //!
 //! use std::env;
@@ -105,10 +105,7 @@
 #![crate_type = "rlib"]
 
 #![cfg_attr(test, deny(warnings))]
-#![cfg_attr(all(test, feature = "unstable"), feature(test))]
 
-#[cfg(all(test, feature = "unstable"))] extern crate test;
-#[cfg(all(test, feature = "unstable"))] extern crate rand;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate debug_unreachable;
 extern crate phf_shared;
@@ -117,10 +114,6 @@ extern crate serde;
 extern crate string_cache_shared as shared;
 
 pub use atom::{Atom, StaticAtomSet, PhfStrSet, EmptyStaticAtomSet, DefaultAtom};
-
-#[cfg(feature = "log-events")]
-#[macro_use]
-pub mod event;
 
 pub mod atom;
 
