@@ -103,22 +103,22 @@
 
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
-
 #![cfg_attr(test, deny(warnings))]
 
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate debug_unreachable;
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate debug_unreachable;
 extern crate phf_shared;
 extern crate precomputed_hash;
 extern crate serde;
-extern crate string_cache_shared as shared;
 
-pub use atom::{Atom, StaticAtomSet, PhfStrSet, EmptyStaticAtomSet, DefaultAtom};
+pub use atom::{Atom, DefaultAtom, EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 
 pub mod atom;
 
 // Make test_atom! macro work in this crate.
 // `$crate` would not be appropriate for other crates creating such macros
 mod string_cache {
-    pub use {Atom, StaticAtomSet, PhfStrSet};
+    pub use {Atom, PhfStrSet, StaticAtomSet};
 }

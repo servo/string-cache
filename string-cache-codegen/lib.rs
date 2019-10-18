@@ -70,14 +70,13 @@
 
 extern crate phf_generator;
 extern crate phf_shared;
-extern crate string_cache_shared as shared;
-#[macro_use] extern crate quote;
+#[macro_use]
+extern crate quote;
 extern crate proc_macro2;
 
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{self, Write, BufWriter};
-use std::iter;
+use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
 /// A builder for a static atom set and relevant macros
@@ -161,22 +160,30 @@ impl AtomType {
 
     /// Adds multiple atoms to the builder
     pub fn atoms<I>(&mut self, iter: I) -> &mut Self
-    where I: IntoIterator, I::Item: AsRef<str> {
-        self.atoms.extend(iter.into_iter().map(|s| s.as_ref().to_owned()));
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+    {
+        self.atoms
+            .extend(iter.into_iter().map(|s| s.as_ref().to_owned()));
         self
     }
 
     /// Write generated code to `destination`.
-    pub fn write_to<W>(&mut self, mut destination: W) -> io::Result<()> where W: Write {
+    pub fn write_to<W>(&mut self, mut destination: W) -> io::Result<()>
+    where
+        W: Write,
+    {
         destination.write_all(
             self.to_tokens()
-            .to_string()
-            // Insert some newlines to make the generated code slightly easier to read.
-            .replace(" [ \"", "[\n\"")
-            .replace("\" , ", "\",\n")
-            .replace(" ( \"", "\n( \"")
-            .replace("; ", ";\n")
-            .as_bytes())
+                .to_string()
+                // Insert some newlines to make the generated code slightly easier to read.
+                .replace(" [ \"", "[\n\"")
+                .replace("\" , ", "\",\n")
+                .replace(" ( \"", "\n( \"")
+                .replace("; ", ";\n")
+                .as_bytes(),
+        )
     }
 
     fn to_tokens(&mut self) -> proc_macro2::TokenStream {
@@ -190,57 +197,66 @@ impl AtomType {
         let phf_generator::HashState { key, disps, map } = hash_state;
         let (disps0, disps1): (Vec<_>, Vec<_>) = disps.into_iter().unzip();
         let atoms: Vec<&str> = map.iter().map(|&idx| atoms[idx]).collect();
-        let atoms_ref = &atoms;
         let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
-        let data = (0..atoms.len()).map(|i| {
-            format!("0x{:X}u64", shared::pack_static(i as u32))
-                .parse::<proc_macro2::TokenStream>()
-                .unwrap()
-                .into_iter()
-                .next()
-                .unwrap()
-        });
+        let indices = 0..atoms.len() as u32;
 
-        let hashes: Vec<u32> =
-            atoms.iter().map(|string| {
+        let hashes: Vec<u32> = atoms
+            .iter()
+            .map(|string| {
                 let hash = phf_shared::hash(string, &key);
                 (hash.g ^ hash.f1) as u32
-            }).collect();
+            })
+            .collect();
 
-        let type_name = if let Some(position) = self.path.rfind("::") {
-            &self.path[position + "::".len() ..]
-        } else {
-            &self.path
+        let mut path_parts = self.path.rsplitn(2, "::");
+        let type_name = path_parts.next().unwrap();
+        let module = match path_parts.next() {
+            Some(m) => format!("$crate::{}", m),
+            None => format!("$crate"),
         };
         let atom_doc = match self.atom_doc {
             Some(ref doc) => quote!(#[doc = #doc]),
-            None => quote!()
+            None => quote!(),
         };
         let static_set_doc = match self.static_set_doc {
             Some(ref doc) => quote!(#[doc = #doc]),
-            None => quote!()
+            None => quote!(),
         };
         let macro_doc = match self.macro_doc {
             Some(ref doc) => quote!(#[doc = #doc]),
-            None => quote!()
+            None => quote!(),
         };
-        let new_term = |string: &str| proc_macro2::Ident::new(string, proc_macro2::Span::call_site());
+        let new_term =
+            |string: &str| proc_macro2::Ident::new(string, proc_macro2::Span::call_site());
         let static_set_name = new_term(&format!("{}StaticSet", type_name));
         let type_name = new_term(type_name);
         let macro_name = new_term(&*self.macro_name);
-        let path = iter::repeat(self.path.parse::<proc_macro2::TokenStream>().unwrap());
+        let module = module.parse::<proc_macro2::TokenStream>().unwrap();
+        let const_names: Vec<_> = atoms
+            .iter()
+            .map(|atom| {
+                let mut name = String::from("ATOM");
+                for c in atom.chars() {
+                    name.push_str(&format!("_{:02X}", c as u32))
+                }
+                new_term(&name)
+            })
+            .collect();
 
         quote! {
             #atom_doc
             pub type #type_name = ::string_cache::Atom<#static_set_name>;
+
             #static_set_doc
+            #[derive(PartialEq, Eq, PartialOrd, Ord)]
             pub struct #static_set_name;
+
             impl ::string_cache::StaticAtomSet for #static_set_name {
                 fn get() -> &'static ::string_cache::PhfStrSet {
                     static SET: ::string_cache::PhfStrSet = ::string_cache::PhfStrSet {
                         key: #key,
                         disps: &[#((#disps0, #disps1)),*],
-                        atoms: &[#(#atoms_ref),*],
+                        atoms: &[#(#atoms),*],
                         hashes: &[#(#hashes),*]
                     };
                     &SET
@@ -249,16 +265,16 @@ impl AtomType {
                     #empty_string_index
                 }
             }
+
+            #(
+                pub const #const_names: #type_name = #type_name::pack_static(#indices);
+            )*
+
             #macro_doc
             #[macro_export]
             macro_rules! #macro_name {
                 #(
-                    (#atoms_ref) => {
-                        $crate::#path {
-                            unsafe_data: #data,
-                            phantom: ::std::marker::PhantomData,
-                        }
-                    };
+                    (#atoms) => { #module::#const_names };
                 )*
             }
         }
