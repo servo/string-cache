@@ -25,12 +25,12 @@ use std::slice;
 use std::str;
 use std::sync::atomic::Ordering::SeqCst;
 
-use self::UnpackedAtom::{Dynamic, Inline, Static};
-
 const DYNAMIC_TAG: u8 = 0b_00;
 const INLINE_TAG: u8 = 0b_01; // len in upper nybble
 const STATIC_TAG: u8 = 0b_10;
 const TAG_MASK: u64 = 0b_11;
+const LEN_OFFSET: u64 = 4;
+const LEN_MASK: u64 = 0xF0;
 
 const MAX_INLINE_LEN: usize = 7;
 const STATIC_SHIFT_BITS: usize = 32;
@@ -151,11 +151,6 @@ impl<'a, Static: StaticAtomSet> From<&'a Atom<Static>> for Atom<Static> {
     }
 }
 
-fn u64_hash_as_u32(h: u64) -> u32 {
-    // This may or may not be great...
-    ((h >> 32) ^ h) as u32
-}
-
 // FIXME: bound removed from the struct definition before of this error for pack_static:
 // "error[E0723]: trait bounds other than `Sized` on const fn parameters are unstable"
 // https://github.com/rust-lang/rust/issues/57563
@@ -166,20 +161,19 @@ impl<Static> Atom<Static> {
     pub const fn pack_static(n: u32) -> Self {
         Self {
             unsafe_data: unsafe {
-                // STATIC_TAG ensure this is non-zero
+                // STATIC_TAG ensures this is non-zero
                 NonZeroU64::new_unchecked((STATIC_TAG as u64) | ((n as u64) << STATIC_SHIFT_BITS))
             },
             phantom: PhantomData,
         }
     }
+
+    fn tag(&self) -> u8 {
+        (self.unsafe_data.get() & TAG_MASK) as u8
+    }
 }
 
 impl<Static: StaticAtomSet> Atom<Static> {
-    #[inline(always)]
-    unsafe fn unpack(&self) -> UnpackedAtom {
-        UnpackedAtom::from_packed(self.unsafe_data)
-    }
-
     /// Return the internal repersentation. For testing.
     #[doc(hidden)]
     pub fn unsafe_data(&self) -> u64 {
@@ -189,42 +183,39 @@ impl<Static: StaticAtomSet> Atom<Static> {
     /// Return true if this is a static Atom. For testing.
     #[doc(hidden)]
     pub fn is_static(&self) -> bool {
-        match unsafe { self.unpack() } {
-            Static(..) => true,
-            _ => false,
-        }
+        self.tag() == STATIC_TAG
     }
 
     /// Return true if this is a dynamic Atom. For testing.
     #[doc(hidden)]
     pub fn is_dynamic(&self) -> bool {
-        match unsafe { self.unpack() } {
-            Dynamic(..) => true,
-            _ => false,
-        }
+        self.tag() == DYNAMIC_TAG
     }
 
     /// Return true if this is an inline Atom. For testing.
     #[doc(hidden)]
     pub fn is_inline(&self) -> bool {
-        match unsafe { self.unpack() } {
-            Inline(..) => true,
-            _ => false,
-        }
+        self.tag() == INLINE_TAG
+    }
+
+    fn static_index(&self) -> u64 {
+        self.unsafe_data.get() >> STATIC_SHIFT_BITS
     }
 
     /// Get the hash of the string as it is stored in the set.
     pub fn get_hash(&self) -> u32 {
-        match unsafe { self.unpack() } {
-            Static(index) => {
-                let static_set = Static::get();
-                static_set.hashes[index as usize]
-            }
-            Dynamic(entry) => {
-                let entry = entry as *mut Entry;
+        match self.tag() {
+            DYNAMIC_TAG => {
+                let entry = self.unsafe_data.get() as *const Entry;
                 unsafe { (*entry).hash }
             }
-            Inline(..) => u64_hash_as_u32(self.unsafe_data.get()),
+            STATIC_TAG => Static::get().hashes[self.static_index() as usize],
+            INLINE_TAG => {
+                let data = self.unsafe_data.get();
+                // This may or may not be great...
+                ((data >> 32) ^ data) as u32
+            }
+            _ => unsafe { debug_unreachable!() },
         }
     }
 }
@@ -265,31 +256,40 @@ impl<Static: StaticAtomSet> PartialEq<String> for Atom<Static> {
 }
 
 impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
-    #[inline]
     fn from(string_to_add: Cow<'a, str>) -> Self {
         let static_set = Static::get();
         let hash = phf_shared::hash(&*string_to_add, &static_set.key);
         let index = phf_shared::get_index(&hash, static_set.disps, static_set.atoms.len());
 
-        let unpacked = if static_set.atoms[index as usize] == string_to_add {
-            Static(index)
+        if static_set.atoms[index as usize] == string_to_add {
+            Self::pack_static(index)
         } else {
             let len = string_to_add.len();
             if len <= MAX_INLINE_LEN {
-                let mut buf: [u8; 7] = [0; 7];
-                buf[..len].copy_from_slice(string_to_add.as_bytes());
-                Inline(len as u8, buf)
+                let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << LEN_OFFSET);
+                {
+                    let dest = inline_atom_slice_mut(&mut data);
+                    dest[..len].copy_from_slice(string_to_add.as_bytes())
+                }
+                Atom {
+                    // INLINE_TAG ensures this is never zero
+                    unsafe_data: unsafe { NonZeroU64::new_unchecked(data) },
+                    phantom: PhantomData,
+                }
             } else {
-                Dynamic(
-                    DYNAMIC_SET
-                        .lock()
-                        .unwrap()
-                        .insert(string_to_add, hash.g) as *mut (),
-                )
+                let ptr: std::ptr::NonNull<Entry> = DYNAMIC_SET
+                    .lock()
+                    .unwrap()
+                    .insert(string_to_add, hash.g);
+                let data = ptr.as_ptr() as u64;
+                debug_assert!(0 == data & TAG_MASK);
+                Atom {
+                    // The address of a ptr::NonNull is non-zero
+                    unsafe_data: unsafe { NonZeroU64::new_unchecked(data) },
+                    phantom: PhantomData,
+                }
             }
-        };
-
-        unsafe { unpacked.pack() }
+        }
     }
 }
 
@@ -310,43 +310,30 @@ impl<Static: StaticAtomSet> From<String> for Atom<Static> {
 impl<Static: StaticAtomSet> Clone for Atom<Static> {
     #[inline(always)]
     fn clone(&self) -> Self {
-        unsafe {
-            match from_packed_dynamic(self.unsafe_data.get()) {
-                Some(entry) => {
-                    let entry = entry as *mut Entry;
-                    (*entry).ref_count.fetch_add(1, SeqCst);
-                }
-                None => (),
-            }
+        if self.tag() == DYNAMIC_TAG {
+            let entry = self.unsafe_data.get() as *const Entry;
+            unsafe { &*entry }.ref_count.fetch_add(1, SeqCst);
         }
-        Atom {
-            unsafe_data: self.unsafe_data,
-            phantom: PhantomData,
-        }
+        Atom { ..*self }
     }
 }
 
 impl<Static> Drop for Atom<Static> {
     #[inline]
     fn drop(&mut self) {
+        if self.tag() == DYNAMIC_TAG {
+            let entry = self.unsafe_data.get() as *const Entry;
+            if unsafe { &*entry }.ref_count.fetch_sub(1, SeqCst) == 1 {
+                drop_slow(self)
+            }
+        }
+
         // Out of line to guide inlining.
         fn drop_slow<Static>(this: &mut Atom<Static>) {
             DYNAMIC_SET
                 .lock()
                 .unwrap()
                 .remove(this.unsafe_data.get() as *mut Entry);
-        }
-
-        unsafe {
-            match from_packed_dynamic(self.unsafe_data.get()) {
-                Some(entry) => {
-                    let entry = entry as *mut Entry;
-                    if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
-                        drop_slow(self);
-                    }
-                }
-                _ => (),
-            }
         }
     }
 }
@@ -357,19 +344,18 @@ impl<Static: StaticAtomSet> ops::Deref for Atom<Static> {
     #[inline]
     fn deref(&self) -> &str {
         unsafe {
-            match self.unpack() {
-                Inline(..) => {
-                    let buf = inline_orig_bytes(&self.unsafe_data);
-                    str::from_utf8_unchecked(buf)
-                }
-                Static(idx) => Static::get()
-                    .atoms
-                    .get(idx as usize)
-                    .expect("bad static atom"),
-                Dynamic(entry) => {
-                    let entry = entry as *mut Entry;
+            match self.tag() {
+                DYNAMIC_TAG => {
+                    let entry = self.unsafe_data.get() as *const Entry;
                     &(*entry).string
                 }
+                INLINE_TAG => {
+                    let len = (self.unsafe_data() & LEN_MASK) >> LEN_OFFSET;
+                    let src = inline_atom_slice(&self.unsafe_data);
+                    str::from_utf8_unchecked(&src[..(len as usize)])
+                }
+                STATIC_TAG => Static::get().atoms[self.static_index() as usize],
+                _ => debug_unreachable!(),
             }
         }
     }
@@ -386,10 +372,11 @@ impl<Static: StaticAtomSet> fmt::Debug for Atom<Static> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ty_str = unsafe {
-            match self.unpack() {
-                Dynamic(..) => "dynamic",
-                Inline(..) => "inline",
-                Static(..) => "static",
+            match self.tag() {
+                DYNAMIC_TAG => "dynamic",
+                INLINE_TAG => "inline",
+                STATIC_TAG => "static",
+                _ => debug_unreachable!(),
             }
         };
 
@@ -502,20 +489,6 @@ impl<Static: StaticAtomSet> Atom<Static> {
     }
 }
 
-// Atoms use a compact representation which fits this enum in a single u64.
-// Inlining avoids actually constructing the unpacked representation in memory.
-#[allow(missing_copy_implementations)]
-enum UnpackedAtom {
-    /// Pointer to a dynamic table entry.  Must be 16-byte aligned!
-    Dynamic(*mut ()),
-
-    /// Length + bytes of string.
-    Inline(u8, [u8; 7]),
-
-    /// Index in static interning table.
-    Static(u32),
-}
-
 #[inline(always)]
 fn inline_atom_slice(x: &NonZeroU64) -> &[u8] {
     unsafe {
@@ -541,84 +514,6 @@ fn inline_atom_slice_mut(x: &mut u64) -> &mut [u8] {
         }
         let len = 7;
         slice::from_raw_parts_mut(data, len)
-    }
-}
-
-impl UnpackedAtom {
-    /// Pack a key, fitting it into a u64 with flags and data. See `string_cache_shared` for
-    /// hints for the layout.
-    #[inline(always)]
-    unsafe fn pack<Static: StaticAtomSet>(self) -> Atom<Static> {
-        match self {
-            Static(n) => Atom::pack_static(n),
-            Dynamic(p) => {
-                let data = p as u64;
-                debug_assert!(0 == data & TAG_MASK);
-                Atom {
-                    // Callers are responsible for calling this with a valid, non-null pointer
-                    unsafe_data: NonZeroU64::new_unchecked(data),
-                    phantom: PhantomData,
-                }
-            }
-            Inline(len, buf) => {
-                debug_assert!((len as usize) <= MAX_INLINE_LEN);
-                let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
-                {
-                    let dest = inline_atom_slice_mut(&mut data);
-                    dest.copy_from_slice(&buf)
-                }
-                Atom {
-                    // INLINE_TAG ensures this is never zero
-                    unsafe_data: NonZeroU64::new_unchecked(data),
-                    phantom: PhantomData,
-                }
-            }
-        }
-    }
-
-    /// Unpack a key, extracting information from a single u64 into useable structs.
-    #[inline(always)]
-    unsafe fn from_packed(data: NonZeroU64) -> UnpackedAtom {
-        debug_assert!(DYNAMIC_TAG == 0); // Dynamic is untagged
-
-        match (data.get() & TAG_MASK) as u8 {
-            DYNAMIC_TAG => Dynamic(data.get() as *mut ()),
-            STATIC_TAG => Static((data.get() >> STATIC_SHIFT_BITS) as u32),
-            INLINE_TAG => {
-                let len = ((data.get() & 0xf0) >> 4) as usize;
-                debug_assert!(len <= MAX_INLINE_LEN);
-                let mut buf: [u8; 7] = [0; 7];
-                let src = inline_atom_slice(&data);
-                buf.copy_from_slice(src);
-                Inline(len as u8, buf)
-            }
-            _ => debug_unreachable!(),
-        }
-    }
-}
-
-/// Used for a fast path in Clone and Drop.
-#[inline(always)]
-unsafe fn from_packed_dynamic(data: u64) -> Option<*mut ()> {
-    if (DYNAMIC_TAG as u64) == (data & TAG_MASK) {
-        Some(data as *mut ())
-    } else {
-        None
-    }
-}
-
-/// For as_slice on inline atoms, we need a pointer into the original
-/// string contents.
-///
-/// It's undefined behavior to call this on a non-inline atom!!
-#[inline(always)]
-unsafe fn inline_orig_bytes<'a>(data: &'a NonZeroU64) -> &'a [u8] {
-    match UnpackedAtom::from_packed(*data) {
-        Inline(len, _) => {
-            let src = inline_atom_slice(&data);
-            &src[..(len as usize)]
-        }
-        _ => debug_unreachable!(),
     }
 }
 

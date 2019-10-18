@@ -10,6 +10,7 @@
 use lazy_static::lazy_static;
 use std::borrow::Cow;
 use std::mem;
+use std::ptr::NonNull;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::Mutex;
@@ -49,7 +50,7 @@ lazy_static! {
 }
 
 impl Set {
-    pub(crate) fn insert(&mut self, string: Cow<str>, hash: u32) -> *mut Entry {
+    pub(crate) fn insert(&mut self, string: Cow<str>, hash: u32) -> NonNull<Entry> {
         let bucket_index = (hash & BUCKET_MASK) as usize;
         {
             let mut ptr: Option<&mut Box<Entry>> = self.buckets[bucket_index].as_mut();
@@ -57,7 +58,7 @@ impl Set {
             while let Some(entry) = ptr.take() {
                 if entry.hash == hash && &*entry.string == &*string {
                     if entry.ref_count.fetch_add(1, SeqCst) > 0 {
-                        return &mut **entry;
+                        return NonNull::from(&mut **entry);
                     }
                     // Uh-oh. The pointer's reference count was zero, which means someone may try
                     // to free it. (Naive attempts to defend against this, for example having the
@@ -78,7 +79,7 @@ impl Set {
             ref_count: AtomicIsize::new(1),
             string: string.into_boxed_str(),
         });
-        let ptr: *mut Entry = &mut *entry;
+        let ptr = NonNull::from(&mut *entry);
         self.buckets[bucket_index] = Some(entry);
 
         ptr
