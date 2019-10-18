@@ -324,8 +324,8 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
     #[inline]
     fn from(string_to_add: Cow<'a, str>) -> Self {
         let static_set = Static::get();
-        let hash = phf_shared::hash(&*string_to_add, static_set.key);
-        let index = phf_shared::get_index(hash, static_set.disps, static_set.atoms.len());
+        let hash = phf_shared::hash(&*string_to_add, &static_set.key);
+        let index = phf_shared::get_index(&hash, static_set.disps, static_set.atoms.len());
 
         let unpacked = if static_set.atoms[index as usize] == string_to_add {
             Static(index)
@@ -336,6 +336,7 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
                 buf[..len].copy_from_slice(string_to_add.as_bytes());
                 Inline(len as u8, buf)
             } else {
+                let hash = (hash.g as u64) << 32 | (hash.f1 as u64);
                 Dynamic(STRING_CACHE.lock().unwrap().add(string_to_add, hash) as *mut ())
             }
         };

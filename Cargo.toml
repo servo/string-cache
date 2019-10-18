@@ -25,7 +25,7 @@ unstable = []
 precomputed-hash = "0.1"
 lazy_static = "1"
 serde = "1"
-phf_shared = "0.7.4"
+phf_shared = "0.8"
 new_debug_unreachable = "1.0"
 string_cache_shared = {path = "./shared", version = "0.3"}
 

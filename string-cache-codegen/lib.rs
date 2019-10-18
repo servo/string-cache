@@ -203,8 +203,8 @@ impl AtomType {
 
         let hashes: Vec<u32> =
             atoms.iter().map(|string| {
-                let hash = phf_shared::hash(string, key);
-                ((hash >> 32) ^ hash) as u32
+                let hash = phf_shared::hash(string, &key);
+                (hash.g ^ hash.f1) as u32
             }).collect();
 
         let type_name = if let Some(position) = self.path.rfind("::") {
