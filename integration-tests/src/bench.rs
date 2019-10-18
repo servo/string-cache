@@ -184,9 +184,9 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
     fn $name(b: &mut Bencher) {
         use std::str;
         use rand;
-        use rand::Rng;
+        use rand::{RngCore, SeedableRng};
 
-        let mut gen = rand::weak_rng();
+        let mut gen = rand::rngs::SmallRng::from_entropy();
         b.iter(|| {
             // We have to generate new atoms on every iter, because
             // the dynamic atom table isn't reset.
