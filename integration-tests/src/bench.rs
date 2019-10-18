@@ -28,7 +28,7 @@ and cheap to move around, which isn't reflected in these tests.
 */
 use crate::TestAtom;
 
-use test::{Bencher, black_box};
+use test::{black_box, Bencher};
 
 // Just shorthand
 fn mk(x: &str) -> TestAtom {
@@ -142,10 +142,10 @@ macro_rules! bench_all (
     );
 );
 
-pub const longer_dynamic_a: &'static str
-    = "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Band";
-pub const longer_dynamic_b: &'static str
-    = "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Ban!";
+pub const longer_dynamic_a: &'static str =
+    "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Band";
+pub const longer_dynamic_b: &'static str =
+    "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Ban!";
 
 bench_all!([eq ne lt clone_string] for short_string = "e", "f");
 bench_all!([eq ne lt clone_string] for medium_string = "xyzzy01", "xyzzy02");
@@ -206,7 +206,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
     }
 ));
 
-bench_rand!(intern_rand_008,   8);
-bench_rand!(intern_rand_032,  32);
+bench_rand!(intern_rand_008, 8);
+bench_rand!(intern_rand_032, 32);
 bench_rand!(intern_rand_128, 128);
 bench_rand!(intern_rand_512, 512);

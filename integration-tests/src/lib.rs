@@ -8,16 +8,16 @@
 // except according to those terms.
 
 #![cfg(test)]
-
 #![deny(warnings)]
 #![allow(non_upper_case_globals)]
-
 #![cfg_attr(feature = "unstable", feature(test))]
 
 extern crate string_cache;
 
-#[cfg(feature = "unstable")] extern crate test;
-#[cfg(feature = "unstable")] extern crate rand;
+#[cfg(feature = "unstable")]
+extern crate rand;
+#[cfg(feature = "unstable")]
+extern crate test;
 
 use std::thread;
 use string_cache::atom::StaticAtomSet;
@@ -172,13 +172,13 @@ fn repr() {
     // static atom table, the tag values, etc.
 
     // Static atoms
-    check_static("a",       test_atom!("a"));
+    check_static("a", test_atom!("a"));
     check_static("address", test_atom!("address"));
-    check_static("area",    test_atom!("area"));
+    check_static("area", test_atom!("area"));
 
     // Inline atoms
-    check("e",       0x0000_0000_0000_6511);
-    check("xyzzy",   0x0000_797A_7A79_7851);
+    check("e", 0x0000_0000_0000_6511);
+    check("xyzzy", 0x0000_797A_7A79_7851);
     check("xyzzy01", 0x3130_797A_7A79_7871);
 
     // Dynamic atoms. This is a pointer so we can't verify every bit.
@@ -203,23 +203,32 @@ fn atom_macro() {
 
 #[test]
 fn match_atom() {
-    assert_eq!(2, match Atom::from("head") {
-        test_atom!("br") => 1,
-        test_atom!("html") | test_atom!("head") => 2,
-        _ => 3,
-    });
+    assert_eq!(
+        2,
+        match Atom::from("head") {
+            test_atom!("br") => 1,
+            test_atom!("html") | test_atom!("head") => 2,
+            _ => 3,
+        }
+    );
 
-    assert_eq!(3, match Atom::from("body") {
-        test_atom!("br") => 1,
-        test_atom!("html") | test_atom!("head") => 2,
-        _ => 3,
-    });
+    assert_eq!(
+        3,
+        match Atom::from("body") {
+            test_atom!("br") => 1,
+            test_atom!("html") | test_atom!("head") => 2,
+            _ => 3,
+        }
+    );
 
-    assert_eq!(3, match Atom::from("zzzzzz") {
-        test_atom!("br") => 1,
-        test_atom!("html") | test_atom!("head") => 2,
-        _ => 3,
-    });
+    assert_eq!(
+        3,
+        match Atom::from("zzzzzz") {
+            test_atom!("br") => 1,
+            test_atom!("html") | test_atom!("head") => 2,
+            _ => 3,
+        }
+    );
 }
 
 #[test]
@@ -240,16 +249,28 @@ fn ensure_as_ref() {
 fn test_ascii_lowercase() {
     assert_eq!(Atom::from("").to_ascii_lowercase(), Atom::from(""));
     assert_eq!(Atom::from("aZ9").to_ascii_lowercase(), Atom::from("az9"));
-    assert_eq!(Atom::from("The Quick Brown Fox!").to_ascii_lowercase(), Atom::from("the quick brown fox!"));
-    assert_eq!(Atom::from("JE VAIS À PARIS").to_ascii_lowercase(), Atom::from("je vais À paris"));
+    assert_eq!(
+        Atom::from("The Quick Brown Fox!").to_ascii_lowercase(),
+        Atom::from("the quick brown fox!")
+    );
+    assert_eq!(
+        Atom::from("JE VAIS À PARIS").to_ascii_lowercase(),
+        Atom::from("je vais À paris")
+    );
 }
 
 #[test]
 fn test_ascii_uppercase() {
     assert_eq!(Atom::from("").to_ascii_uppercase(), Atom::from(""));
     assert_eq!(Atom::from("aZ9").to_ascii_uppercase(), Atom::from("AZ9"));
-    assert_eq!(Atom::from("The Quick Brown Fox!").to_ascii_uppercase(), Atom::from("THE QUICK BROWN FOX!"));
-    assert_eq!(Atom::from("Je vais à Paris").to_ascii_uppercase(), Atom::from("JE VAIS à PARIS"));
+    assert_eq!(
+        Atom::from("The Quick Brown Fox!").to_ascii_uppercase(),
+        Atom::from("THE QUICK BROWN FOX!")
+    );
+    assert_eq!(
+        Atom::from("Je vais à Paris").to_ascii_uppercase(),
+        Atom::from("JE VAIS à PARIS")
+    );
 }
 
 #[test]
@@ -257,12 +278,14 @@ fn test_eq_ignore_ascii_case() {
     assert!(Atom::from("").eq_ignore_ascii_case(&Atom::from("")));
     assert!(Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("aZ9")));
     assert!(Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("Az9")));
-    assert!(Atom::from("The Quick Brown Fox!").eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!")));
+    assert!(Atom::from("The Quick Brown Fox!")
+        .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!")));
     assert!(Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("je VAIS à PARIS")));
     assert!(!Atom::from("").eq_ignore_ascii_case(&Atom::from("az9")));
     assert!(!Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("")));
     assert!(!Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("9Za")));
-    assert!(!Atom::from("The Quick Brown Fox!").eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!!")));
+    assert!(!Atom::from("The Quick Brown Fox!")
+        .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!!")));
     assert!(!Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("JE vais À paris")));
 }
 

@@ -21,15 +21,17 @@ use std::mem;
 use std::ops;
 use std::slice;
 use std::str;
-use std::sync::Mutex;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
+use std::sync::Mutex;
 
-use shared::{STATIC_TAG, INLINE_TAG, DYNAMIC_TAG, TAG_MASK, MAX_INLINE_LEN, STATIC_SHIFT_BITS,
-             ENTRY_ALIGNMENT, pack_static};
 use self::UnpackedAtom::{Dynamic, Inline, Static};
+use shared::{
+    pack_static, DYNAMIC_TAG, ENTRY_ALIGNMENT, INLINE_TAG, MAX_INLINE_LEN, STATIC_SHIFT_BITS,
+    STATIC_TAG, TAG_MASK,
+};
 
-const NB_BUCKETS: usize = 1 << 12;  // 4096
+const NB_BUCKETS: usize = 1 << 12; // 4096
 const BUCKET_MASK: u64 = (1 << 12) - 1;
 
 struct StringCache {
@@ -48,8 +50,7 @@ struct StringCacheEntry {
 }
 
 impl StringCacheEntry {
-    fn new(next: Option<Box<StringCacheEntry>>, hash: u64, string: String)
-           -> StringCacheEntry {
+    fn new(next: Option<Box<StringCacheEntry>>, hash: u64, string: String) -> StringCacheEntry {
         StringCacheEntry {
             next_in_bucket: next,
             hash: hash,
@@ -65,17 +66,14 @@ impl StringCache {
         let _static_assert_size_eq = std::mem::transmute::<T, usize>;
         let vec = std::mem::ManuallyDrop::new(vec![0_usize; NB_BUCKETS]);
         StringCache {
-            buckets: unsafe {
-                Box::from_raw(vec.as_ptr() as *mut [T; NB_BUCKETS])
-            },
+            buckets: unsafe { Box::from_raw(vec.as_ptr() as *mut [T; NB_BUCKETS]) },
         }
     }
 
     fn add(&mut self, string: Cow<str>, hash: u64) -> *mut StringCacheEntry {
         let bucket_index = (hash & BUCKET_MASK) as usize;
         {
-            let mut ptr: Option<&mut Box<StringCacheEntry>> =
-                self.buckets[bucket_index].as_mut();
+            let mut ptr: Option<&mut Box<StringCacheEntry>> = self.buckets[bucket_index].as_mut();
 
             while let Some(entry) = ptr.take() {
                 if entry.hash == hash && &*entry.string == &*string {
@@ -96,7 +94,10 @@ impl StringCache {
         debug_assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
         let string = string.into_owned();
         let mut entry = Box::new(StringCacheEntry::new(
-            self.buckets[bucket_index].take(), hash, string));
+            self.buckets[bucket_index].take(),
+            hash,
+            string,
+        ));
         let ptr: *mut StringCacheEntry = &mut *entry;
         self.buckets[bucket_index] = Some(entry);
 
@@ -119,7 +120,9 @@ impl StringCache {
                 None => break,
             };
             if entry_ptr == ptr {
-                mem::drop(mem::replace(current, unsafe { (*entry_ptr).next_in_bucket.take() }));
+                mem::drop(mem::replace(current, unsafe {
+                    (*entry_ptr).next_in_bucket.take()
+                }));
                 break;
             }
             current = unsafe { &mut (*entry_ptr).next_in_bucket };
@@ -261,7 +264,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
     pub fn is_static(&self) -> bool {
         match unsafe { self.unpack() } {
             Static(..) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -270,7 +273,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
     pub fn is_dynamic(&self) -> bool {
         match unsafe { self.unpack() } {
             Dynamic(..) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -279,7 +282,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
     pub fn is_inline(&self) -> bool {
         match unsafe { self.unpack() } {
             Inline(..) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -294,9 +297,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
                 let entry = entry as *mut StringCacheEntry;
                 u64_hash_as_u32(unsafe { (*entry).hash })
             }
-            Inline(..) => {
-                u64_hash_as_u32(self.unsafe_data)
-            }
+            Inline(..) => u64_hash_as_u32(self.unsafe_data),
         }
     }
 }
@@ -306,14 +307,17 @@ impl<Static: StaticAtomSet> Default for Atom<Static> {
     fn default() -> Self {
         Atom {
             unsafe_data: pack_static(Static::empty_string_index()),
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 }
 
 impl<Static: StaticAtomSet> Hash for Atom<Static> {
     #[inline]
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         state.write_u32(self.get_hash())
     }
 }
@@ -368,7 +372,10 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
         };
 
         let data = unsafe { unpacked.pack() };
-        Atom { unsafe_data: data, phantom: PhantomData }
+        Atom {
+            unsafe_data: data,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -394,7 +401,7 @@ impl<Static: StaticAtomSet> Clone for Atom<Static> {
                 Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     (*entry).ref_count.fetch_add(1, SeqCst);
-                },
+                }
                 None => (),
             }
         }
@@ -437,8 +444,11 @@ impl<Static: StaticAtomSet> ops::Deref for Atom<Static> {
                 Inline(..) => {
                     let buf = inline_orig_bytes(&self.unsafe_data);
                     str::from_utf8_unchecked(buf)
-                },
-                Static(idx) => Static::get().atoms.get(idx as usize).expect("bad static atom"),
+                }
+                Static(idx) => Static::get()
+                    .atoms
+                    .get(idx as usize)
+                    .expect("bad static atom"),
                 Dynamic(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     &(*entry).string
@@ -497,14 +507,20 @@ impl<Static: StaticAtomSet> AsRef<str> for Atom<Static> {
 }
 
 impl<Static: StaticAtomSet> Serialize for Atom<Static> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let string: &str = self.as_ref();
         string.serialize(serializer)
     }
 }
 
 impl<'a, Static: StaticAtomSet> Deserialize<'a> for Atom<Static> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
         let string: String = Deserialize::deserialize(deserializer)?;
         Ok(Atom::from(string))
     }
@@ -535,8 +551,8 @@ impl<Static: StaticAtomSet> Atom<Static> {
     /// [`to_ascii_uppercase`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.to_ascii_uppercase
     pub fn to_ascii_uppercase(&self) -> Self {
         for (i, b) in self.bytes().enumerate() {
-            if let b'a' ..= b'z' = b {
-                return Atom::from_mutated_str(self, |s| s[i..].make_ascii_uppercase())
+            if let b'a'..=b'z' = b {
+                return Atom::from_mutated_str(self, |s| s[i..].make_ascii_uppercase());
             }
         }
         self.clone()
@@ -547,8 +563,8 @@ impl<Static: StaticAtomSet> Atom<Static> {
     /// [`to_ascii_lowercase`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.to_ascii_lowercase
     pub fn to_ascii_lowercase(&self) -> Self {
         for (i, b) in self.bytes().enumerate() {
-            if let b'A' ..= b'Z' = b {
-                return Atom::from_mutated_str(self, |s| s[i..].make_ascii_lowercase())
+            if let b'A'..=b'Z' = b {
+                return Atom::from_mutated_str(self, |s| s[i..].make_ascii_lowercase());
             }
         }
         self.clone()
@@ -650,7 +666,7 @@ impl UnpackedAtom {
                 let src = inline_atom_slice(&data);
                 buf.copy_from_slice(src);
                 Inline(len as u8, buf)
-            },
+            }
             _ => debug_unreachable!(),
         }
     }
@@ -685,9 +701,9 @@ unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
 // more.
 #[cfg(test)]
 mod tests {
-    use std::mem;
     use super::{DefaultAtom, StringCacheEntry};
     use shared::ENTRY_ALIGNMENT;
+    use std::mem;
 
     #[test]
     fn assert_sizes() {
@@ -699,10 +715,18 @@ mod tests {
         let compiler_uses_inline_drop_flags = mem::size_of::<EmptyWithDrop>() > 0;
 
         // Guard against accidental changes to the sizes of things.
-        assert_eq!(mem::size_of::<DefaultAtom>(),
-                   if compiler_uses_inline_drop_flags { 16 } else { 8 });
-        assert_eq!(mem::size_of::<super::StringCacheEntry>(),
-                   8 + 4 * mem::size_of::<usize>());
+        assert_eq!(
+            mem::size_of::<DefaultAtom>(),
+            if compiler_uses_inline_drop_flags {
+                16
+            } else {
+                8
+            }
+        );
+        assert_eq!(
+            mem::size_of::<super::StringCacheEntry>(),
+            8 + 4 * mem::size_of::<usize>()
+        );
     }
 
     #[test]

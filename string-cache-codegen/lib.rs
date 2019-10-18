@@ -71,12 +71,13 @@
 extern crate phf_generator;
 extern crate phf_shared;
 extern crate string_cache_shared as shared;
-#[macro_use] extern crate quote;
+#[macro_use]
+extern crate quote;
 extern crate proc_macro2;
 
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{self, Write, BufWriter};
+use std::io::{self, BufWriter, Write};
 use std::iter;
 use std::path::Path;
 
@@ -161,22 +162,30 @@ impl AtomType {
 
     /// Adds multiple atoms to the builder
     pub fn atoms<I>(&mut self, iter: I) -> &mut Self
-    where I: IntoIterator, I::Item: AsRef<str> {
-        self.atoms.extend(iter.into_iter().map(|s| s.as_ref().to_owned()));
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+    {
+        self.atoms
+            .extend(iter.into_iter().map(|s| s.as_ref().to_owned()));
         self
     }
 
     /// Write generated code to `destination`.
-    pub fn write_to<W>(&mut self, mut destination: W) -> io::Result<()> where W: Write {
+    pub fn write_to<W>(&mut self, mut destination: W) -> io::Result<()>
+    where
+        W: Write,
+    {
         destination.write_all(
             self.to_tokens()
-            .to_string()
-            // Insert some newlines to make the generated code slightly easier to read.
-            .replace(" [ \"", "[\n\"")
-            .replace("\" , ", "\",\n")
-            .replace(" ( \"", "\n( \"")
-            .replace("; ", ";\n")
-            .as_bytes())
+                .to_string()
+                // Insert some newlines to make the generated code slightly easier to read.
+                .replace(" [ \"", "[\n\"")
+                .replace("\" , ", "\",\n")
+                .replace(" ( \"", "\n( \"")
+                .replace("; ", ";\n")
+                .as_bytes(),
+        )
     }
 
     fn to_tokens(&mut self) -> proc_macro2::TokenStream {
@@ -201,30 +210,33 @@ impl AtomType {
                 .unwrap()
         });
 
-        let hashes: Vec<u32> =
-            atoms.iter().map(|string| {
+        let hashes: Vec<u32> = atoms
+            .iter()
+            .map(|string| {
                 let hash = phf_shared::hash(string, &key);
                 (hash.g ^ hash.f1) as u32
-            }).collect();
+            })
+            .collect();
 
         let type_name = if let Some(position) = self.path.rfind("::") {
-            &self.path[position + "::".len() ..]
+            &self.path[position + "::".len()..]
         } else {
             &self.path
         };
         let atom_doc = match self.atom_doc {
             Some(ref doc) => quote!(#[doc = #doc]),
-            None => quote!()
+            None => quote!(),
         };
         let static_set_doc = match self.static_set_doc {
             Some(ref doc) => quote!(#[doc = #doc]),
-            None => quote!()
+            None => quote!(),
         };
         let macro_doc = match self.macro_doc {
             Some(ref doc) => quote!(#[doc = #doc]),
-            None => quote!()
+            None => quote!(),
         };
-        let new_term = |string: &str| proc_macro2::Ident::new(string, proc_macro2::Span::call_site());
+        let new_term =
+            |string: &str| proc_macro2::Ident::new(string, proc_macro2::Span::call_site());
         let static_set_name = new_term(&format!("{}StaticSet", type_name));
         let type_name = new_term(type_name);
         let macro_name = new_term(&*self.macro_name);

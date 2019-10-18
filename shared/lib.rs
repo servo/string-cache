@@ -9,10 +9,10 @@
 
 // FIXME(rust-lang/rust#18153): generate these from an enum
 pub const DYNAMIC_TAG: u8 = 0b_00;
-pub const INLINE_TAG: u8 = 0b_01;  // len in upper nybble
+pub const INLINE_TAG: u8 = 0b_01; // len in upper nybble
 pub const STATIC_TAG: u8 = 0b_10;
 pub const TAG_MASK: u64 = 0b_11;
-pub const ENTRY_ALIGNMENT: usize = 4;  // Multiples have TAG_MASK bits unset, available for tagging.
+pub const ENTRY_ALIGNMENT: usize = 4; // Multiples have TAG_MASK bits unset, available for tagging.
 
 pub const MAX_INLINE_LEN: usize = 7;
 
