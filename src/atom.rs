@@ -222,7 +222,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
             }
             Dynamic(entry) => {
                 let entry = entry as *mut Entry;
-                u64_hash_as_u32(unsafe { (*entry).hash })
+                unsafe { (*entry).hash }
             }
             Inline(..) => u64_hash_as_u32(self.unsafe_data.get()),
         }
@@ -280,8 +280,12 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
                 buf[..len].copy_from_slice(string_to_add.as_bytes());
                 Inline(len as u8, buf)
             } else {
-                let hash = (hash.g as u64) << 32 | (hash.f1 as u64);
-                Dynamic(DYNAMIC_SET.lock().unwrap().insert(string_to_add, hash) as *mut ())
+                Dynamic(
+                    DYNAMIC_SET
+                        .lock()
+                        .unwrap()
+                        .insert(string_to_add, hash.g) as *mut (),
+                )
             }
         };
 

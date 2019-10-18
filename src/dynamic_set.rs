@@ -15,7 +15,7 @@ use std::sync::atomic::Ordering::SeqCst;
 use std::sync::Mutex;
 
 const NB_BUCKETS: usize = 1 << 12; // 4096
-const BUCKET_MASK: u64 = (1 << 12) - 1;
+const BUCKET_MASK: u32 = (1 << 12) - 1;
 
 pub(crate) struct Set {
     buckets: Box<[Option<Box<Entry>>; NB_BUCKETS]>,
@@ -23,7 +23,7 @@ pub(crate) struct Set {
 
 pub(crate) struct Entry {
     pub(crate) string: Box<str>,
-    pub(crate) hash: u64,
+    pub(crate) hash: u32,
     pub(crate) ref_count: AtomicIsize,
     next_in_bucket: Option<Box<Entry>>,
 }
@@ -49,7 +49,7 @@ lazy_static! {
 }
 
 impl Set {
-    pub(crate) fn insert(&mut self, string: Cow<str>, hash: u64) -> *mut Entry {
+    pub(crate) fn insert(&mut self, string: Cow<str>, hash: u32) -> *mut Entry {
         let bucket_index = (hash & BUCKET_MASK) as usize;
         {
             let mut ptr: Option<&mut Box<Entry>> = self.buckets[bucket_index].as_mut();
