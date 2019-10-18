@@ -26,10 +26,16 @@ use std::sync::atomic::Ordering::SeqCst;
 use std::sync::Mutex;
 
 use self::UnpackedAtom::{Dynamic, Inline, Static};
-use shared::{
-    pack_static, DYNAMIC_TAG, ENTRY_ALIGNMENT, INLINE_TAG, MAX_INLINE_LEN, STATIC_SHIFT_BITS,
-    STATIC_TAG, TAG_MASK,
-};
+
+const DYNAMIC_TAG: u8 = 0b_00;
+const INLINE_TAG: u8 = 0b_01; // len in upper nybble
+const STATIC_TAG: u8 = 0b_10;
+const TAG_MASK: u64 = 0b_11;
+const ENTRY_ALIGNMENT: usize = 4; // Multiples have TAG_MASK bits unset, available for tagging.
+
+const MAX_INLINE_LEN: usize = 7;
+
+const STATIC_SHIFT_BITS: usize = 32;
 
 const NB_BUCKETS: usize = 1 << 12; // 4096
 const BUCKET_MASK: u64 = (1 << 12) - 1;
@@ -138,7 +144,7 @@ impl StringCache {
 /// It is used by the methods of [`Atom`] to check if a string is present in the static set.
 ///
 /// [`Atom`]: struct.Atom.html
-pub trait StaticAtomSet {
+pub trait StaticAtomSet: Ord {
     /// Get the location of the static string set in the binary.
     fn get() -> &'static PhfStrSet;
     /// Get the index of the empty string, which is in every set and is used for `Atom::default`.
@@ -160,6 +166,7 @@ pub struct PhfStrSet {
 }
 
 /// An empty static atom set for when only dynamic strings will be added
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct EmptyStaticAtomSet;
 
 impl StaticAtomSet for EmptyStaticAtomSet {
@@ -226,14 +233,11 @@ pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
 ///     }
 /// } // atom is dropped here, so it is not kept around in memory
 /// ```
-pub struct Atom<Static: StaticAtomSet> {
-    /// This field is public so that the `atom!()` macros can use it.
-    /// You should not otherwise access this field.
-    #[doc(hidden)]
-    pub unsafe_data: u64,
-
-    #[doc(hidden)]
-    pub phantom: PhantomData<Static>,
+#[derive(PartialEq, Eq)]
+// NOTE: Deriving PartialEq requires that a given string must always be interned the same way.
+pub struct Atom<Static> {
+    unsafe_data: u64,
+    phantom: PhantomData<Static>,
 }
 
 impl<Static: StaticAtomSet> ::precomputed_hash::PrecomputedHash for Atom<Static> {
@@ -253,13 +257,34 @@ fn u64_hash_as_u32(h: u64) -> u32 {
     ((h >> 32) ^ h) as u32
 }
 
+// FIXME: bound removed from the struct definition before of this error for pack_static:
+// "error[E0723]: trait bounds other than `Sized` on const fn parameters are unstable"
+// https://github.com/rust-lang/rust/issues/57563
+impl<Static> Atom<Static> {
+    /// For the atom!() macros
+    #[inline(always)]
+    #[doc(hidden)]
+    pub const fn pack_static(n: u32) -> Self {
+        Self {
+            unsafe_data: (STATIC_TAG as u64) | ((n as u64) << STATIC_SHIFT_BITS),
+            phantom: PhantomData,
+        }
+    }
+}
+
 impl<Static: StaticAtomSet> Atom<Static> {
     #[inline(always)]
     unsafe fn unpack(&self) -> UnpackedAtom {
         UnpackedAtom::from_packed(self.unsafe_data)
     }
 
-    /// Return true if this is a static Atom.
+    /// Return the internal repersentation. For testing.
+    #[doc(hidden)]
+    pub fn unsafe_data(&self) -> u64 {
+        self.unsafe_data
+    }
+
+    /// Return true if this is a static Atom. For testing.
     #[doc(hidden)]
     pub fn is_static(&self) -> bool {
         match unsafe { self.unpack() } {
@@ -268,7 +293,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
         }
     }
 
-    /// Return true if this is a dynamic Atom.
+    /// Return true if this is a dynamic Atom. For testing.
     #[doc(hidden)]
     pub fn is_dynamic(&self) -> bool {
         match unsafe { self.unpack() } {
@@ -277,7 +302,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
         }
     }
 
-    /// Return true if this is an inline Atom.
+    /// Return true if this is an inline Atom. For testing.
     #[doc(hidden)]
     pub fn is_inline(&self) -> bool {
         match unsafe { self.unpack() } {
@@ -305,10 +330,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
 impl<Static: StaticAtomSet> Default for Atom<Static> {
     #[inline]
     fn default() -> Self {
-        Atom {
-            unsafe_data: pack_static(Static::empty_string_index()),
-            phantom: PhantomData,
-        }
+        Atom::pack_static(Static::empty_string_index())
     }
 }
 
@@ -319,16 +341,6 @@ impl<Static: StaticAtomSet> Hash for Atom<Static> {
         H: Hasher,
     {
         state.write_u32(self.get_hash())
-    }
-}
-
-impl<Static: StaticAtomSet> Eq for Atom<Static> {}
-
-// NOTE: This impl requires that a given string must always be interned the same way.
-impl<Static: StaticAtomSet> PartialEq for Atom<Static> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.unsafe_data == other.unsafe_data
     }
 }
 
@@ -371,11 +383,7 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
             }
         };
 
-        let data = unsafe { unpacked.pack() };
-        Atom {
-            unsafe_data: data,
-            phantom: PhantomData,
-        }
+        unsafe { unpacked.pack() }
     }
 }
 
@@ -412,11 +420,11 @@ impl<Static: StaticAtomSet> Clone for Atom<Static> {
     }
 }
 
-impl<Static: StaticAtomSet> Drop for Atom<Static> {
+impl<Static> Drop for Atom<Static> {
     #[inline]
     fn drop(&mut self) {
         // Out of line to guide inlining.
-        fn drop_slow<Static: StaticAtomSet>(this: &mut Atom<Static>) {
+        fn drop_slow<Static>(this: &mut Atom<Static>) {
             STRING_CACHE.lock().unwrap().remove(this.unsafe_data);
         }
 
@@ -631,22 +639,28 @@ impl UnpackedAtom {
     /// Pack a key, fitting it into a u64 with flags and data. See `string_cache_shared` for
     /// hints for the layout.
     #[inline(always)]
-    unsafe fn pack(self) -> u64 {
+    unsafe fn pack<Static: StaticAtomSet>(self) -> Atom<Static> {
         match self {
-            Static(n) => pack_static(n),
+            Static(n) => Atom::pack_static(n),
             Dynamic(p) => {
-                let n = p as u64;
-                debug_assert!(0 == n & TAG_MASK);
-                n
+                let unsafe_data = p as u64;
+                debug_assert!(0 == unsafe_data & TAG_MASK);
+                Atom {
+                    unsafe_data,
+                    phantom: PhantomData,
+                }
             }
             Inline(len, buf) => {
                 debug_assert!((len as usize) <= MAX_INLINE_LEN);
-                let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
+                let mut unsafe_data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
                 {
-                    let dest = inline_atom_slice_mut(&mut data);
+                    let dest = inline_atom_slice_mut(&mut unsafe_data);
                     dest.copy_from_slice(&buf)
                 }
-                data
+                Atom {
+                    unsafe_data,
+                    phantom: PhantomData,
+                }
             }
         }
     }
@@ -701,8 +715,7 @@ unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
 // more.
 #[cfg(test)]
 mod tests {
-    use super::{DefaultAtom, StringCacheEntry};
-    use shared::ENTRY_ALIGNMENT;
+    use super::{DefaultAtom, StringCacheEntry, ENTRY_ALIGNMENT};
     use std::mem;
 
     #[test]

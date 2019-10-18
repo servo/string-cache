@@ -157,14 +157,14 @@ macro_rules! assert_eq_fmt (($fmt:expr, $x:expr, $y:expr) => ({
 #[test]
 fn repr() {
     fn check(s: &str, data: u64) {
-        assert_eq_fmt!("0x{:016X}", Atom::from(s).unsafe_data, data);
+        assert_eq_fmt!("0x{:016X}", Atom::from(s).unsafe_data(), data);
     }
 
     fn check_static(s: &str, x: Atom) {
-        assert_eq_fmt!("0x{:016X}", x.unsafe_data, Atom::from(s).unsafe_data);
-        assert_eq!(0x2, x.unsafe_data & 0xFFFF_FFFF);
+        assert_eq_fmt!("0x{:016X}", x.unsafe_data(), Atom::from(s).unsafe_data());
+        assert_eq!(0x2, x.unsafe_data() & 0xFFFF_FFFF);
         // The index is unspecified by phf.
-        assert!((x.unsafe_data >> 32) <= TestAtomStaticSet::get().atoms.len() as u64);
+        assert!((x.unsafe_data() >> 32) <= TestAtomStaticSet::get().atoms.len() as u64);
     }
 
     // This test is here to make sure we don't change atom representation
@@ -182,7 +182,7 @@ fn repr() {
     check("xyzzy01", 0x3130_797A_7A79_7871);
 
     // Dynamic atoms. This is a pointer so we can't verify every bit.
-    assert_eq!(0x00, Atom::from("a dynamic string").unsafe_data & 0xf);
+    assert_eq!(0x00, Atom::from("a dynamic string").unsafe_data() & 0xf);
 }
 
 #[test]

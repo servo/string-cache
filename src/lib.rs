@@ -112,7 +112,6 @@ extern crate debug_unreachable;
 extern crate phf_shared;
 extern crate precomputed_hash;
 extern crate serde;
-extern crate string_cache_shared as shared;
 
 pub use atom::{Atom, DefaultAtom, EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 
