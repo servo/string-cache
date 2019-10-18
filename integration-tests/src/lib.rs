@@ -12,10 +12,6 @@
 #![allow(non_upper_case_globals)]
 #![cfg_attr(feature = "unstable", feature(test))]
 
-extern crate string_cache;
-
-#[cfg(feature = "unstable")]
-extern crate rand;
 #[cfg(feature = "unstable")]
 extern crate test;
 

@@ -105,14 +105,6 @@
 #![crate_type = "rlib"]
 #![cfg_attr(test, deny(warnings))]
 
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate debug_unreachable;
-extern crate phf_shared;
-extern crate precomputed_hash;
-extern crate serde;
-
-pub use atom::{Atom, DefaultAtom, EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
+pub use crate::atom::{Atom, DefaultAtom, EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 
 pub mod atom;

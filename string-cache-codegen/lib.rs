@@ -68,12 +68,7 @@
 
 #![recursion_limit = "128"]
 
-extern crate phf_generator;
-extern crate phf_shared;
-#[macro_use]
-extern crate quote;
-extern crate proc_macro2;
-
+use quote::quote;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};

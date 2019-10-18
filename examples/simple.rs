@@ -1,4 +1,4 @@
-extern crate string_cache;
+
 
 use string_cache::DefaultAtom;
 

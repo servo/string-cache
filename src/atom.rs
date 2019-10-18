@@ -9,6 +9,8 @@
 
 #![allow(non_upper_case_globals)]
 
+use debug_unreachable::debug_unreachable;
+use lazy_static::lazy_static;
 use phf_shared;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

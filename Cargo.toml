@@ -6,6 +6,7 @@ description = "A string interning library for Rust, developed as part of the Ser
 license = "MIT / Apache-2.0"
 repository = "https://github.com/servo/string-cache"
 documentation = "https://docs.rs/string_cache/"
+edition = "2018"
 
 # Do not `exclude` ./string-cache-codegen because we want to include
 # ./string-cache-codegen/shared.rs, and `include` is a pain to use
