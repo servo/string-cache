@@ -1,9 +1,0 @@
-[package]
-
-name = "string-cache-event-log-example"
-version = "0.0.0"
-authors = [ "The Servo Project Developers" ]
-
-[dependencies.string_cache]
-path = "../.."
-features = ["log-events"]

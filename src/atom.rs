@@ -29,12 +29,6 @@ use shared::{STATIC_TAG, INLINE_TAG, DYNAMIC_TAG, TAG_MASK, MAX_INLINE_LEN, STAT
              ENTRY_ALIGNMENT, pack_static};
 use self::UnpackedAtom::{Dynamic, Inline, Static};
 
-#[cfg(feature = "log-events")]
-use event::Event;
-
-#[cfg(not(feature = "log-events"))]
-macro_rules! log (($e:expr) => (()));
-
 const NB_BUCKETS: usize = 1 << 12;  // 4096
 const BUCKET_MASK: u64 = (1 << 12) - 1;
 
@@ -101,16 +95,10 @@ impl StringCache {
         }
         debug_assert!(mem::align_of::<StringCacheEntry>() >= ENTRY_ALIGNMENT);
         let string = string.into_owned();
-        let _string_clone = if cfg!(feature = "log-events") {
-            string.clone()
-        } else {
-            "".to_owned()
-        };
         let mut entry = Box::new(StringCacheEntry::new(
             self.buckets[bucket_index].take(), hash, string));
         let ptr: *mut StringCacheEntry = &mut *entry;
         self.buckets[bucket_index] = Some(entry);
-        log!(Event::Insert(ptr as u64, _string_clone));
 
         ptr
     }
@@ -137,8 +125,6 @@ impl StringCache {
             }
             current = unsafe { &mut (*entry_ptr).next_in_bucket };
         }
-
-        log!(Event::Remove(key));
     }
 }
 
@@ -355,7 +341,6 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
         };
 
         let data = unsafe { unpacked.pack() };
-        log!(Event::Intern(data));
         Atom { unsafe_data: data, phantom: PhantomData }
     }
 }

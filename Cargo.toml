@@ -1,5 +1,4 @@
 [package]
-
 name = "string_cache"
 version = "0.7.4"  # Also update README.md when making a semver-breaking change
 authors = [ "The Servo Project Developers" ]
@@ -19,11 +18,6 @@ build = "build.rs"
 name = "string_cache"
 
 [features]
-
-# Enable event logging for generating benchmark traces.
-# See examples/event-log.
-log-events = []
-
 # Use unstable features to optimize space and time (memory and CPU usage).
 unstable = []
 
