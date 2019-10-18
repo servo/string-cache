@@ -106,6 +106,7 @@
 mod atom;
 mod dynamic_set;
 mod static_sets;
+mod trivial_impls;
 
 pub use atom::Atom;
 pub use static_sets::{EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
