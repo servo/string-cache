@@ -18,6 +18,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::mem;
+use std::num::NonZeroU64;
 use std::ops;
 use std::slice;
 use std::str;
@@ -110,8 +111,7 @@ impl StringCache {
         ptr
     }
 
-    fn remove(&mut self, key: u64) {
-        let ptr = key as *mut StringCacheEntry;
+    fn remove(&mut self, ptr: *mut StringCacheEntry) {
         let bucket_index = {
             let value: &StringCacheEntry = unsafe { &*ptr };
             debug_assert!(value.ref_count.load(SeqCst) == 0);
@@ -236,7 +236,7 @@ pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
 #[derive(PartialEq, Eq)]
 // NOTE: Deriving PartialEq requires that a given string must always be interned the same way.
 pub struct Atom<Static> {
-    unsafe_data: u64,
+    unsafe_data: NonZeroU64,
     phantom: PhantomData<Static>,
 }
 
@@ -266,7 +266,10 @@ impl<Static> Atom<Static> {
     #[doc(hidden)]
     pub const fn pack_static(n: u32) -> Self {
         Self {
-            unsafe_data: (STATIC_TAG as u64) | ((n as u64) << STATIC_SHIFT_BITS),
+            unsafe_data: unsafe {
+                // STATIC_TAG ensure this is non-zero
+                NonZeroU64::new_unchecked((STATIC_TAG as u64) | ((n as u64) << STATIC_SHIFT_BITS))
+            },
             phantom: PhantomData,
         }
     }
@@ -281,7 +284,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
     /// Return the internal repersentation. For testing.
     #[doc(hidden)]
     pub fn unsafe_data(&self) -> u64 {
-        self.unsafe_data
+        self.unsafe_data.get()
     }
 
     /// Return true if this is a static Atom. For testing.
@@ -322,7 +325,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
                 let entry = entry as *mut StringCacheEntry;
                 u64_hash_as_u32(unsafe { (*entry).hash })
             }
-            Inline(..) => u64_hash_as_u32(self.unsafe_data),
+            Inline(..) => u64_hash_as_u32(self.unsafe_data.get()),
         }
     }
 }
@@ -405,7 +408,7 @@ impl<Static: StaticAtomSet> Clone for Atom<Static> {
     #[inline(always)]
     fn clone(&self) -> Self {
         unsafe {
-            match from_packed_dynamic(self.unsafe_data) {
+            match from_packed_dynamic(self.unsafe_data.get()) {
                 Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     (*entry).ref_count.fetch_add(1, SeqCst);
@@ -425,11 +428,14 @@ impl<Static> Drop for Atom<Static> {
     fn drop(&mut self) {
         // Out of line to guide inlining.
         fn drop_slow<Static>(this: &mut Atom<Static>) {
-            STRING_CACHE.lock().unwrap().remove(this.unsafe_data);
+            STRING_CACHE
+                .lock()
+                .unwrap()
+                .remove(this.unsafe_data.get() as *mut StringCacheEntry);
         }
 
         unsafe {
-            match from_packed_dynamic(self.unsafe_data) {
+            match from_packed_dynamic(self.unsafe_data.get()) {
                 Some(entry) => {
                     let entry = entry as *mut StringCacheEntry;
                     if (*entry).ref_count.fetch_sub(1, SeqCst) == 1 {
@@ -608,9 +614,9 @@ enum UnpackedAtom {
 }
 
 #[inline(always)]
-fn inline_atom_slice(x: &u64) -> &[u8] {
+fn inline_atom_slice(x: &NonZeroU64) -> &[u8] {
     unsafe {
-        let x: *const u64 = x;
+        let x: *const NonZeroU64 = x;
         let mut data = x as *const u8;
         // All except the lowest byte, which is first in little-endian, last in big-endian.
         if cfg!(target_endian = "little") {
@@ -643,22 +649,24 @@ impl UnpackedAtom {
         match self {
             Static(n) => Atom::pack_static(n),
             Dynamic(p) => {
-                let unsafe_data = p as u64;
-                debug_assert!(0 == unsafe_data & TAG_MASK);
+                let data = p as u64;
+                debug_assert!(0 == data & TAG_MASK);
                 Atom {
-                    unsafe_data,
+                    // Callers are responsible for calling this with a valid, non-null pointer
+                    unsafe_data: NonZeroU64::new_unchecked(data),
                     phantom: PhantomData,
                 }
             }
             Inline(len, buf) => {
                 debug_assert!((len as usize) <= MAX_INLINE_LEN);
-                let mut unsafe_data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
+                let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << 4);
                 {
-                    let dest = inline_atom_slice_mut(&mut unsafe_data);
+                    let dest = inline_atom_slice_mut(&mut data);
                     dest.copy_from_slice(&buf)
                 }
                 Atom {
-                    unsafe_data,
+                    // INLINE_TAG ensures this is never zero
+                    unsafe_data: NonZeroU64::new_unchecked(data),
                     phantom: PhantomData,
                 }
             }
@@ -667,14 +675,14 @@ impl UnpackedAtom {
 
     /// Unpack a key, extracting information from a single u64 into useable structs.
     #[inline(always)]
-    unsafe fn from_packed(data: u64) -> UnpackedAtom {
+    unsafe fn from_packed(data: NonZeroU64) -> UnpackedAtom {
         debug_assert!(DYNAMIC_TAG == 0); // Dynamic is untagged
 
-        match (data & TAG_MASK) as u8 {
-            DYNAMIC_TAG => Dynamic(data as *mut ()),
-            STATIC_TAG => Static((data >> STATIC_SHIFT_BITS) as u32),
+        match (data.get() & TAG_MASK) as u8 {
+            DYNAMIC_TAG => Dynamic(data.get() as *mut ()),
+            STATIC_TAG => Static((data.get() >> STATIC_SHIFT_BITS) as u32),
             INLINE_TAG => {
-                let len = ((data & 0xf0) >> 4) as usize;
+                let len = ((data.get() & 0xf0) >> 4) as usize;
                 debug_assert!(len <= MAX_INLINE_LEN);
                 let mut buf: [u8; 7] = [0; 7];
                 let src = inline_atom_slice(&data);
@@ -701,7 +709,7 @@ unsafe fn from_packed_dynamic(data: u64) -> Option<*mut ()> {
 ///
 /// It's undefined behavior to call this on a non-inline atom!!
 #[inline(always)]
-unsafe fn inline_orig_bytes<'a>(data: &'a u64) -> &'a [u8] {
+unsafe fn inline_orig_bytes<'a>(data: &'a NonZeroU64) -> &'a [u8] {
     match UnpackedAtom::from_packed(*data) {
         Inline(len, _) => {
             let src = inline_atom_slice(&data);
@@ -735,6 +743,10 @@ mod tests {
             } else {
                 8
             }
+        );
+        assert_eq!(
+            mem::size_of::<Option<DefaultAtom>>(),
+            mem::size_of::<DefaultAtom>(),
         );
         assert_eq!(
             mem::size_of::<super::StringCacheEntry>(),
