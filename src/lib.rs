@@ -107,4 +107,4 @@
 
 pub use crate::atom::{Atom, DefaultAtom, EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 
-pub mod atom;
+mod atom;

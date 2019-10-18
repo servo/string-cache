@@ -16,7 +16,7 @@
 extern crate test;
 
 use std::thread;
-use string_cache::atom::StaticAtomSet;
+use string_cache::StaticAtomSet;
 
 include!(concat!(env!("OUT_DIR"), "/test_atom.rs"));
 pub type Atom = TestAtom;
