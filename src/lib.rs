@@ -101,8 +101,6 @@
 //! ```
 //!
 
-#![crate_name = "string_cache"]
-#![crate_type = "rlib"]
 #![cfg_attr(test, deny(warnings))]
 
 mod atom;
