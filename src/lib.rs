@@ -108,3 +108,4 @@
 pub use crate::atom::{Atom, DefaultAtom, EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 
 mod atom;
+mod dynamic_set;
