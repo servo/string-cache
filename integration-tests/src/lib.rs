@@ -12,15 +12,11 @@
 #![allow(non_upper_case_globals)]
 #![cfg_attr(feature = "unstable", feature(test))]
 
-extern crate string_cache;
-
-#[cfg(feature = "unstable")]
-extern crate rand;
 #[cfg(feature = "unstable")]
 extern crate test;
 
 use std::thread;
-use string_cache::atom::StaticAtomSet;
+use string_cache::StaticAtomSet;
 
 include!(concat!(env!("OUT_DIR"), "/test_atom.rs"));
 pub type Atom = TestAtom;

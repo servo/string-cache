@@ -101,24 +101,26 @@
 //! ```
 //!
 
-#![crate_name = "string_cache"]
-#![crate_type = "rlib"]
 #![cfg_attr(test, deny(warnings))]
 
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate debug_unreachable;
-extern crate phf_shared;
-extern crate precomputed_hash;
-extern crate serde;
+mod atom;
+mod dynamic_set;
+mod static_sets;
+mod trivial_impls;
 
-pub use atom::{Atom, DefaultAtom, EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
+pub use atom::Atom;
+pub use static_sets::{EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 
-pub mod atom;
+/// Use this if you don’t care about static atoms.
+pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
 
-// Make test_atom! macro work in this crate.
-// `$crate` would not be appropriate for other crates creating such macros
-mod string_cache {
-    pub use {Atom, PhfStrSet, StaticAtomSet};
+// Some minor tests of internal layout here.
+// See ../integration-tests for much more.
+
+/// Guard against accidental changes to the sizes of things.
+#[test]
+fn assert_sizes() {
+    use std::mem::size_of;
+    assert_eq!(size_of::<DefaultAtom>(), 8);
+    assert_eq!(size_of::<Option<DefaultAtom>>(), size_of::<DefaultAtom>(),);
 }
