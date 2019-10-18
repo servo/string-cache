@@ -10,6 +10,7 @@
 #![allow(non_upper_case_globals)]
 
 use crate::dynamic_set::{Entry, DYNAMIC_SET};
+use crate::static_sets::StaticAtomSet;
 use debug_unreachable::debug_unreachable;
 use phf_shared;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -34,61 +35,6 @@ const LEN_MASK: u64 = 0xF0;
 
 const MAX_INLINE_LEN: usize = 7;
 const STATIC_SHIFT_BITS: usize = 32;
-
-/// A static `PhfStrSet`
-///
-/// This trait is implemented by static sets of interned strings generated using
-/// `string_cache_codegen`, and `EmptyStaticAtomSet` for when strings will be added dynamically.
-///
-/// It is used by the methods of [`Atom`] to check if a string is present in the static set.
-///
-/// [`Atom`]: struct.Atom.html
-pub trait StaticAtomSet: Ord {
-    /// Get the location of the static string set in the binary.
-    fn get() -> &'static PhfStrSet;
-    /// Get the index of the empty string, which is in every set and is used for `Atom::default`.
-    fn empty_string_index() -> u32;
-}
-
-/// A string set created using a [perfect hash function], specifically
-/// [Hash, Displace and Compress].
-///
-/// See the CHD document for the meaning of the struct fields.
-///
-/// [perfect hash function]: https://en.wikipedia.org/wiki/Perfect_hash_function
-/// [Hash, Displace and Compress]: http://cmph.sourceforge.net/papers/esa09.pdf
-pub struct PhfStrSet {
-    pub key: u64,
-    pub disps: &'static [(u32, u32)],
-    pub atoms: &'static [&'static str],
-    pub hashes: &'static [u32],
-}
-
-/// An empty static atom set for when only dynamic strings will be added
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-pub struct EmptyStaticAtomSet;
-
-impl StaticAtomSet for EmptyStaticAtomSet {
-    fn get() -> &'static PhfStrSet {
-        // The name is a lie: this set is not empty (it contains the empty string)
-        // but that’s only to avoid divisions by zero in rust-phf.
-        static SET: PhfStrSet = PhfStrSet {
-            key: 0,
-            disps: &[(0, 0)],
-            atoms: &[""],
-            // "" SipHash'd, and xored with u64_hash_to_u32.
-            hashes: &[0x3ddddef3],
-        };
-        &SET
-    }
-
-    fn empty_string_index() -> u32 {
-        0
-    }
-}
-
-/// Use this if you don’t care about static atoms.
-pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
 
 /// Represents a string that has been interned.
 ///
@@ -277,10 +223,8 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
                     phantom: PhantomData,
                 }
             } else {
-                let ptr: std::ptr::NonNull<Entry> = DYNAMIC_SET
-                    .lock()
-                    .unwrap()
-                    .insert(string_to_add, hash.g);
+                let ptr: std::ptr::NonNull<Entry> =
+                    DYNAMIC_SET.lock().unwrap().insert(string_to_add, hash.g);
                 let data = ptr.as_ptr() as u64;
                 debug_assert!(0 == data & TAG_MASK);
                 Atom {
@@ -515,30 +459,4 @@ fn inline_atom_slice_mut(x: &mut u64) -> &mut [u8] {
         let len = 7;
         slice::from_raw_parts_mut(data, len)
     }
-}
-
-// Some minor tests of internal layout here. See ../integration-tests for much
-// more.
-#[test]
-fn assert_sizes() {
-    use std::mem;
-    struct EmptyWithDrop;
-    impl Drop for EmptyWithDrop {
-        fn drop(&mut self) {}
-    }
-    let compiler_uses_inline_drop_flags = mem::size_of::<EmptyWithDrop>() > 0;
-
-    // Guard against accidental changes to the sizes of things.
-    assert_eq!(
-        mem::size_of::<DefaultAtom>(),
-        if compiler_uses_inline_drop_flags {
-            16
-        } else {
-            8
-        }
-    );
-    assert_eq!(
-        mem::size_of::<Option<DefaultAtom>>(),
-        mem::size_of::<DefaultAtom>(),
-    );
 }
