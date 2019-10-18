@@ -116,9 +116,3 @@ extern crate serde;
 pub use atom::{Atom, DefaultAtom, EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 
 pub mod atom;
-
-// Make test_atom! macro work in this crate.
-// `$crate` would not be appropriate for other crates creating such macros
-mod string_cache {
-    pub use {Atom, PhfStrSet, StaticAtomSet};
-}
