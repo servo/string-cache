@@ -227,10 +227,11 @@ impl AtomType {
         let type_name = new_term(type_name);
         let macro_name = new_term(&*self.macro_name);
         let module = module.parse::<proc_macro2::TokenStream>().unwrap();
+        let atom_prefix = format!("ATOM_{}_", type_name.to_string().to_uppercase());
         let const_names: Vec<_> = atoms
             .iter()
             .map(|atom| {
-                let mut name = String::from("ATOM");
+                let mut name = atom_prefix.clone();
                 for c in atom.chars() {
                     name.push_str(&format!("_{:02X}", c as u32))
                 }
