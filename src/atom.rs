@@ -493,7 +493,7 @@ impl<Static: StaticAtomSet> Serialize for Atom<Static> {
 
 impl<'a, Static: StaticAtomSet> Deserialize<'a> for Atom<Static> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'a> {
-        let string: String = Deserialize::deserialize(deserializer)?;
+        let string: String = try!(Deserialize::deserialize(deserializer));
         Ok(Atom::from(string))
     }
 }
@@ -503,9 +503,7 @@ impl<'a, Static: StaticAtomSet> Deserialize<'a> for Atom<Static> {
 // over the one from &str.
 impl<Static: StaticAtomSet> Atom<Static> {
     fn from_mutated_str<F: FnOnce(&mut str)>(s: &str, f: F) -> Self {
-        let mut buffer = mem::MaybeUninit::<[u8; 64]>::uninit();
-        let buffer = unsafe { &mut *buffer.as_mut_ptr() };
-
+        let mut buffer: [u8; 64] = unsafe { mem::uninitialized() };
         if let Some(buffer_prefix) = buffer.get_mut(..s.len()) {
             buffer_prefix.copy_from_slice(s.as_bytes());
             let as_str = unsafe { ::std::str::from_utf8_unchecked_mut(buffer_prefix) };
