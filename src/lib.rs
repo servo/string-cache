@@ -104,7 +104,6 @@
 #![crate_name = "string_cache"]
 #![crate_type = "rlib"]
 
-#![cfg_attr(test, deny(warnings))]
 #![cfg_attr(all(test, feature = "unstable"), feature(test))]
 
 #[cfg(all(test, feature = "unstable"))] extern crate test;
