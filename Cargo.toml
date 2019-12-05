@@ -17,10 +17,14 @@ edition = "2018"
 [lib]
 name = "string_cache"
 
+[features]
+serde_support = ["serde"]
+default = ["serde_support"]
+
 [dependencies]
 precomputed-hash = "0.1"
 lazy_static = "1"
-serde = "1"
+serde = { version = "1", optional = true }
 phf_shared = "0.8"
 new_debug_unreachable = "1.0"
 

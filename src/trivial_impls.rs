@@ -8,6 +8,7 @@
 // except according to those terms.
 
 use crate::{Atom, StaticAtomSet};
+#[cfg(feature = "serde_support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::fmt;
@@ -69,6 +70,7 @@ impl<Static: StaticAtomSet> AsRef<str> for Atom<Static> {
     }
 }
 
+#[cfg(feature = "serde_support")]
 impl<Static: StaticAtomSet> Serialize for Atom<Static> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -79,6 +81,7 @@ impl<Static: StaticAtomSet> Serialize for Atom<Static> {
     }
 }
 
+#[cfg(feature = "serde_support")]
 impl<'a, Static: StaticAtomSet> Deserialize<'a> for Atom<Static> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
