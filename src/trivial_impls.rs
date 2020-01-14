@@ -12,6 +12,7 @@ use crate::{Atom, StaticAtomSet};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::fmt;
+use std::iter::FromIterator;
 
 impl<Static: StaticAtomSet> ::precomputed_hash::PrecomputedHash for Atom<Static> {
     fn precomputed_hash(&self) -> u32 {
@@ -54,6 +55,41 @@ impl<Static: StaticAtomSet> From<String> for Atom<Static> {
     #[inline]
     fn from(string_to_add: String) -> Self {
         Atom::from(Cow::Owned(string_to_add))
+    }
+}
+
+impl<Static: StaticAtomSet> FromIterator<char> for Atom<Static> {
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = char>>(iterator: I) -> Self {
+        Atom::from(iterator.into_iter().collect::<String>())
+    }
+}
+
+impl<'a, Static: StaticAtomSet> FromIterator<&'a char> for Atom<Static> {
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = &'a char>>(iterator: I) -> Self {
+        Atom::from(iterator.into_iter().collect::<String>())
+    }
+}
+
+impl<'a, Static: StaticAtomSet> FromIterator<&'a str> for Atom<Static> {
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = &'a str>>(iterator: I) -> Self {
+        Atom::from(iterator.into_iter().collect::<String>())
+    }
+}
+
+impl<Static: StaticAtomSet> FromIterator<String> for Atom<Static> {
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = String>>(iterator: I) -> Self {
+        Atom::from(iterator.into_iter().collect::<String>())
+    }
+}
+
+impl<'a, Static: StaticAtomSet> FromIterator<Cow<'a, str>> for Atom<Static> {
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = Cow<'a, str>>>(iterator: I) -> Self {
+        Atom::from(iterator.into_iter().collect::<String>())
     }
 }
 
