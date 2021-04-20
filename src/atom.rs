@@ -149,6 +149,22 @@ impl<Static: StaticAtomSet> Atom<Static> {
             _ => unsafe { debug_unreachable!() },
         }
     }
+
+    pub fn try_static(string_to_add: &str) -> Option<Self> {
+        Self::try_static_internal(string_to_add).ok()
+    }
+
+    fn try_static_internal(string_to_add: &str) -> Result<Self, phf_shared::Hashes> {
+        let static_set = Static::get();
+        let hash = phf_shared::hash(&*string_to_add, &static_set.key);
+        let index = phf_shared::get_index(&hash, static_set.disps, static_set.atoms.len());
+
+        if static_set.atoms[index as usize] == string_to_add {
+            Ok(Self::pack_static(index))
+        } else {
+            Err(hash)
+        }
+    }
 }
 
 impl<Static: StaticAtomSet> Default for Atom<Static> {
@@ -170,13 +186,7 @@ impl<Static: StaticAtomSet> Hash for Atom<Static> {
 
 impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
     fn from(string_to_add: Cow<'a, str>) -> Self {
-        let static_set = Static::get();
-        let hash = phf_shared::hash(&*string_to_add, &static_set.key);
-        let index = phf_shared::get_index(&hash, static_set.disps, static_set.atoms.len());
-
-        if static_set.atoms[index as usize] == string_to_add {
-            Self::pack_static(index)
-        } else {
+        Self::try_static_internal(&*string_to_add).unwrap_or_else(|hash| {
             let len = string_to_add.len();
             if len <= MAX_INLINE_LEN {
                 let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << LEN_OFFSET);
@@ -200,7 +210,7 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
                     phantom: PhantomData,
                 }
             }
-        }
+        })
     }
 }
 

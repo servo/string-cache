@@ -290,6 +290,12 @@ fn test_from_string() {
     assert!(Atom::from("camembert".to_owned()) == Atom::from("camembert"));
 }
 
+#[test]
+fn test_try_static() {
+    assert!(Atom::try_static("head").is_some());
+    assert!(Atom::try_static("not in the static table").is_none());
+}
+
 #[cfg(all(test, feature = "unstable"))]
 #[path = "bench.rs"]
 mod bench;
