@@ -114,6 +114,6 @@ impl<'a, Static: StaticAtomSet> Deserialize<'a> for Atom<Static> {
             }
         }
 
-        deserializer.deserialize_string(AtomVisitor(PhantomData))
+        deserializer.deserialize_str(AtomVisitor(PhantomData))
     }
 }
