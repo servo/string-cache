@@ -8,12 +8,12 @@
 // except according to those terms.
 
 use lazy_static::lazy_static;
+use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::mem;
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
-use std::sync::Mutex;
 
 const NB_BUCKETS: usize = 1 << 12; // 4096
 const BUCKET_MASK: u32 = (1 << 12) - 1;
