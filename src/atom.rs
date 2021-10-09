@@ -201,7 +201,7 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
                 }
             } else {
                 let ptr: std::ptr::NonNull<Entry> =
-                    DYNAMIC_SET.lock().unwrap().insert(string_to_add, hash.g);
+                    DYNAMIC_SET.lock().insert(string_to_add, hash.g);
                 let data = ptr.as_ptr() as u64;
                 debug_assert!(0 == data & TAG_MASK);
                 Atom {
@@ -239,7 +239,6 @@ impl<Static> Drop for Atom<Static> {
         fn drop_slow<Static>(this: &mut Atom<Static>) {
             DYNAMIC_SET
                 .lock()
-                .unwrap()
                 .remove(this.unsafe_data.get() as *mut Entry);
         }
     }
