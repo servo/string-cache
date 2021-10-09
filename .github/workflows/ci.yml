@@ -1,0 +1,46 @@
+name: Run CI
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["**"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  RUST_BACKTRACE: 1
+  SHELL: /bin/bash
+
+jobs:
+  ci:
+    name: Run CI
+    runs-on: ubuntu-20.04
+
+    strategy:
+      matrix:
+        rust: [1.36.0, nightly, beta, stable]
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          default: true
+          override: true
+      - name: Build
+        run: |
+          cargo build --no-default-features
+          cargo build
+      - name: Tests
+        run: cargo test --all
+      - name: Build codegen
+        run: |
+          cd string-cache-codegen && cargo build && cd ..
+
+          if [ ${{ matrix.rust }} = nightly ]; then
+            cd integration-tests && cargo test --features unstable && cd ..;
+          fi
