@@ -15,11 +15,11 @@ env:
 jobs:
   ci:
     name: Run CI
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        rust: [1.38.0, nightly, beta, stable]
+        rust: [1.40.0, nightly, beta, stable]
 
     steps:
       - uses: actions/checkout@v2
