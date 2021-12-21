@@ -103,6 +103,19 @@
 
 #![cfg_attr(test, deny(warnings))]
 
+// Types, such as Atom, that impl Hash must follow the hash invariant: if two objects match
+// with PartialEq, they must also have the same Hash. Clippy warns on types that derive one while
+// manually impl-ing the other, because it seems easy for the two to drift apart, causing the
+// invariant to be violated.
+//
+// But Atom is a newtype over NonZeroU64, and probably always will be, since cheap comparisons and
+// copying are this library's purpose. So we know what the PartialEq comparison is going to do.
+//
+// The `get_hash` function, seen in `atom.rs`, consults that number, plus the global string interner
+// tables. The only way for the resulting hash for two Atoms with the same inner 64-bit number to
+// differ would be if the table entry changed between invocations, and that would be really bad.
+#![allow(clippy::derive_hash_xor_eq)]
+
 mod atom;
 mod dynamic_set;
 mod static_sets;
