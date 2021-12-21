@@ -39,7 +39,7 @@ impl<Static: StaticAtomSet> PartialEq<Atom<Static>> for str {
 
 impl<Static: StaticAtomSet> PartialEq<String> for Atom<Static> {
     fn eq(&self, other: &String) -> bool {
-        &self[..] == &other[..]
+        self[..] == other[..]
     }
 }
 
@@ -66,7 +66,7 @@ impl<Static: StaticAtomSet> fmt::Display for Atom<Static> {
 
 impl<Static: StaticAtomSet> AsRef<str> for Atom<Static> {
     fn as_ref(&self) -> &str {
-        &self
+        self
     }
 }
 
