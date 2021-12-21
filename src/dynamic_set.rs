@@ -94,11 +94,8 @@ impl Set {
 
         let mut current: &mut Option<Box<Entry>> = &mut self.buckets[bucket_index];
 
-        loop {
-            let entry_ptr: *mut Entry = match current.as_mut() {
-                Some(entry) => &mut **entry,
-                None => break,
-            };
+        while let Some(entry_ptr) = current.as_mut() {
+            let entry_ptr: *mut Entry = &mut **entry_ptr;
             if entry_ptr == ptr {
                 mem::drop(mem::replace(current, unsafe {
                     (*entry_ptr).next_in_bucket.take()
