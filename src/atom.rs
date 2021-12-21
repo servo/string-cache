@@ -10,7 +10,7 @@
 use crate::dynamic_set::{Entry, DYNAMIC_SET};
 use crate::static_sets::StaticAtomSet;
 use debug_unreachable::debug_unreachable;
-use phf_shared;
+
 use std::borrow::Cow;
 use std::cmp::Ordering::{self, Equal};
 use std::fmt;
