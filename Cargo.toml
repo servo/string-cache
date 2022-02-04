@@ -1,6 +1,6 @@
 [package]
 name = "string_cache"
-version = "0.8.2"  # Also update README.md when making a semver-breaking change
+version = "0.8.3"  # Also update README.md when making a semver-breaking change
 authors = [ "The Servo Project Developers" ]
 description = "A string interning library for Rust, developed as part of the Servo project."
 license = "MIT / Apache-2.0"
@@ -23,10 +23,10 @@ default = ["serde_support"]
 
 [dependencies]
 precomputed-hash = "0.1"
-lazy_static = "1"
+lazy_static = "1.1.0"
 serde = { version = "1", optional = true }
 phf_shared = "0.10"
-new_debug_unreachable = "1.0"
+new_debug_unreachable = "1.0.2"
 parking_lot = "0.11"
 
 [[test]]
