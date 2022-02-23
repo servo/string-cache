@@ -27,7 +27,7 @@ lazy_static = "1.1.0"
 serde = { version = "1", optional = true }
 phf_shared = "0.10"
 new_debug_unreachable = "1.0.2"
-parking_lot = "0.11"
+parking_lot = "0.12"
 
 [[test]]
 name = "small-stack"
