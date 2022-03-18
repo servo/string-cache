@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::mem;
@@ -38,16 +38,16 @@ fn entry_alignment_is_sufficient() {
     assert!(mem::align_of::<Entry>() >= ENTRY_ALIGNMENT);
 }
 
-lazy_static! {
-    pub(crate) static ref DYNAMIC_SET: Mutex<Set> = Mutex::new({
+pub(crate) static DYNAMIC_SET: Lazy<Mutex<Set>> = Lazy::new(|| {
+    Mutex::new({
         type T = Option<Box<Entry>>;
         let _static_assert_size_eq = std::mem::transmute::<T, usize>;
         let vec = std::mem::ManuallyDrop::new(vec![0_usize; NB_BUCKETS]);
         Set {
             buckets: unsafe { Box::from_raw(vec.as_ptr() as *mut [T; NB_BUCKETS]) },
         }
-    });
-}
+    })
+});
 
 impl Set {
     pub(crate) fn insert(&mut self, string: Cow<str>, hash: u32) -> NonNull<Entry> {
