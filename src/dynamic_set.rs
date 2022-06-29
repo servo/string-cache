@@ -85,7 +85,7 @@ impl Set {
         ptr
     }
 
-    pub(crate) fn remove(&mut self, ptr: *mut Entry) {
+    pub(crate) fn remove(&mut self, ptr: *mut Entry) -> Option<Box<Entry>> {
         let bucket_index = {
             let value: &Entry = unsafe { &*ptr };
             debug_assert!(value.ref_count.load(SeqCst) == 0);
@@ -97,12 +97,11 @@ impl Set {
         while let Some(entry_ptr) = current.as_mut() {
             let entry_ptr: *mut Entry = &mut **entry_ptr;
             if entry_ptr == ptr {
-                mem::drop(mem::replace(current, unsafe {
-                    (*entry_ptr).next_in_bucket.take()
-                }));
-                break;
+                return mem::replace(current, unsafe { (*entry_ptr).next_in_bucket.take() });
             }
             current = unsafe { &mut (*entry_ptr).next_in_bucket };
         }
+
+        None
     }
 }

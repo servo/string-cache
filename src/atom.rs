@@ -237,7 +237,8 @@ impl<Static> Drop for Atom<Static> {
 
         // Out of line to guide inlining.
         fn drop_slow<Static>(this: &mut Atom<Static>) {
-            DYNAMIC_SET
+            // We temporarily store the string in the stack to drop after releasing the lock
+            let _removed = DYNAMIC_SET
                 .lock()
                 .remove(this.unsafe_data.get() as *mut Entry);
         }
