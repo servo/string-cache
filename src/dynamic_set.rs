@@ -8,12 +8,15 @@
 // except according to those terms.
 
 use once_cell::sync::Lazy;
+#[cfg(feature = "parking_lot_support")]
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::mem;
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
+#[cfg(not(feature = "parking_lot_support"))]
+use std::sync::Mutex;
 
 const NB_BUCKETS: usize = 1 << 12; // 4096
 const BUCKET_MASK: u32 = (1 << 12) - 1;

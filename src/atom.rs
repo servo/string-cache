@@ -200,8 +200,13 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
                     phantom: PhantomData,
                 }
             } else {
+                #[cfg(feature = "parking_lot_support")]
                 let ptr: std::ptr::NonNull<Entry> =
                     DYNAMIC_SET.lock().insert(string_to_add, hash.g);
+
+                #[cfg(not(feature = "parking_lot_support"))]
+                let ptr: std::ptr::NonNull<Entry> =
+                    DYNAMIC_SET.lock().unwrap().insert(string_to_add, hash.g);
                 let data = ptr.as_ptr() as u64;
                 debug_assert!(0 == data & TAG_MASK);
                 Atom {
@@ -237,6 +242,12 @@ impl<Static> Drop for Atom<Static> {
 
         // Out of line to guide inlining.
         fn drop_slow<Static>(this: &mut Atom<Static>) {
+            #[cfg(not(feature = "parking_lot_support"))]
+            DYNAMIC_SET
+                .lock()
+                .unwrap()
+                .remove(this.unsafe_data.get() as *mut Entry);
+            #[cfg(feature = "parking_lot_support")]
             DYNAMIC_SET
                 .lock()
                 .remove(this.unsafe_data.get() as *mut Entry);
