@@ -105,7 +105,7 @@ impl<Static> Atom<Static> {
 }
 
 impl<Static: StaticAtomSet> Atom<Static> {
-    /// Return the internal repersentation. For testing.
+    /// Return the internal representation. For testing.
     #[doc(hidden)]
     pub fn unsafe_data(&self) -> u64 {
         self.unsafe_data.get()
