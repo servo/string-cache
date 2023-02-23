@@ -70,12 +70,6 @@ impl<Static: StaticAtomSet> AsRef<str> for Atom<Static> {
     }
 }
 
-impl<Static: StaticAtomSet> Borrow<str> for Atom<Static> {
-    fn borrow(&self) -> &str {
-        self
-    }
-}
-
 #[cfg(feature = "serde_support")]
 impl<Static: StaticAtomSet> Serialize for Atom<Static> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
