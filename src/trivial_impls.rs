@@ -10,7 +10,7 @@
 use crate::{Atom, StaticAtomSet};
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::borrow::{Borrow, Cow};
+use std::borrow::Cow;
 use std::fmt;
 
 impl<Static: StaticAtomSet> ::precomputed_hash::PrecomputedHash for Atom<Static> {
@@ -66,12 +66,6 @@ impl<Static: StaticAtomSet> fmt::Display for Atom<Static> {
 
 impl<Static: StaticAtomSet> AsRef<str> for Atom<Static> {
     fn as_ref(&self) -> &str {
-        self
-    }
-}
-
-impl<Static: StaticAtomSet> Borrow<str> for Atom<Static> {
-    fn borrow(&self) -> &str {
         self
     }
 }
