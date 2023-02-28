@@ -296,6 +296,10 @@ fn test_try_static() {
     assert!(Atom::try_static("not in the static table").is_none());
 }
 
+#[cfg(test)]
+#[path = "common-usage.rs"]
+mod common_usage;
+
 #[cfg(all(test, feature = "unstable"))]
 #[path = "bench.rs"]
 mod bench;
