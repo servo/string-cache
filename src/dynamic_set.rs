@@ -87,13 +87,11 @@ impl Set {
     }
 
     pub(crate) fn remove(&self, ptr: *mut Entry) {
-        let bucket_index = {
-            let value: &Entry = unsafe { &*ptr };
-            debug_assert!(value.ref_count.load(SeqCst) == 0);
-            (value.hash & BUCKET_MASK) as usize
-        };
+        let value: &Entry = unsafe { &*ptr };
+        let bucket_index = (value.hash & BUCKET_MASK) as usize;
 
         let mut linked_list = self.buckets[bucket_index].lock();
+        debug_assert!(value.ref_count.load(SeqCst) == 0);
         let mut current: &mut Option<Box<Entry>> = &mut linked_list;
 
         while let Some(entry_ptr) = current.as_mut() {
