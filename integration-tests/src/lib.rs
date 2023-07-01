@@ -45,9 +45,12 @@ fn test_as_slice() {
 #[test]
 fn test_types() {
     assert!(Atom::from("").is_static());
+    assert!(Atom::from("defaults").is_static());
+    assert!(Atom::from("font-weight").is_static());
     assert!(Atom::from("id").is_static());
     assert!(Atom::from("body").is_static());
     assert!(Atom::from("a").is_static());
+    assert!(Atom::from("address").is_static());
     assert!(Atom::from("c").is_inline());
     assert!(Atom::from("zz").is_inline());
     assert!(Atom::from("zzz").is_inline());
@@ -168,6 +171,8 @@ fn repr() {
     // static atom table, the tag values, etc.
 
     // Static atoms
+    check_static("defaults", test_atom!("defaults"));
+    check_static("font-weight", test_atom!("font-weight"));
     check_static("a", test_atom!("a"));
     check_static("address", test_atom!("address"));
     check_static("area", test_atom!("area"));
@@ -193,7 +198,9 @@ fn test_threads() {
 
 #[test]
 fn atom_macro() {
+    assert_eq!(test_atom!("a"), Atom::from("a"));
     assert_eq!(test_atom!("body"), Atom::from("body"));
+    assert_eq!(test_atom!("address"), Atom::from("address"));
     assert_eq!(test_atom!("font-weight"), Atom::from("font-weight"));
 }
 
@@ -292,6 +299,7 @@ fn test_from_string() {
 
 #[test]
 fn test_try_static() {
+    assert!(Atom::try_static("defaults").is_some());
     assert!(Atom::try_static("head").is_some());
     assert!(Atom::try_static("not in the static table").is_none());
 }

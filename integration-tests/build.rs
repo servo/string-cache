@@ -9,6 +9,7 @@ fn main() {
             "a",
             "b",
             "address",
+            "defaults",
             "area",
             "body",
             "font-weight",

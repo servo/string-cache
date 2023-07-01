@@ -153,7 +153,7 @@ bench_all!([eq ne lt clone_string]
     for longer_string = super::longer_dynamic_a, super::longer_dynamic_b);
 
 bench_all!([eq ne intern as_ref clone is_static lt]
-    for static_atom = test_atom!("a"), test_atom!("b"));
+    for static_atom = test_atom!("defaults"), test_atom!("font-weight"));
 
 bench_all!([intern as_ref clone is_inline]
     for short_inline_atom = mk("e"), mk("f"));
@@ -168,13 +168,13 @@ bench_all!([eq ne intern as_ref clone is_dynamic lt]
     for longer_dynamic_atom = mk(super::longer_dynamic_a), mk(super::longer_dynamic_b));
 
 bench_all!([intern as_ref clone is_static]
-    for static_at_runtime = mk("a"), mk("b"));
+    for static_at_runtime = mk("defaults"), mk("font-weight"));
 
 bench_all!([ne lt x_static y_inline]
-    for static_vs_inline  = test_atom!("a"), mk("f"));
+    for static_vs_inline  = test_atom!("defaults"), mk("f"));
 
 bench_all!([ne lt x_static y_dynamic]
-    for static_vs_dynamic = test_atom!("a"), mk(super::longer_dynamic_b));
+    for static_vs_dynamic = test_atom!("defaults"), mk(super::longer_dynamic_b));
 
 bench_all!([ne lt x_inline y_dynamic]
     for inline_vs_dynamic = mk("e"), mk(super::longer_dynamic_b));
