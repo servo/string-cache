@@ -47,10 +47,10 @@ fn test_types() {
     assert!(Atom::from("").is_static());
     assert!(Atom::from("defaults").is_static());
     assert!(Atom::from("font-weight").is_static());
-    assert!(Atom::from("id").is_static());
-    assert!(Atom::from("body").is_static());
-    assert!(Atom::from("a").is_static());
-    assert!(Atom::from("address").is_static());
+    assert!(Atom::from("id").is_inline());
+    assert!(Atom::from("body").is_inline());
+    assert!(Atom::from("a").is_inline());
+    assert!(Atom::from("address").is_inline());
     assert!(Atom::from("c").is_inline());
     assert!(Atom::from("zz").is_inline());
     assert!(Atom::from("zzz").is_inline());
@@ -173,11 +173,11 @@ fn repr() {
     // Static atoms
     check_static("defaults", test_atom!("defaults"));
     check_static("font-weight", test_atom!("font-weight"));
-    check_static("a", test_atom!("a"));
-    check_static("address", test_atom!("address"));
-    check_static("area", test_atom!("area"));
 
     // Inline atoms
+    check("a", 0x0000_0000_0000_6111);
+    check("address", 0x7373_6572_6464_6171);
+    check("area", 0x0000_0061_6572_6141);
     check("e", 0x0000_0000_0000_6511);
     check("xyzzy", 0x0000_797A_7A79_7851);
     check("xyzzy01", 0x3130_797A_7A79_7871);
@@ -201,7 +201,10 @@ fn atom_macro() {
     assert_eq!(test_atom!("a"), Atom::from("a"));
     assert_eq!(test_atom!("body"), Atom::from("body"));
     assert_eq!(test_atom!("address"), Atom::from("address"));
+    assert_eq!(test_atom!("❤"), Atom::from("❤"));
+    assert_eq!(test_atom!("❤💯"), Atom::from("❤💯"));
     assert_eq!(test_atom!("font-weight"), Atom::from("font-weight"));
+    assert_eq!(test_atom!("❤💯❤💯"), Atom::from("❤💯❤💯"));
 }
 
 #[test]
@@ -300,7 +303,7 @@ fn test_from_string() {
 #[test]
 fn test_try_static() {
     assert!(Atom::try_static("defaults").is_some());
-    assert!(Atom::try_static("head").is_some());
+    assert!(Atom::try_static("head").is_none());
     assert!(Atom::try_static("not in the static table").is_none());
 }
 

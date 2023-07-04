@@ -99,6 +99,31 @@ impl<Static> Atom<Static> {
         }
     }
 
+    /// For the atom!() macros
+    #[inline(always)]
+    #[doc(hidden)]
+    pub const fn pack_inline(n: u64, len: u8) -> Self {
+        // Reverse byte order if big-endian
+        let n = if cfg!(target_endian = "big") {
+            ((n & 0x000000000000FF00) << 48)
+                | ((n & 0x0000000000FF0000) << 32)
+                | ((n & 0x00000000FF000000) << 16)
+                | (n & 0x000000FF00000000)
+                | ((n & 0x0000FF0000000000) >> 16)
+                | ((n & 0x00FF000000000000) >> 32)
+                | ((n & 0xFF00000000000000) >> 48)
+        } else {
+            n
+        };
+
+        let data: u64 = (INLINE_TAG as u64) | ((len as u64) << LEN_OFFSET) | n;
+        Self {
+            // INLINE_TAG ensures this is never zero
+            unsafe_data: unsafe { NonZeroU64::new_unchecked(data) },
+            phantom: PhantomData,
+        }
+    }
+
     fn tag(&self) -> u8 {
         (self.unsafe_data.get() & TAG_MASK) as u8
     }
@@ -186,20 +211,22 @@ impl<Static: StaticAtomSet> Hash for Atom<Static> {
 
 impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
     fn from(string_to_add: Cow<'a, str>) -> Self {
-        Self::try_static_internal(&*string_to_add).unwrap_or_else(|hash| {
-            let len = string_to_add.len();
-            if len <= MAX_INLINE_LEN {
-                let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << LEN_OFFSET);
-                {
-                    let dest = inline_atom_slice_mut(&mut data);
-                    dest[..len].copy_from_slice(string_to_add.as_bytes())
-                }
-                Atom {
-                    // INLINE_TAG ensures this is never zero
-                    unsafe_data: unsafe { NonZeroU64::new_unchecked(data) },
-                    phantom: PhantomData,
-                }
-            } else {
+        let len = string_to_add.len();
+        if len == 0 {
+            Self::pack_static(Static::empty_string_index())
+        } else if len <= MAX_INLINE_LEN {
+            let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << LEN_OFFSET);
+            {
+                let dest = inline_atom_slice_mut(&mut data);
+                dest[..len].copy_from_slice(string_to_add.as_bytes())
+            }
+            Atom {
+                // INLINE_TAG ensures this is never zero
+                unsafe_data: unsafe { NonZeroU64::new_unchecked(data) },
+                phantom: PhantomData,
+            }
+        } else {
+            Self::try_static_internal(&*string_to_add).unwrap_or_else(|hash| {
                 let ptr: std::ptr::NonNull<Entry> = DYNAMIC_SET.insert(string_to_add, hash.g);
                 let data = ptr.as_ptr() as u64;
                 debug_assert!(0 == data & TAG_MASK);
@@ -208,8 +235,8 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
                     unsafe_data: unsafe { NonZeroU64::new_unchecked(data) },
                     phantom: PhantomData,
                 }
-            }
-        })
+            })
+        }
     }
 }
 

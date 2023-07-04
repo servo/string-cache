@@ -187,7 +187,13 @@ impl AtomType {
         // which would cause divisions by zero in rust-phf.
         self.atoms.insert(String::new());
 
-        let atoms: Vec<&str> = self.atoms.iter().map(|s| &**s).collect();
+        // Strings over 7 bytes and empty string added to static set
+        let atoms: Vec<&str> = self
+            .atoms
+            .iter()
+            .filter(|s| s.len() > 7 || s.is_empty())
+            .map(|s| &**s)
+            .collect();
         let hash_state = phf_generator::generate_hash(&atoms);
         let phf_generator::HashState { key, disps, map } = hash_state;
         let (disps0, disps1): (Vec<_>, Vec<_>) = disps.into_iter().unzip();
@@ -239,6 +245,35 @@ impl AtomType {
             })
             .collect();
 
+        // Strings 7 bytes or less (except empty string) stored inline
+        let short_strs: Vec<&str> = self
+            .atoms
+            .iter()
+            .filter(|s| s.len() < 8 && !s.is_empty())
+            .map(|s| &**s)
+            .collect();
+        let short_const_names: Vec<_> = short_strs
+            .iter()
+            .map(|s| {
+                let mut name = atom_prefix.clone();
+                for c in s.chars() {
+                    name.push_str(&format!("_{:02X}", c as u32))
+                }
+                new_term(&name)
+            })
+            .collect();
+        let short_values: Vec<_> = short_strs
+            .iter()
+            .map(|s| {
+                let mut n = 0u64;
+                for (index, c) in s.bytes().enumerate() {
+                    n = n | ((c as u64) << (index * 8 + 8));
+                }
+                n
+            })
+            .collect();
+        let short_lens: Vec<_> = short_strs.iter().map(|s| s.len() as u8).collect();
+
         quote! {
             #atom_doc
             pub type #type_name = ::string_cache::Atom<#static_set_name>;
@@ -265,12 +300,18 @@ impl AtomType {
             #(
                 pub const #const_names: #type_name = #type_name::pack_static(#indices);
             )*
+            #(
+                pub const #short_const_names: #type_name = #type_name::pack_inline(#short_values, #short_lens);
+            )*
 
             #macro_doc
             #[macro_export]
             macro_rules! #macro_name {
                 #(
                     (#atoms) => { #module::#const_names };
+                )*
+                #(
+                    (#short_strs) => { #module::#short_const_names };
                 )*
             }
         }
