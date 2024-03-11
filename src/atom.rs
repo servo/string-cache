@@ -254,8 +254,9 @@ impl<Static: StaticAtomSet> ops::Deref for Atom<Static> {
                 }
                 INLINE_TAG => {
                     let len = (self.unsafe_data() & LEN_MASK) >> LEN_OFFSET;
+                    debug_assert!(len as usize <= MAX_INLINE_LEN);
                     let src = inline_atom_slice(&self.unsafe_data);
-                    str::from_utf8_unchecked(&src[..(len as usize)])
+                    str::from_utf8_unchecked(src.get_unchecked(..(len as usize)))
                 }
                 STATIC_TAG => Static::get().atoms[self.static_index() as usize],
                 _ => debug_unreachable!(),
