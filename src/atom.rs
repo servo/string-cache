@@ -361,7 +361,6 @@ impl<Static: StaticAtomSet> Atom<Static> {
 
 #[inline(always)]
 fn inline_atom_slice(x: &NonZeroU64) -> &[u8] {
-    
         let x: *const NonZeroU64 = x;
         let mut data = x as *const u8;
         // All except the lowest byte, which is first in little-endian, last in big-endian.
@@ -369,13 +368,11 @@ fn inline_atom_slice(x: &NonZeroU64) -> &[u8] {
             data = unsafe { data.offset(1) };
         }
         let len = 7;
-        unsafe { slice::from_raw_parts(data, len) }
-    
+        unsafe { slice::from_raw_parts(data, len) }   
 }
 
 #[inline(always)]
-fn inline_atom_slice_mut(x: &mut u64) -> &mut [u8] {
-    
+fn inline_atom_slice_mut(x: &mut u64) -> &mut [u8] {   
         let x: *mut u64 = x;
         let mut data = x as *mut u8;
         // All except the lowest byte, which is first in little-endian, last in big-endian.
@@ -384,5 +381,4 @@ fn inline_atom_slice_mut(x: &mut u64) -> &mut [u8] {
         }
         let len = 7;
         unsafe { slice::from_raw_parts_mut(data, len) }
-    
 }
