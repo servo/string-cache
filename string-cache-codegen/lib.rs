@@ -187,11 +187,19 @@ impl AtomType {
         // which would cause divisions by zero in rust-phf.
         self.atoms.insert(String::new());
 
-        let atoms: Vec<&str> = self.atoms.iter().map(|s| &**s).collect();
-        let hash_state = phf_generator::generate_hash(&atoms);
+        // Strings over 7 bytes + empty string added to static set.
+        // Otherwise stored inline.
+        let (static_strs, inline_strs): (Vec<_>, Vec<_>) = self
+            .atoms
+            .iter()
+            .map(String::as_str)
+            .partition(|s| s.len() > 7 || s.is_empty());
+
+        // Static strings
+        let hash_state = phf_generator::generate_hash(&static_strs);
         let phf_generator::HashState { key, disps, map } = hash_state;
         let (disps0, disps1): (Vec<_>, Vec<_>) = disps.into_iter().unzip();
-        let atoms: Vec<&str> = map.iter().map(|&idx| atoms[idx]).collect();
+        let atoms: Vec<&str> = map.iter().map(|&idx| static_strs[idx]).collect();
         let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
         let indices = 0..atoms.len() as u32;
 
@@ -228,16 +236,33 @@ impl AtomType {
         let macro_name = new_term(&*self.macro_name);
         let module = module.parse::<proc_macro2::TokenStream>().unwrap();
         let atom_prefix = format!("ATOM_{}_", type_name.to_string().to_uppercase());
-        let const_names: Vec<_> = atoms
+        let new_const_name = |atom: &str| {
+            let mut name = atom_prefix.clone();
+            for c in atom.chars() {
+                name.push_str(&format!("_{:02X}", c as u32))
+            }
+            new_term(&name)
+        };
+        let const_names: Vec<_> = atoms.iter().copied().map(new_const_name).collect();
+
+        // Inline strings
+        let (inline_const_names, inline_values_and_lengths): (Vec<_>, Vec<_>) = inline_strs
             .iter()
-            .map(|atom| {
-                let mut name = atom_prefix.clone();
-                for c in atom.chars() {
-                    name.push_str(&format!("_{:02X}", c as u32))
+            .map(|s| {
+                let const_name = new_const_name(s);
+
+                let mut value = 0u64;
+                for (index, c) in s.bytes().enumerate() {
+                    value = value | ((c as u64) << (index * 8 + 8));
                 }
-                new_term(&name)
+
+                let len = s.len() as u8;
+
+                (const_name, (value, len))
             })
-            .collect();
+            .unzip();
+        let (inline_values, inline_lengths): (Vec<_>, Vec<_>) =
+            inline_values_and_lengths.into_iter().unzip();
 
         quote! {
             #atom_doc
@@ -265,12 +290,18 @@ impl AtomType {
             #(
                 pub const #const_names: #type_name = #type_name::pack_static(#indices);
             )*
+            #(
+                pub const #inline_const_names: #type_name = #type_name::pack_inline(#inline_values, #inline_lengths);
+            )*
 
             #macro_doc
             #[macro_export]
             macro_rules! #macro_name {
                 #(
                     (#atoms) => { #module::#const_names };
+                )*
+                #(
+                    (#inline_strs) => { #module::#inline_const_names };
                 )*
             }
         }

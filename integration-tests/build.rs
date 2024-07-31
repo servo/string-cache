@@ -9,6 +9,7 @@ fn main() {
             "a",
             "b",
             "address",
+            "defaults",
             "area",
             "body",
             "font-weight",
@@ -16,6 +17,9 @@ fn main() {
             "html",
             "head",
             "id",
+            "❤",
+            "❤💯",
+            "❤💯❤💯",
         ])
         .write_to_file(&Path::new(&env::var("OUT_DIR").unwrap()).join("test_atom.rs"))
         .unwrap()
