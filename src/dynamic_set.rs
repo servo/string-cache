@@ -8,12 +8,12 @@
 // except according to those terms.
 
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::mem;
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
+use std::sync::Mutex;
 
 const NB_BUCKETS: usize = 1 << 12; // 4096
 const BUCKET_MASK: u32 = (1 << 12) - 1;
@@ -52,7 +52,7 @@ pub(crate) static DYNAMIC_SET: Lazy<Set> = Lazy::new(|| {
 impl Set {
     pub(crate) fn insert(&self, string: Cow<str>, hash: u32) -> NonNull<Entry> {
         let bucket_index = (hash & BUCKET_MASK) as usize;
-        let mut linked_list = self.buckets[bucket_index].lock();
+        let mut linked_list = self.buckets[bucket_index].lock().unwrap();
 
         {
             let mut ptr: Option<&mut Box<Entry>> = linked_list.as_mut();
@@ -90,7 +90,7 @@ impl Set {
         let value: &Entry = unsafe { &*ptr };
         let bucket_index = (value.hash & BUCKET_MASK) as usize;
 
-        let mut linked_list = self.buckets[bucket_index].lock();
+        let mut linked_list = self.buckets[bucket_index].lock().unwrap();
         debug_assert!(value.ref_count.load(SeqCst) == 0);
         let mut current: &mut Option<Box<Entry>> = &mut linked_list;
 
