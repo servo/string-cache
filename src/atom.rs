@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::dynamic_set::{Entry, DYNAMIC_SET};
+use crate::dynamic_set::{dynamic_set, Entry};
 use crate::static_sets::StaticAtomSet;
 use debug_unreachable::debug_unreachable;
 
@@ -221,7 +221,7 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
             }
         } else {
             Self::try_static_internal(&*string_to_add).unwrap_or_else(|hash| {
-                let ptr: std::ptr::NonNull<Entry> = DYNAMIC_SET.insert(string_to_add, hash.g);
+                let ptr: std::ptr::NonNull<Entry> = dynamic_set().insert(string_to_add, hash.g);
                 let data = ptr.as_ptr() as u64;
                 debug_assert!(0 == data & TAG_MASK);
                 Atom {
@@ -257,7 +257,7 @@ impl<Static> Drop for Atom<Static> {
 
         // Out of line to guide inlining.
         fn drop_slow<Static>(this: &mut Atom<Static>) {
-            DYNAMIC_SET.remove(this.unsafe_data.get() as *mut Entry);
+            dynamic_set().remove(this.unsafe_data.get() as *mut Entry);
         }
     }
 }
