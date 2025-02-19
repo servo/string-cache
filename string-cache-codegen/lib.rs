@@ -69,7 +69,7 @@
 #![recursion_limit = "128"]
 
 use quote::quote;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
@@ -81,7 +81,7 @@ pub struct AtomType {
     static_set_doc: Option<String>,
     macro_name: String,
     macro_doc: Option<String>,
-    atoms: HashSet<String>,
+    atoms: BTreeSet<String>,
 }
 
 impl AtomType {
@@ -114,7 +114,7 @@ impl AtomType {
             atom_doc: None,
             static_set_doc: None,
             macro_doc: None,
-            atoms: HashSet::new(),
+            atoms: BTreeSet::new(),
         }
     }
 
@@ -179,6 +179,26 @@ impl AtomType {
                 .replace("; ", ";\n")
                 .as_bytes(),
         )
+    }
+
+    #[cfg(test)]
+    /// Write generated code to destination [`Vec<u8>`] and return it as [`String`]
+    /// 
+    /// Used mostly for testing or displaying a value. 
+    pub fn write_to_string(&mut self, mut destination: Vec<u8>) -> io::Result<String>
+    {
+        destination.write_all(
+            self.to_tokens()
+                .to_string()
+                // Insert some newlines to make the generated code slightly easier to read.
+                .replace(" [ \"", "[\n\"")
+                .replace("\" , ", "\",\n")
+                .replace(" ( \"", "\n( \"")
+                .replace("; ", ";\n")
+                .as_bytes(),
+        )?;
+        let str = String::from_utf8(destination).unwrap();
+        Ok(str)
     }
 
     fn to_tokens(&mut self) -> proc_macro2::TokenStream {
@@ -314,4 +334,17 @@ impl AtomType {
     pub fn write_to_file(&mut self, path: &Path) -> io::Result<()> {
         self.write_to(BufWriter::new(File::create(path)?))
     }
+}
+
+#[test]
+fn test_iteration_order() {
+    let x1 = crate::AtomType::new("foo::Atom", "foo_atom!")
+        .atoms(&["x", "xlink", "svg", "test"])
+        .write_to_string(Vec::new()).expect("write to string cache x1");
+
+    let x2 = crate::AtomType::new("foo::Atom", "foo_atom!")
+        .atoms(&["x", "xlink", "svg", "test"])
+        .write_to_string(Vec::new()).expect("write to string cache x2");
+
+    assert_eq!(x1, x2);
 }
