@@ -12,6 +12,10 @@ edition = "2018"
 name = "string_cache_codegen"
 path = "lib.rs"
 
+[[test]]
+name = "reproducibility_test"
+harness = true
+
 [dependencies]
 phf_generator = "0.11"
 phf_shared = "0.11"
