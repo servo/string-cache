@@ -181,6 +181,7 @@ impl AtomType {
         )
     }
 
+    #[cfg(test)]
     /// Write generated code to destination [`Vec<u8>`] and return it as [`String`]
     /// 
     /// Used mostly for testing or displaying a value. 
@@ -333,4 +334,17 @@ impl AtomType {
     pub fn write_to_file(&mut self, path: &Path) -> io::Result<()> {
         self.write_to(BufWriter::new(File::create(path)?))
     }
+}
+
+#[test]
+fn test_iteration_order() {
+    let x1 = crate::AtomType::new("foo::Atom", "foo_atom!")
+        .atoms(&["x", "xlink", "svg", "test"])
+        .write_to_string(Vec::new()).expect("write to string cache x1");
+
+    let x2 = crate::AtomType::new("foo::Atom", "foo_atom!")
+        .atoms(&["x", "xlink", "svg", "test"])
+        .write_to_string(Vec::new()).expect("write to string cache x2");
+
+    assert_eq!(x1, x2);
 }
