@@ -82,6 +82,15 @@ pub struct Atom<Static> {
     phantom: PhantomData<Static>,
 }
 
+// This isn't really correct as the Atoms can technically take up space. But I guess it's ok
+// as it is possible to measure the size of the atom set separately/
+#[cfg(feature = "malloc_size_of")]
+impl<Static: StaticAtomSet> malloc_size_of::MallocSizeOf for Atom<Static> {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 // FIXME: bound removed from the struct definition before of this error for pack_static:
 // "error[E0723]: trait bounds other than `Sized` on const fn parameters are unstable"
 // https://github.com/rust-lang/rust/issues/57563
