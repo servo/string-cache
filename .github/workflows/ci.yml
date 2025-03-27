@@ -36,6 +36,7 @@ jobs:
         run: |
           cargo build --no-default-features
           cargo build
+          cargo build --features malloc_size_of
       - uses: actions-rs/cargo@v1
         with:
           command: test
