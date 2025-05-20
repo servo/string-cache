@@ -127,6 +127,12 @@ pub use static_sets::{EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 /// Use this if you don’t care about static atoms.
 pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
 
+/// Measure the memory usage of the set of dynamic atoms.
+#[cfg(feature = "malloc_size_of")]
+pub fn size_of_dynamic_atoms(ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+    dynamic_set::dynamic_set().size_of(ops)
+}
+
 // Some minor tests of internal layout here.
 // See ../integration-tests for much more.
 
