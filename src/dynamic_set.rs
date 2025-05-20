@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use malloc_size_of_derive::MallocSizeOf;
+use malloc_size_of::{MallocSizeOf as _, MallocSizeOfOps, MallocShallowSizeOf};
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::mem;
@@ -22,6 +24,20 @@ pub(crate) struct Set {
     buckets: Box<[Mutex<Option<Box<Entry>>>]>,
 }
 
+impl Set {
+    #[cfg(feature = "malloc_size_of")]
+    pub(crate) fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+        self.buckets.shallow_size_of(ops) +
+            self.buckets
+                .iter()
+                .map(|bucket| {
+                    bucket.lock().as_ref().map_or(0, |entry| entry.size_of(ops))
+                })
+                .sum::<usize>()
+    }
+}
+
+#[cfg_attr(feature = "malloc_size_of", derive(MallocSizeOf))]
 pub(crate) struct Entry {
     pub(crate) string: Box<str>,
     pub(crate) hash: u32,
