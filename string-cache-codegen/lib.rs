@@ -19,10 +19,10 @@
 //! build = "build.rs"
 //!
 //! [dependencies]
-//! string_cache = "0.8"
+//! string_cache = "0.9"
 //!
 //! [build-dependencies]
-//! string_cache_codegen = "0.5"
+//! string_cache_codegen = "0.6"
 //! ```
 //!
 //! In `build.rs`:
@@ -183,8 +183,8 @@ impl AtomType {
 
     #[cfg(test)]
     /// Write generated code to destination [`Vec<u8>`] and return it as [`String`]
-    /// 
-    /// Used mostly for testing or displaying a value. 
+    ///
+    /// Used mostly for testing or displaying a value.
     pub fn write_to_string(&mut self, mut destination: Vec<u8>) -> io::Result<String>
     {
         destination.write_all(

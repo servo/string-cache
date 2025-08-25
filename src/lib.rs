@@ -25,10 +25,10 @@
 //! In `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! string_cache = "0.8"
+//! string_cache = "0.9"
 //!
 //! [dev-dependencies]
-//! string_cache_codegen = "0.5"
+//! string_cache_codegen = "0.6"
 //! ```
 //!
 //! In `build.rs`:
