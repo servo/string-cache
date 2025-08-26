@@ -12,7 +12,7 @@ In `Cargo.toml`:
 
 ```toml
 [dependencies]
-string_cache = "0.8"
+string_cache = "0.9"
 ```
 
 In `lib.rs`:
@@ -31,10 +31,10 @@ In `Cargo.toml`:
 build = "build.rs"
 
 [dependencies]
-string_cache = "0.8"
+string_cache = "0.9"
 
 [build-dependencies]
-string_cache_codegen = "0.5"
+string_cache_codegen = "0.6"
 ```
 
 In `build.rs`:
