@@ -68,6 +68,7 @@
 
 #![recursion_limit = "128"]
 
+use proc_macro2::Ident;
 use quote::quote;
 use std::collections::BTreeSet;
 use std::fs::File;
@@ -185,8 +186,7 @@ impl AtomType {
     /// Write generated code to destination [`Vec<u8>`] and return it as [`String`]
     ///
     /// Used mostly for testing or displaying a value.
-    pub fn write_to_string(&mut self, mut destination: Vec<u8>) -> io::Result<String>
-    {
+    pub fn write_to_string(&mut self, mut destination: Vec<u8>) -> io::Result<String> {
         destination.write_all(
             self.to_tokens()
                 .to_string()
@@ -223,6 +223,30 @@ impl AtomType {
         let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
         let indices = 0..atoms.len() as u32;
 
+        fn is_valid_ident(name: &str) -> bool {
+            let begins_with_letter_or_underscore = name
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_alphabetic() || c == '_');
+            let is_alphanumeric = name.chars().all(|c| c.is_alphanumeric() || c == '_');
+
+            begins_with_letter_or_underscore && is_alphanumeric
+        }
+
+        let atoms_for_idents: Vec<&str> = atoms
+            .iter()
+            .copied()
+            .filter(|x| is_valid_ident(x))
+            .collect();
+        let atom_idents: Vec<Ident> = atoms_for_idents.iter().map(|atom| new_term(atom)).collect();
+
+        let istrs_for_idents: Vec<&str> = inline_strs
+            .iter()
+            .copied()
+            .filter(|x| is_valid_ident(x))
+            .collect();
+        let istr_idents: Vec<Ident> = istrs_for_idents.iter().map(|atom| new_term(atom)).collect();
+
         let hashes: Vec<u32> = atoms
             .iter()
             .map(|string| {
@@ -249,8 +273,9 @@ impl AtomType {
             Some(ref doc) => quote!(#[doc = #doc]),
             None => quote!(),
         };
-        let new_term =
-            |string: &str| proc_macro2::Ident::new(string, proc_macro2::Span::call_site());
+        fn new_term(string: &str) -> Ident {
+            Ident::new(string, proc_macro2::Span::call_site())
+        }
         let static_set_name = new_term(&format!("{}StaticSet", type_name));
         let type_name = new_term(type_name);
         let macro_name = new_term(&*self.macro_name);
@@ -264,6 +289,16 @@ impl AtomType {
             new_term(&name)
         };
         let const_names: Vec<_> = atoms.iter().copied().map(new_const_name).collect();
+        let ident_const_names: Vec<_> = atoms_for_idents
+            .iter()
+            .copied()
+            .map(new_const_name)
+            .collect();
+        let ident_inline_const_names: Vec<_> = istrs_for_idents
+            .iter()
+            .copied()
+            .map(new_const_name)
+            .collect();
 
         // Inline strings
         let (inline_const_names, inline_values_and_lengths): (Vec<_>, Vec<_>) = inline_strs
@@ -323,6 +358,12 @@ impl AtomType {
                 #(
                     (#inline_strs) => { #module::#inline_const_names };
                 )*
+                #(
+                    (#atom_idents) => { #module::#ident_const_names };
+                )*
+                #(
+                    (#istr_idents) => { #module::#ident_inline_const_names };
+                )*
             }
         }
     }
@@ -340,11 +381,13 @@ impl AtomType {
 fn test_iteration_order() {
     let x1 = crate::AtomType::new("foo::Atom", "foo_atom!")
         .atoms(&["x", "xlink", "svg", "test"])
-        .write_to_string(Vec::new()).expect("write to string cache x1");
+        .write_to_string(Vec::new())
+        .expect("write to string cache x1");
 
     let x2 = crate::AtomType::new("foo::Atom", "foo_atom!")
         .atoms(&["x", "xlink", "svg", "test"])
-        .write_to_string(Vec::new()).expect("write to string cache x2");
+        .write_to_string(Vec::new())
+        .expect("write to string cache x2");
 
     assert_eq!(x1, x2);
 }
