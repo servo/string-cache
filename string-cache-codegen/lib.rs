@@ -68,6 +68,7 @@
 
 #![recursion_limit = "128"]
 
+use proc_macro2::{Ident, Literal, TokenStream};
 use quote::quote;
 use std::collections::BTreeSet;
 use std::fs::File;
@@ -185,8 +186,7 @@ impl AtomType {
     /// Write generated code to destination [`Vec<u8>`] and return it as [`String`]
     ///
     /// Used mostly for testing or displaying a value.
-    pub fn write_to_string(&mut self, mut destination: Vec<u8>) -> io::Result<String>
-    {
+    pub fn write_to_string(&mut self, mut destination: Vec<u8>) -> io::Result<String> {
         destination.write_all(
             self.to_tokens()
                 .to_string()
@@ -223,6 +223,28 @@ impl AtomType {
         let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
         let indices = 0..atoms.len() as u32;
 
+        let atom_byte_literals: Vec<Literal> = atoms
+            .iter()
+            .map(|atom| Literal::byte_string(atom.as_bytes()))
+            .collect();
+        let inline_str_byte_literals: Vec<Literal> = inline_strs
+            .iter()
+            .map(|s| Literal::byte_string(s.as_bytes()))
+            .collect();
+
+        let atom_idents: Vec<Ident> = atoms
+            .iter()
+            .filter(|atom| !atom.is_empty())
+            .filter(|atom| atom.chars().all(|c| c.is_alphanumeric()))
+            .map(|atom| new_term(atom))
+            .collect();
+        let inline_str_idents: Vec<Ident> = inline_strs
+            .iter()
+            .filter(|s| !s.is_empty())
+            .filter(|s| s.chars().all(|c| c.is_alphanumeric()))
+            .map(|s| new_term(s))
+            .collect();
+
         let hashes: Vec<u32> = atoms
             .iter()
             .map(|string| {
@@ -249,11 +271,14 @@ impl AtomType {
             Some(ref doc) => quote!(#[doc = #doc]),
             None => quote!(),
         };
-        let new_term =
-            |string: &str| proc_macro2::Ident::new(string, proc_macro2::Span::call_site());
+        fn new_term (string: &str) -> proc_macro2::Ident {
+            proc_macro2::Ident::new(string, proc_macro2::Span::call_site())
+        }
         let static_set_name = new_term(&format!("{}StaticSet", type_name));
+        let type_name_str = type_name;
         let type_name = new_term(type_name);
         let macro_name = new_term(&*self.macro_name);
+        let ident_macro_name = new_term(&*format!("{}_ident", self.macro_name));
         let module = module.parse::<proc_macro2::TokenStream>().unwrap();
         let atom_prefix = format!("ATOM_{}_", type_name.to_string().to_uppercase());
         let new_const_name = |atom: &str| {
@@ -284,6 +309,23 @@ impl AtomType {
         let (inline_values, inline_lengths): (Vec<_>, Vec<_>) =
             inline_values_and_lengths.into_iter().unzip();
 
+        let ident_macro : TokenStream = if !atom_idents.is_empty() || !inline_str_idents.is_empty() {
+            quote! {
+                #macro_doc
+                #[macro_export]
+                macro_rules! #ident_macro_name {
+                    #(
+                        (#atom_idents) => { #module::#const_names };
+                    )*
+                    #(
+                        (#inline_str_idents) => { #module::#inline_const_names };
+                    )*
+                }
+            }
+        } else {
+            quote!()
+        };
+
         quote! {
             #atom_doc
             pub type #type_name = ::string_cache::Atom<#static_set_name>;
@@ -307,12 +349,18 @@ impl AtomType {
                 }
             }
 
-            #(
-                pub const #const_names: #type_name = #type_name::pack_static(#indices);
-            )*
-            #(
-                pub const #inline_const_names: #type_name = #type_name::pack_inline(#inline_values, #inline_lengths);
-            )*
+            #(pub const #const_names: #type_name = #type_name::pack_static(#indices);)*
+            #(pub const #inline_const_names: #type_name = #type_name::pack_inline(#inline_values, #inline_lengths);)*
+
+            impl #static_set_name {
+                pub const fn const_new(name: &'static str) -> ::string_cache::Atom<Self> {
+                    match name.as_bytes() {
+                        #(#atom_byte_literals => #const_names,)*
+                        #(#inline_str_byte_literals => #inline_const_names,)*
+                        _ => panic!("Invalid static value for atom")
+                    }
+                }
+            }
 
             #macro_doc
             #[macro_export]
@@ -324,6 +372,8 @@ impl AtomType {
                     (#inline_strs) => { #module::#inline_const_names };
                 )*
             }
+
+            #ident_macro
         }
     }
 
@@ -340,11 +390,13 @@ impl AtomType {
 fn test_iteration_order() {
     let x1 = crate::AtomType::new("foo::Atom", "foo_atom!")
         .atoms(&["x", "xlink", "svg", "test"])
-        .write_to_string(Vec::new()).expect("write to string cache x1");
+        .write_to_string(Vec::new())
+        .expect("write to string cache x1");
 
     let x2 = crate::AtomType::new("foo::Atom", "foo_atom!")
         .atoms(&["x", "xlink", "svg", "test"])
-        .write_to_string(Vec::new()).expect("write to string cache x2");
+        .write_to_string(Vec::new())
+        .expect("write to string cache x2");
 
     assert_eq!(x1, x2);
 }
