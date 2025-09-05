@@ -19,7 +19,7 @@ unstable = []
 string_cache = { version = "0.9", path = ".." }
 
 [dev-dependencies]
-rand = "0.8"
+rand = { version = "0.8", features = ["small_rng"] }
 string_cache_codegen = { version = "0.6", path = "../string-cache-codegen" }
 
 [build-dependencies]
