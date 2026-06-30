@@ -16,11 +16,11 @@ test = true
 unstable = []
 
 [dependencies]
-string_cache = { version = "0.9", path = ".." }
+string_cache = { version = "0.10", path = ".." }
 
 [dev-dependencies]
 rand = { version = "0.8", features = ["small_rng"] }
-string_cache_codegen = { version = "0.6", path = "../string-cache-codegen" }
+string_cache_codegen = { version = "0.7", path = "../string-cache-codegen" }
 
 [build-dependencies]
-string_cache_codegen = { version = "0.6", path = "../string-cache-codegen" }
+string_cache_codegen = { version = "0.7", path = "../string-cache-codegen" }
