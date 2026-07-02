@@ -340,12 +340,18 @@ impl<Static: StaticAtomSet> Ord for Atom<Static> {
 // over the one from &str.
 impl<Static: StaticAtomSet> Atom<Static> {
     fn from_mutated_str<F: FnOnce(&mut str)>(s: &str, f: F) -> Self {
-        let mut buffer = mem::MaybeUninit::<[u8; 64]>::uninit();
-        let buffer = unsafe { &mut *buffer.as_mut_ptr() };
+        let mut buffer = [const { mem::MaybeUninit::<u8>::uninit() }; 64];
 
         if let Some(buffer_prefix) = buffer.get_mut(..s.len()) {
-            buffer_prefix.copy_from_slice(s.as_bytes());
-            let as_str = unsafe { ::std::str::from_utf8_unchecked_mut(buffer_prefix) };
+            let buffer_ptr = buffer_prefix.as_mut_ptr().cast::<u8>();
+            // SAFETY: `buffer_ptr` points to the `MaybeUninit` array.
+            // We use `copy_nonoverlapping` to write valid data into it,
+            // and then create a slice covering ONLY the initialized portion.
+            let as_str = unsafe {
+                buffer_ptr.copy_from_nonoverlapping(s.as_ptr(), s.len());
+                let buffer_slice = slice::from_raw_parts_mut(buffer_ptr, s.len());
+                std::str::from_utf8_unchecked_mut(buffer_slice)
+            };
             f(as_str);
             Atom::from(&*as_str)
         } else {
