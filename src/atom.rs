@@ -248,7 +248,11 @@ impl<Static: StaticAtomSet> Clone for Atom<Static> {
     fn clone(&self) -> Self {
         if self.tag() == DYNAMIC_TAG {
             let entry = self.unsafe_data.get() as *const Entry;
-            unsafe { &*entry }.ref_count.fetch_add(1, SeqCst);
+            // SAFETY: `self` is a valid Atom, meaning its `unsafe_data` points to a live `Entry`
+            // kept alive by `self`'s reference count. We can safely dereference it.
+            if unsafe { &*entry }.ref_count.fetch_add(1, SeqCst) == std::isize::MAX {
+                std::process::abort();
+            }
         }
         Atom { ..*self }
     }
