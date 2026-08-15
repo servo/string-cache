@@ -193,6 +193,18 @@ impl<Static: StaticAtomSet> Atom<Static> {
             Err(hash)
         }
     }
+
+    /// Get a reference to the underlying str.
+    #[inline]
+    pub fn as_str(&self) -> &str {
+        self // auto-deref
+    }
+
+    /// Get a reference to the bytes of the underlying str.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        self.as_str().as_bytes()
+    }
 }
 
 impl<Static: StaticAtomSet> Default for Atom<Static> {
@@ -317,7 +329,7 @@ impl<Static: StaticAtomSet> PartialOrd for Atom<Static> {
         if self.unsafe_data == other.unsafe_data {
             return Some(Equal);
         }
-        self.as_ref().partial_cmp(other.as_ref())
+        self.as_str().partial_cmp(other.as_ref())
     }
 }
 
@@ -327,7 +339,7 @@ impl<Static: StaticAtomSet> Ord for Atom<Static> {
         if self.unsafe_data == other.unsafe_data {
             return Equal;
         }
-        self.as_ref().cmp(other.as_ref())
+        self.as_str().cmp(other.as_ref())
     }
 }
 
@@ -392,24 +404,24 @@ impl<Static: StaticAtomSet> Atom<Static> {
 
 #[inline(always)]
 fn inline_atom_slice(x: &NonZeroU64) -> &[u8] {
-        let x: *const NonZeroU64 = x;
-        let mut data = x as *const u8;
-        // All except the lowest byte, which is first in little-endian, last in big-endian.
-        if cfg!(target_endian = "little") {
-            data = unsafe { data.offset(1) };
-        }
-        let len = 7;
-        unsafe { slice::from_raw_parts(data, len) }   
+    let x: *const NonZeroU64 = x;
+    let mut data = x as *const u8;
+    // All except the lowest byte, which is first in little-endian, last in big-endian.
+    if cfg!(target_endian = "little") {
+        data = unsafe { data.offset(1) };
+    }
+    let len = 7;
+    unsafe { slice::from_raw_parts(data, len) }
 }
 
 #[inline(always)]
-fn inline_atom_slice_mut(x: &mut u64) -> &mut [u8] {   
-        let x: *mut u64 = x;
-        let mut data = x as *mut u8;
-        // All except the lowest byte, which is first in little-endian, last in big-endian.
-        if cfg!(target_endian = "little") {
-            data = unsafe { data.offset(1) };
-        }
-        let len = 7;
-        unsafe { slice::from_raw_parts_mut(data, len) }
+fn inline_atom_slice_mut(x: &mut u64) -> &mut [u8] {
+    let x: *mut u64 = x;
+    let mut data = x as *mut u8;
+    // All except the lowest byte, which is first in little-endian, last in big-endian.
+    if cfg!(target_endian = "little") {
+        data = unsafe { data.offset(1) };
+    }
+    let len = 7;
+    unsafe { slice::from_raw_parts_mut(data, len) }
 }

@@ -65,8 +65,16 @@ impl<Static: StaticAtomSet> fmt::Display for Atom<Static> {
 }
 
 impl<Static: StaticAtomSet> AsRef<str> for Atom<Static> {
+    #[inline]
     fn as_ref(&self) -> &str {
-        self
+        self.as_str()
+    }
+}
+
+impl<Static: StaticAtomSet> AsRef<[u8]> for Atom<Static> {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        self.as_bytes()
     }
 }
 
