@@ -161,6 +161,7 @@ fn default() {
 
 #[test]
 fn ord() {
+    #[expect(clippy::cmp_owned)]
     fn check(x: &str, y: &str) {
         assert_eq!(x < y, Atom::from(x) < Atom::from(y));
         assert_eq!(x.cmp(y), Atom::from(x).cmp(&Atom::from(y)));
@@ -363,6 +364,7 @@ fn test_eq_ignore_ascii_case() {
     assert!(!Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("JE vais À paris")));
 }
 
+#[expect(clippy::cmp_owned)]
 #[test]
 fn test_from_string() {
     assert!(Atom::from("camembert".to_owned()) == Atom::from("camembert"));

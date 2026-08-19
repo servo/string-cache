@@ -189,7 +189,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
 
     fn try_static_internal(string_to_add: &str) -> Result<Self, phf_shared::Hashes> {
         let static_set = Static::get();
-        let hash = phf_shared::hash(&*string_to_add, &static_set.key);
+        let hash = phf_shared::hash(string_to_add, &static_set.key);
         let index = phf_shared::get_index(&hash, static_set.disps, static_set.atoms.len());
 
         if static_set.atoms[index as usize] == string_to_add {
@@ -246,7 +246,7 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
                 phantom: PhantomData,
             }
         } else {
-            Self::try_static_internal(&*string_to_add).unwrap_or_else(|hash| {
+            Self::try_static_internal(&string_to_add).unwrap_or_else(|hash| {
                 let ptr: std::ptr::NonNull<Entry> = dynamic_set().insert(string_to_add, hash.g);
                 let data = ptr.as_ptr().expose_provenance() as u64;
                 debug_assert!(0 == data & TAG_MASK);
@@ -328,17 +328,14 @@ impl<Static: StaticAtomSet> fmt::Debug for Atom<Static> {
             }
         };
 
-        write!(f, "Atom('{}' type={})", &*self, ty_str)
+        write!(f, "Atom('{}' type={})", self, ty_str)
     }
 }
 
 impl<Static: StaticAtomSet> PartialOrd for Atom<Static> {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.unsafe_data == other.unsafe_data {
-            return Some(Equal);
-        }
-        self.as_str().partial_cmp(other.as_ref())
+        Some(self.cmp(other))
     }
 }
 
@@ -406,14 +403,14 @@ impl<Static: StaticAtomSet> Atom<Static> {
     ///
     /// [`eq_ignore_ascii_case`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.eq_ignore_ascii_case
     pub fn eq_ignore_ascii_case(&self, other: &Self) -> bool {
-        (self == other) || self.eq_str_ignore_ascii_case(&**other)
+        (self == other) || self.eq_str_ignore_ascii_case(other)
     }
 
     /// Like [`eq_ignore_ascii_case`], but takes an unhashed string as `other`.
     ///
     /// [`eq_ignore_ascii_case`]: https://doc.rust-lang.org/std/ascii/trait.AsciiExt.html#tymethod.eq_ignore_ascii_case
     pub fn eq_str_ignore_ascii_case(&self, other: &str) -> bool {
-        (&**self).eq_ignore_ascii_case(other)
+        self.as_str().eq_ignore_ascii_case(other)
     }
 }
 

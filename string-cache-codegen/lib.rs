@@ -201,6 +201,7 @@ impl AtomType {
         Ok(str)
     }
 
+    #[expect(clippy::wrong_self_convention)] // Doesn’t matter on a private method
     fn to_tokens(&mut self) -> proc_macro2::TokenStream {
         // `impl Default for Atom` requires the empty string to be in the static set.
         // This also makes sure the set in non-empty,
@@ -259,7 +260,7 @@ impl AtomType {
         let type_name = path_parts.next().unwrap();
         let module = match path_parts.next() {
             Some(m) => format!("$crate::{}", m),
-            None => format!("$crate"),
+            None => "$crate".to_string(),
         };
         let atom_doc = match self.atom_doc {
             Some(ref doc) => quote!(#[doc = #doc]),
@@ -278,7 +279,7 @@ impl AtomType {
         }
         let static_set_name = new_term(&format!("{}StaticSet", type_name));
         let type_name = new_term(type_name);
-        let macro_name = new_term(&*self.macro_name);
+        let macro_name = new_term(&self.macro_name);
         let module = module.parse::<proc_macro2::TokenStream>().unwrap();
         let atom_prefix = format!("ATOM_{}_", type_name.to_string().to_uppercase());
         let new_const_name = |atom: &str| {
@@ -308,7 +309,7 @@ impl AtomType {
 
                 let mut value = 0u64;
                 for (index, c) in s.bytes().enumerate() {
-                    value = value | ((c as u64) << (index * 8 + 8));
+                    value |= (c as u64) << (index * 8 + 8);
                 }
 
                 let len = s.len() as u8;
