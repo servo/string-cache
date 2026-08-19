@@ -246,16 +246,21 @@ fn repr() {
     check("xyzzy01", 0x3130_797A_7A79_7871);
 
     // Dynamic atoms. This is a pointer so we can't verify every bit.
-    assert_eq!(0x00, Atom::from("a dynamic string").unsafe_data() & 0xf);
+    let tag_mask = 0b11;
+    let atom = Atom::from("a dynamic string");
+    assert_eq!(0x00, atom.unsafe_data() & tag_mask);
 }
 
 #[test]
 fn test_threads() {
-    for _ in 0_u32..100 {
+    let threads = (0_u32..100).map(|_| {
         thread::spawn(move || {
             let _ = Atom::from("a dynamic string");
             let _ = Atom::from("another string");
-        });
+        })
+    });
+    for thread in threads {
+        thread.join().unwrap();
     }
 }
 
