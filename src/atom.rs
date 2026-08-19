@@ -193,6 +193,18 @@ impl<Static: StaticAtomSet> Atom<Static> {
             Err(hash)
         }
     }
+
+    /// Get a reference to the underlying str.
+    #[inline]
+    pub fn as_str(&self) -> &str {
+        self // auto-deref
+    }
+
+    /// Get a reference to the bytes of the underlying str.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        self.as_str().as_bytes()
+    }
 }
 
 impl<Static: StaticAtomSet> Default for Atom<Static> {
@@ -321,7 +333,7 @@ impl<Static: StaticAtomSet> PartialOrd for Atom<Static> {
         if self.unsafe_data == other.unsafe_data {
             return Some(Equal);
         }
-        self.as_ref().partial_cmp(other.as_ref())
+        self.as_str().partial_cmp(other.as_ref())
     }
 }
 
@@ -331,7 +343,7 @@ impl<Static: StaticAtomSet> Ord for Atom<Static> {
         if self.unsafe_data == other.unsafe_data {
             return Equal;
         }
-        self.as_ref().cmp(other.as_ref())
+        self.as_str().cmp(other.as_ref())
     }
 }
 

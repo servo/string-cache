@@ -22,24 +22,87 @@ include!(concat!(env!("OUT_DIR"), "/test_atom.rs"));
 pub type Atom = TestAtom;
 
 #[test]
-fn test_as_slice() {
+fn test_as_str() {
     let s0 = Atom::from("");
-    assert!(s0.as_ref() == "");
+    assert!(s0.as_str() == "");
 
     let s1 = Atom::from("class");
-    assert!(s1.as_ref() == "class");
+    assert!(s1.as_str() == "class");
 
     let i0 = Atom::from("blah");
-    assert!(i0.as_ref() == "blah");
+    assert!(i0.as_str() == "blah");
 
     let s0 = Atom::from("BLAH");
-    assert!(s0.as_ref() == "BLAH");
+    assert!(s0.as_str() == "BLAH");
 
     let d0 = Atom::from("zzzzzzzzzz");
-    assert!(d0.as_ref() == "zzzzzzzzzz");
+    assert!(d0.as_str() == "zzzzzzzzzz");
 
     let d1 = Atom::from("ZZZZZZZZZZ");
-    assert!(d1.as_ref() == "ZZZZZZZZZZ");
+    assert!(d1.as_str() == "ZZZZZZZZZZ");
+}
+
+#[test]
+fn test_as_bytes() {
+    let s0 = Atom::from("");
+    assert!(s0.as_bytes() == b"");
+
+    let s1 = Atom::from("class");
+    assert!(s1.as_bytes() == b"class");
+
+    let i0 = Atom::from("blah");
+    assert!(i0.as_bytes() == b"blah");
+
+    let s0 = Atom::from("BLAH");
+    assert!(s0.as_bytes() == b"BLAH");
+
+    let d0 = Atom::from("zzzzzzzzzz");
+    assert!(d0.as_bytes() == b"zzzzzzzzzz");
+
+    let d1 = Atom::from("ZZZZZZZZZZ");
+    assert!(d1.as_bytes() == b"ZZZZZZZZZZ");
+}
+
+#[test]
+fn test_as_ref_str() {
+    let s0 = Atom::from("");
+    assert!(AsRef::<str>::as_ref(&s0) == "");
+
+    let s1 = Atom::from("class");
+    assert!(AsRef::<str>::as_ref(&s1) == "class");
+
+    let i0 = Atom::from("blah");
+    assert!(AsRef::<str>::as_ref(&i0) == "blah");
+
+    let s0 = Atom::from("BLAH");
+    assert!(AsRef::<str>::as_ref(&s0) == "BLAH");
+
+    let d0 = Atom::from("zzzzzzzzzz");
+    assert!(AsRef::<str>::as_ref(&d0) == "zzzzzzzzzz");
+
+    let d1 = Atom::from("ZZZZZZZZZZ");
+    assert!(AsRef::<str>::as_ref(&d1) == "ZZZZZZZZZZ");
+}
+
+#[test]
+fn test_as_ref_bytes() {
+    let s0 = Atom::from("");
+    assert!(AsRef::<[u8]>::as_ref(&s0) == b"");
+
+    let s1 = Atom::from("class");
+    assert!(AsRef::<[u8]>::as_ref(&s1) == b"class");
+
+    let i0 = Atom::from("blah");
+    assert!(AsRef::<[u8]>::as_ref(&i0) == b"blah");
+
+    let s0 = Atom::from("BLAH");
+    assert!(AsRef::<[u8]>::as_ref(&s0) == b"BLAH");
+
+    let d0 = Atom::from("zzzzzzzzzz");
+    assert!(AsRef::<[u8]>::as_ref(&d0) == b"zzzzzzzzzz");
+
+    let d1 = Atom::from("ZZZZZZZZZZ");
+    assert!(AsRef::<[u8]>::as_ref(&d1) == b"ZZZZZZZZZZ");
 }
 
 #[test]

@@ -83,13 +83,25 @@ macro_rules! bench_one (
         }
     );
 
-    (as_ref $x:expr, $_y:expr) => (
+    (as_str $x:expr, $_y:expr) => (
         #[bench]
-        fn as_ref_x_1000(b: &mut Bencher) {
+        fn as_str_x_1000(b: &mut Bencher) {
             let x = $x;
             b.iter(|| {
                 for _ in 0..1000 {
-                    black_box(x.as_ref());
+                    black_box(x.as_str());
+                }
+            });
+        }
+    );
+
+    (as_bytes $x:expr, $_y:expr) => (
+        #[bench]
+        fn as_bytes_x_1000(b: &mut Bencher) {
+            let x = $x;
+            b.iter(|| {
+                for _ in 0..1000 {
+                    black_box(x.as_bytes());
                 }
             });
         }
@@ -152,22 +164,22 @@ bench_all!([eq ne lt clone_string] for medium_string = "xyzzy01", "xyzzy02");
 bench_all!([eq ne lt clone_string]
     for longer_string = super::longer_dynamic_a, super::longer_dynamic_b);
 
-bench_all!([eq ne intern as_ref clone is_static lt]
+bench_all!([eq ne intern as_str as_bytes clone is_static lt]
     for static_atom = test_atom!("defaults"), test_atom!("font-weight"));
 
-bench_all!([intern as_ref clone is_inline]
+bench_all!([intern as_str as_bytes clone is_inline]
     for short_inline_atom = mk("e"), mk("f"));
 
-bench_all!([eq ne intern as_ref clone is_inline lt]
+bench_all!([eq ne intern as_str as_bytes clone is_inline lt]
     for medium_inline_atom = mk("xyzzy01"), mk("xyzzy02"));
 
-bench_all!([intern as_ref clone is_dynamic]
+bench_all!([intern as_str as_bytes clone is_dynamic]
     for min_dynamic_atom = mk("xyzzy001"), mk("xyzzy002"));
 
-bench_all!([eq ne intern as_ref clone is_dynamic lt]
+bench_all!([eq ne intern as_str as_bytes clone is_dynamic lt]
     for longer_dynamic_atom = mk(super::longer_dynamic_a), mk(super::longer_dynamic_b));
 
-bench_all!([intern as_ref clone is_static]
+bench_all!([intern as_str as_bytes clone is_static]
     for static_at_runtime = mk("defaults"), mk("font-weight"));
 
 bench_all!([ne lt x_static y_inline]
