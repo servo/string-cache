@@ -20,7 +20,7 @@ jobs:
 
     strategy:
       matrix:
-        rust: [1.85, nightly, beta, stable]
+        rust: [1.85, nightly, stable]
 
     steps:
       - uses: actions/checkout@v2
