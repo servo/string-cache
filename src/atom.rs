@@ -130,6 +130,11 @@ impl<Static> Atom<Static> {
     fn tag(&self) -> u8 {
         (self.unsafe_data.get() & TAG_MASK) as u8
     }
+
+    /// Assuming DYNAMIC_TAG, return the pointer to `Entry`
+    fn dynamic_ptr(&self) -> *const Entry {
+        std::ptr::with_exposed_provenance(self.unsafe_data.get() as usize)
+    }
 }
 
 impl<Static: StaticAtomSet> Atom<Static> {
@@ -165,7 +170,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
     pub fn get_hash(&self) -> u32 {
         match self.tag() {
             DYNAMIC_TAG => {
-                let entry = self.unsafe_data.get() as *const Entry;
+                let entry = self.dynamic_ptr();
                 unsafe { (*entry).hash }
             }
             STATIC_TAG => Static::get().hashes[self.static_index() as usize],
@@ -243,7 +248,7 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
         } else {
             Self::try_static_internal(&*string_to_add).unwrap_or_else(|hash| {
                 let ptr: std::ptr::NonNull<Entry> = dynamic_set().insert(string_to_add, hash.g);
-                let data = ptr.as_ptr() as u64;
+                let data = ptr.as_ptr().expose_provenance() as u64;
                 debug_assert!(0 == data & TAG_MASK);
                 Atom {
                     // The address of a ptr::NonNull is non-zero
@@ -259,7 +264,7 @@ impl<Static: StaticAtomSet> Clone for Atom<Static> {
     #[inline(always)]
     fn clone(&self) -> Self {
         if self.tag() == DYNAMIC_TAG {
-            let entry = self.unsafe_data.get() as *const Entry;
+            let entry = self.dynamic_ptr();
             // SAFETY: `self` is a valid Atom, meaning its `unsafe_data` points to a live `Entry`
             // kept alive by `self`'s reference count. We can safely dereference it.
             if unsafe { &*entry }.ref_count.fetch_add(1, SeqCst) == isize::MAX {
@@ -274,7 +279,7 @@ impl<Static> Drop for Atom<Static> {
     #[inline]
     fn drop(&mut self) {
         if self.tag() == DYNAMIC_TAG {
-            let entry = self.unsafe_data.get() as *const Entry;
+            let entry = self.dynamic_ptr();
             if unsafe { &*entry }.ref_count.fetch_sub(1, SeqCst) == 1 {
                 drop_slow(self)
             }
@@ -282,7 +287,7 @@ impl<Static> Drop for Atom<Static> {
 
         // Out of line to guide inlining.
         fn drop_slow<Static>(this: &mut Atom<Static>) {
-            dynamic_set().remove(this.unsafe_data.get() as *mut Entry);
+            dynamic_set().remove(this.dynamic_ptr().cast_mut());
         }
     }
 }
@@ -295,7 +300,7 @@ impl<Static: StaticAtomSet> ops::Deref for Atom<Static> {
         unsafe {
             match self.tag() {
                 DYNAMIC_TAG => {
-                    let entry = self.unsafe_data.get() as *const Entry;
+                    let entry = self.dynamic_ptr();
                     &(*entry).string
                 }
                 INLINE_TAG => {
