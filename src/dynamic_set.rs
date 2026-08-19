@@ -135,3 +135,26 @@ impl Set {
         }
     }
 }
+
+#[cfg(feature = "malloc_size_of")]
+pub fn malloc_size_of_dynamic_set(ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+    let mut sum = 0;
+    for bucket in &dynamic_set().buckets {
+        let guard = bucket.lock();
+        let mut next: Option<NonNull<Entry>> = *guard;
+        while let Some(ptr) = next {
+            // We would use `<Box<Entry> as malloc_size_of::MallocSizeOf>` here,
+            // but we don’t have `&Box<Entry>` only `NonNull<Entry>`.
+            // SAFETY: `ptr` is a valid heap-allocated pointer
+            sum += unsafe { ops.malloc_size_of::<Entry>(ptr.as_ptr()) };
+
+            // SAFETY: `ptr` is a valid pointer
+            let entry = unsafe { ptr.as_ref() };
+            sum += <Box<str> as malloc_size_of::MallocSizeOf>::size_of(&entry.string, ops);
+
+            // SAFETY: `UnsafeCell` is safe to access since we’re holding the `Mutex`
+            next = unsafe { *entry.next_in_bucket.get() };
+        }
+    }
+    sum
+}
