@@ -37,10 +37,23 @@ jobs:
           cargo build --no-default-features
           cargo build
           cargo build --features malloc_size_of
-      - uses: actions-rs/cargo@v1
+      - name: Run tests
+        uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all
+          args: --workspace
+      - name: Run Clippy
+        if: ${{ matrix.rust == 'stable' }}
+        run: cargo clippy --workspace
+      - name: Install Miri
+        if: ${{ matrix.rust == 'nightly' }}
+        run: |
+          rustup component add miri
+          cargo miri setup
+      - name: Run Miri
+        if: ${{ matrix.rust == 'nightly' }}
+        # TODO: run without permissive provenance: https://github.com/servo/string-cache/issues/264
+        run: MIRIFLAGS=-Zmiri-permissive-provenance cargo miri test --workspace
       - name: Build codegen
         run: |
           cd string-cache-codegen && cargo build && cd ..
@@ -48,7 +61,6 @@ jobs:
           if [ ${{ matrix.rust }} = nightly ]; then
             cd integration-tests && cargo test --features unstable && cd ..;
           fi
-
 
   build_result:
     name: Result
