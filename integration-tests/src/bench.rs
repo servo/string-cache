@@ -28,7 +28,7 @@ and cheap to move around, which isn't reflected in these tests.
 */
 use crate::TestAtom;
 
-use test::{black_box, Bencher};
+use test::{Bencher, black_box};
 
 // Just shorthand
 fn mk(x: &str) -> TestAtom {
@@ -154,10 +154,8 @@ macro_rules! bench_all (
     );
 );
 
-pub const longer_dynamic_a: &'static str =
-    "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Band";
-pub const longer_dynamic_b: &'static str =
-    "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Ban!";
+pub const longer_dynamic_a: &str = "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Band";
+pub const longer_dynamic_b: &str = "Thee Silver Mt. Zion Memorial Orchestra & Tra-La-La Ban!";
 
 bench_all!([eq ne lt clone_string] for short_string = "e", "f");
 bench_all!([eq ne lt clone_string] for medium_string = "xyzzy01", "xyzzy02");
@@ -194,11 +192,10 @@ bench_all!([ne lt x_inline y_dynamic]
 macro_rules! bench_rand ( ($name:ident, $len:expr) => (
     #[bench]
     fn $name(b: &mut Bencher) {
-        use std::str;
         use rand;
         use rand::{RngCore, SeedableRng};
 
-        let mut gen = rand::rngs::SmallRng::from_entropy();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
         b.iter(|| {
             // We have to generate new atoms on every iter, because
             // the dynamic atom table isn't reset.
@@ -207,7 +204,7 @@ macro_rules! bench_rand ( ($name:ident, $len:expr) => (
             // as about 3-12% at one point.
 
             let mut buf: [u8; $len] = [0; $len];
-            gen.fill_bytes(&mut buf);
+            rng.fill_bytes(&mut buf);
             for n in buf.iter_mut() {
                 // shift into printable ASCII
                 *n = (*n % 0x40) + 0x20;

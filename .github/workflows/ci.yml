@@ -44,7 +44,7 @@ jobs:
           args: --workspace
       - name: Run Clippy
         if: ${{ matrix.rust == 'stable' }}
-        run: cargo clippy --workspace
+        run: cargo clippy --workspace --all-targets
       - name: Install Miri
         if: ${{ matrix.rust == 'nightly' }}
         run: |

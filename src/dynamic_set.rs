@@ -11,9 +11,9 @@ use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
 use std::ptr::NonNull;
+use std::sync::OnceLock;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
-use std::sync::OnceLock;
 
 const NB_BUCKETS: usize = 1 << 12; // 4096
 const BUCKET_MASK: u64 = (1 << 12) - 1;
@@ -90,10 +90,7 @@ impl Set {
             ref_count: AtomicIsize::new(1),
             string: string.into_boxed_str(),
         });
-        // TODO: use `Box::into_non_null` when MSRV has it:
-        // https://github.com/rust-lang/rust/issues/130364
-        // SAFETY: `Box::into_raw` always returns a non-null pointer
-        let ptr = unsafe { NonNull::new_unchecked(Box::into_raw(entry)) };
+        let ptr = NonNull::from(Box::leak(entry));
         *linked_list = Some(ptr);
         ptr
     }
