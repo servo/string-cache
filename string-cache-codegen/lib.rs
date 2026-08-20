@@ -203,25 +203,22 @@ impl AtomType {
 
     #[expect(clippy::wrong_self_convention)] // Doesn’t matter on a private method
     fn to_tokens(&mut self) -> proc_macro2::TokenStream {
-        // `impl Default for Atom` requires the empty string to be in the static set.
-        // This also makes sure the set in non-empty,
-        // which would cause divisions by zero in rust-phf.
+        // Make `atom!("")` always work, and ensure the set is non-empty
+        // to avoid divisions by zero in rust-phf.
         self.atoms.insert(String::new());
 
-        // Strings over 7 bytes + empty string added to static set.
-        // Otherwise stored inline.
+        // Strings over 7 bytes added to static set, otherwise stored inline.
         let (static_strs, inline_strs): (Vec<_>, Vec<_>) = self
             .atoms
             .iter()
             .map(String::as_str)
-            .partition(|s| s.len() > 7 || s.is_empty());
+            .partition(|s| s.len() > 7);
 
         // Static strings
         let hash_state = phf_generator::generate_hash(&static_strs);
         let phf_generator::HashState { key, disps, map } = hash_state;
         let (disps0, disps1): (Vec<_>, Vec<_>) = disps.into_iter().unzip();
         let atoms: Vec<&str> = map.iter().map(|&idx| static_strs[idx]).collect();
-        let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
         let indices = 0..atoms.len() as u32;
 
         fn is_valid_ident(name: &str) -> bool {
@@ -339,9 +336,6 @@ impl AtomType {
                         hashes: &[#(#hashes),*]
                     };
                     &SET
-                }
-                fn empty_string_index() -> u32 {
-                    #empty_string_index
                 }
             }
 

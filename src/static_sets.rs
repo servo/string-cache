@@ -18,8 +18,6 @@
 pub trait StaticAtomSet: Ord {
     /// Get the location of the static string set in the binary.
     fn get() -> &'static PhfStrSet;
-    /// Get the index of the empty string, which is in every set and is used for `Atom::default`.
-    fn empty_string_index() -> u32;
 }
 
 /// A string set created using a [perfect hash function], specifically
@@ -56,9 +54,5 @@ impl StaticAtomSet for EmptyStaticAtomSet {
             hashes: &[0x3ddddef3],
         };
         &SET
-    }
-
-    fn empty_string_index() -> u32 {
-        0
     }
 }

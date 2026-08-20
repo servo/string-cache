@@ -211,7 +211,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
 impl<Static: StaticAtomSet> Default for Atom<Static> {
     #[inline]
     fn default() -> Self {
-        Atom::pack_static(Static::empty_string_index())
+        Atom::pack_inline(0, 0)
     }
 }
 
@@ -228,9 +228,7 @@ impl<Static: StaticAtomSet> Hash for Atom<Static> {
 impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
     fn from(string_to_add: Cow<'a, str>) -> Self {
         let len = string_to_add.len();
-        if len == 0 {
-            Self::pack_static(Static::empty_string_index())
-        } else if len <= MAX_INLINE_LEN {
+        if len <= MAX_INLINE_LEN {
             let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << LEN_OFFSET);
             {
                 let dest = inline_atom_slice_mut(&mut data);
