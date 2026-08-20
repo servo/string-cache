@@ -80,6 +80,26 @@ const STATIC_SHIFT_BITS: usize = 32;
 ///     }
 /// } // atom is dropped here, so it is not kept around in memory
 /// ```
+///
+/// ## Internal representation
+///
+/// An `Atom` is always 64 bits / 8 bytes.
+/// The least-significant two bits form a tag to distinguish three different representations:
+///
+/// * `0b01`: A short string up to 7 bytes, stored inline in most-significant 56 bits.
+///   Bits #4 to #7 (the upper nibble of the lower byte) are the length of the string.
+/// * `0b10`: A string part of a statically-known indexed set with [perfect hashing].
+///   The most-significant 32 bits are the index in the set.
+/// * `0b00`: For other cases, the entire 64 bits are a heap-allocated pointer
+///   to an entry in a global hash map.
+///   Alignment of the allocation ensures the tag bits are indeed zero.
+///   The entry is atomically reference-counted.
+///   It is removed from the map and deallocated when its last `Atom` is dropped.
+///   The map exists so that interning the same string again gives another pointer to the same entry.
+///
+/// In all cases, shallow 64-bit equality is equivalent to string equality.
+///
+/// [perfect hashing]: https://docs.rs/phf/latest/phf/
 #[derive(PartialEq, Eq)]
 // NOTE: Deriving PartialEq requires that a given string must always be interned the same way.
 pub struct Atom<Static> {
@@ -171,7 +191,14 @@ impl<Static: StaticAtomSet> Atom<Static> {
         self.unsafe_data.get() >> STATIC_SHIFT_BITS
     }
 
-    /// Get the hash of the string as it is stored in the set.
+    /// Returns a hash of the string
+    ///
+    /// For static or dynamic atoms, it is a pre-computed high-quality hash.
+    ///
+    /// For inline atoms however (short strings 7 bytes or less),
+    /// the returned value is the literal inline representation
+    /// with string bytes packed directly in the `u64` value,
+    /// which makes it a relatively poor-quality hash if used directly.
     pub fn get_hash(&self) -> u64 {
         match self.tag() {
             DYNAMIC_TAG => {
