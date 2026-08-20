@@ -50,10 +50,18 @@ jobs:
         run: |
           rustup component add miri
           cargo miri setup
+          cargo miri setup --target i686-unknown-linux-gnu
+          cargo miri setup --target s390x-unknown-linux-gnu
       - name: Run Miri
         if: ${{ matrix.rust == 'nightly' }}
         # TODO: run without permissive provenance: https://github.com/servo/string-cache/issues/264
         run: MIRIFLAGS=-Zmiri-permissive-provenance cargo miri test --workspace
+      - name: Run Miri on 32-bit
+        if: ${{ matrix.rust == 'nightly' }}
+        run: MIRIFLAGS=-Zmiri-permissive-provenance cargo miri test --workspace --target i686-unknown-linux-gnu
+      - name: Run Miri on big-endian
+        if: ${{ matrix.rust == 'nightly' }}
+        run: MIRIFLAGS=-Zmiri-permissive-provenance cargo miri test --workspace --target s390x-unknown-linux-gnu
       - name: Build codegen
         run: |
           cd string-cache-codegen && cargo build && cd ..

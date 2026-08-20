@@ -64,6 +64,7 @@ fn test_as_bytes() {
 }
 
 #[test]
+#[expect(clippy::comparison_to_empty)]
 fn test_as_ref_str() {
     let s0 = Atom::from("");
     assert!(AsRef::<str>::as_ref(&s0) == "");
@@ -219,8 +220,12 @@ macro_rules! assert_eq_fmt (($fmt:expr, $x:expr, $y:expr) => ({
 
 #[test]
 fn repr() {
-    fn check(s: &str, data: u64) {
-        assert_eq_fmt!("0x{:016X}", Atom::from(s).unsafe_data(), data);
+    #[track_caller]
+    fn check_inline(s: &str, mut expected: u64) {
+        if cfg!(target_endian = "big") {
+            expected = expected.to_le().rotate_left(8)
+        }
+        assert_eq_fmt!("0x{:016X}", Atom::from(s).unsafe_data(), expected);
     }
 
     fn check_static(s: &str, x: Atom) {
@@ -239,12 +244,12 @@ fn repr() {
     check_static("font-weight", test_atom!("font-weight"));
 
     // Inline atoms
-    check("a", 0x0000_0000_0000_6111);
-    check("address", 0x7373_6572_6464_6171);
-    check("area", 0x0000_0061_6572_6141);
-    check("e", 0x0000_0000_0000_6511);
-    check("xyzzy", 0x0000_797A_7A79_7851);
-    check("xyzzy01", 0x3130_797A_7A79_7871);
+    check_inline("a", 0x0000_0000_0000_6111);
+    check_inline("address", 0x7373_6572_6464_6171);
+    check_inline("area", 0x0000_0061_6572_6141);
+    check_inline("e", 0x0000_0000_0000_6511);
+    check_inline("xyzzy", 0x0000_797A_7A79_7851);
+    check_inline("xyzzy01", 0x3130_797A_7A79_7871);
 
     // Dynamic atoms. This is a pointer so we can't verify every bit.
     let tag_mask = 0b11;
