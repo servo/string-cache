@@ -115,9 +115,9 @@ impl Set {
         let value: &Entry = unsafe { &*ptr };
         let bucket_index = (value.hash & BUCKET_MASK) as usize;
 
-        let mut linked_list = self.buckets[bucket_index].lock();
+        let mut lock_guard = self.buckets[bucket_index].lock();
         debug_assert!(value.ref_count.load(SeqCst) == 0);
-        let mut current: &mut Option<NonNull<Entry>> = &mut linked_list;
+        let mut current: &mut Option<NonNull<Entry>> = &mut lock_guard;
 
         while let Some(entry_ptr) = *current {
             if entry_ptr.as_ptr() == ptr {
@@ -125,6 +125,9 @@ impl Set {
                 // We have exclusive access to recreate the Box and deallocate the memory.
                 let unlinked_entry = unsafe { Box::from_raw(entry_ptr.as_ptr()) };
                 *current = unlinked_entry.next_in_bucket.into_inner();
+                // We’re done accessing data protected by the mutex
+                drop(lock_guard);
+                // The `Box` is deallocated here after releasing the lock
                 break;
             }
             // SAFETY: We hold the bucket lock, so the pointer remains valid and unaliased here.

@@ -286,6 +286,7 @@ impl<Static> Drop for Atom<Static> {
         }
 
         // Out of line to guide inlining.
+        #[cold]
         fn drop_slow<Static>(this: &mut Atom<Static>) {
             dynamic_set().remove(this.dynamic_ptr().cast_mut());
         }
