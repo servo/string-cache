@@ -64,6 +64,7 @@ fn test_as_bytes() {
 }
 
 #[test]
+#[expect(clippy::comparison_to_empty)]
 fn test_as_ref_str() {
     let s0 = Atom::from("");
     assert!(AsRef::<str>::as_ref(&s0) == "");
@@ -161,6 +162,7 @@ fn default() {
 
 #[test]
 fn ord() {
+    #[expect(clippy::cmp_owned)]
     fn check(x: &str, y: &str) {
         assert_eq!(x < y, Atom::from(x) < Atom::from(y));
         assert_eq!(x.cmp(y), Atom::from(x).cmp(&Atom::from(y)));
@@ -218,8 +220,12 @@ macro_rules! assert_eq_fmt (($fmt:expr, $x:expr, $y:expr) => ({
 
 #[test]
 fn repr() {
-    fn check(s: &str, data: u64) {
-        assert_eq_fmt!("0x{:016X}", Atom::from(s).unsafe_data(), data);
+    #[track_caller]
+    fn check_inline(s: &str, mut expected: u64) {
+        if cfg!(target_endian = "big") {
+            expected = expected.to_le().rotate_left(8)
+        }
+        assert_eq_fmt!("0x{:016X}", Atom::from(s).unsafe_data(), expected);
     }
 
     fn check_static(s: &str, x: Atom) {
@@ -238,24 +244,29 @@ fn repr() {
     check_static("font-weight", test_atom!("font-weight"));
 
     // Inline atoms
-    check("a", 0x0000_0000_0000_6111);
-    check("address", 0x7373_6572_6464_6171);
-    check("area", 0x0000_0061_6572_6141);
-    check("e", 0x0000_0000_0000_6511);
-    check("xyzzy", 0x0000_797A_7A79_7851);
-    check("xyzzy01", 0x3130_797A_7A79_7871);
+    check_inline("a", 0x0000_0000_0000_6111);
+    check_inline("address", 0x7373_6572_6464_6171);
+    check_inline("area", 0x0000_0061_6572_6141);
+    check_inline("e", 0x0000_0000_0000_6511);
+    check_inline("xyzzy", 0x0000_797A_7A79_7851);
+    check_inline("xyzzy01", 0x3130_797A_7A79_7871);
 
     // Dynamic atoms. This is a pointer so we can't verify every bit.
-    assert_eq!(0x00, Atom::from("a dynamic string").unsafe_data() & 0xf);
+    let tag_mask = 0b11;
+    let atom = Atom::from("a dynamic string");
+    assert_eq!(0x00, atom.unsafe_data() & tag_mask);
 }
 
 #[test]
 fn test_threads() {
-    for _ in 0_u32..100 {
+    let threads = (0_u32..100).map(|_| {
         thread::spawn(move || {
             let _ = Atom::from("a dynamic string");
             let _ = Atom::from("another string");
-        });
+        })
+    });
+    for thread in threads {
+        thread.join().unwrap();
     }
 }
 
@@ -358,6 +369,7 @@ fn test_eq_ignore_ascii_case() {
     assert!(!Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("JE vais À paris")));
 }
 
+#[expect(clippy::cmp_owned)]
 #[test]
 fn test_from_string() {
     assert!(Atom::from("camembert".to_owned()) == Atom::from("camembert"));

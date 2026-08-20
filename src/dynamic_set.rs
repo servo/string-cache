@@ -9,6 +9,7 @@
 
 use parking_lot::Mutex;
 use std::borrow::Cow;
+use std::cell::UnsafeCell;
 use std::mem;
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicIsize;
@@ -23,10 +24,12 @@ pub(crate) struct Set {
 }
 
 pub(crate) struct Entry {
+    // These fields can be accessed freely by `Atom` methods
     pub(crate) string: Box<str>,
     pub(crate) hash: u32,
     pub(crate) ref_count: AtomicIsize,
-    next_in_bucket: Option<NonNull<Entry>>,
+    // This field is protected by a `Mutex` in `Set`
+    next_in_bucket: UnsafeCell<Option<NonNull<Entry>>>,
 }
 
 // SAFETY: Access to the global linked list is strictly guarded by a Mutex,
@@ -85,13 +88,15 @@ impl Set {
                     entry.ref_count.fetch_sub(1, SeqCst);
                     break;
                 }
-                ptr = entry.next_in_bucket;
+                // SAFETY: We hold the Mutex lock for this bucket, so no other thread can mutate
+                // the linked list.
+                ptr = unsafe { entry.next_in_bucket.get().read() };
             }
         }
         debug_assert!(mem::align_of::<Entry>() >= ENTRY_ALIGNMENT);
         let string = string.into_owned();
         let entry = Box::new(Entry {
-            next_in_bucket: linked_list.take(),
+            next_in_bucket: UnsafeCell::new(linked_list.take()),
             hash,
             ref_count: AtomicIsize::new(1),
             string: string.into_boxed_str(),
@@ -118,12 +123,15 @@ impl Set {
             if entry_ptr.as_ptr() == ptr {
                 // SAFETY: The reference count has reached 0, and we hold the bucket lock.
                 // We have exclusive access to recreate the Box and deallocate the memory.
-                let mut unlinked_entry = unsafe { Box::from_raw(entry_ptr.as_ptr()) };
-                *current = unlinked_entry.next_in_bucket.take();
+                let unlinked_entry = unsafe { Box::from_raw(entry_ptr.as_ptr()) };
+                *current = unlinked_entry.next_in_bucket.into_inner();
                 break;
             }
             // SAFETY: We hold the bucket lock, so the pointer remains valid and unaliased here.
-            current = unsafe { &mut (*entry_ptr.as_ptr()).next_in_bucket };
+            // Still, don’t create `&mut Entry` here because `Atom` methods may have a `&Entry`.
+            let entry = unsafe { entry_ptr.as_ref() };
+            // SAFETY: The `UnsafeCell` is safe to access here because we hold the `Mutex`
+            current = unsafe { &mut *entry.next_in_bucket.get() };
         }
     }
 }

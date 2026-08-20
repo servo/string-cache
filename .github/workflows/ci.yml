@@ -20,7 +20,7 @@ jobs:
 
     strategy:
       matrix:
-        rust: [1.85, nightly, beta, stable]
+        rust: [1.85, nightly, stable]
 
     steps:
       - uses: actions/checkout@v2
@@ -37,10 +37,31 @@ jobs:
           cargo build --no-default-features
           cargo build
           cargo build --features malloc_size_of
-      - uses: actions-rs/cargo@v1
+      - name: Run tests
+        uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all
+          args: --workspace
+      - name: Run Clippy
+        if: ${{ matrix.rust == 'stable' }}
+        run: cargo clippy --workspace
+      - name: Install Miri
+        if: ${{ matrix.rust == 'nightly' }}
+        run: |
+          rustup component add miri
+          cargo miri setup
+          cargo miri setup --target i686-unknown-linux-gnu
+          cargo miri setup --target s390x-unknown-linux-gnu
+      - name: Run Miri
+        if: ${{ matrix.rust == 'nightly' }}
+        # TODO: run without permissive provenance: https://github.com/servo/string-cache/issues/264
+        run: MIRIFLAGS=-Zmiri-permissive-provenance cargo miri test --workspace
+      - name: Run Miri on 32-bit
+        if: ${{ matrix.rust == 'nightly' }}
+        run: MIRIFLAGS=-Zmiri-permissive-provenance cargo miri test --workspace --target i686-unknown-linux-gnu
+      - name: Run Miri on big-endian
+        if: ${{ matrix.rust == 'nightly' }}
+        run: MIRIFLAGS=-Zmiri-permissive-provenance cargo miri test --workspace --target s390x-unknown-linux-gnu
       - name: Build codegen
         run: |
           cd string-cache-codegen && cargo build && cd ..
@@ -48,7 +69,6 @@ jobs:
           if [ ${{ matrix.rust }} = nightly ]; then
             cd integration-tests && cargo test --features unstable && cd ..;
           fi
-
 
   build_result:
     name: Result

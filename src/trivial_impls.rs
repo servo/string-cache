@@ -43,7 +43,7 @@ impl<Static: StaticAtomSet> PartialEq<String> for Atom<Static> {
     }
 }
 
-impl<'a, Static: StaticAtomSet> From<&'a str> for Atom<Static> {
+impl<Static: StaticAtomSet> From<&'_ str> for Atom<Static> {
     #[inline]
     fn from(string_to_add: &str) -> Self {
         Atom::from(Cow::Borrowed(string_to_add))
