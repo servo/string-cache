@@ -6,7 +6,7 @@ description = "A codegen library for string-cache, developed as part of the Serv
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/servo/string-cache"
 documentation = "https://docs.rs/string_cache_codegen/"
-edition = "2018"
+edition = "2024"
 
 [lib]
 name = "string_cache_codegen"
