@@ -27,6 +27,11 @@ const DYNAMIC_TAG: u8 = 0b_00;
 const INLINE_TAG: u8 = 0b_01; // len in upper nybble
 const STATIC_TAG: u8 = 0b_10;
 const TAG_MASK: u64 = 0b_11;
+const TAG_BITS: usize = 2;
+
+/// With alignment, a `*const Entry` pointer always has zeroes in its lowest `TAG_BITS` bits
+const _: () = assert!(mem::align_of::<Entry>() >= 1 << TAG_BITS);
+
 const LEN_OFFSET: u64 = 4;
 const LEN_MASK: u64 = 0xF0;
 

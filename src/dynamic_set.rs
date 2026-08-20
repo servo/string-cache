@@ -10,7 +10,6 @@
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
-use std::mem;
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
@@ -40,15 +39,6 @@ unsafe impl Sync for Entry {}
 
 unsafe impl Send for Set {}
 unsafe impl Sync for Set {}
-
-// Addresses are a multiples of this,
-// and therefore have have TAG_MASK bits unset, available for tagging.
-pub(crate) const ENTRY_ALIGNMENT: usize = 4;
-
-#[test]
-fn entry_alignment_is_sufficient() {
-    assert!(mem::align_of::<Entry>() >= ENTRY_ALIGNMENT);
-}
 
 pub(crate) fn dynamic_set() -> &'static Set {
     // NOTE: Using const initialization for buckets breaks the small-stack test.
@@ -93,7 +83,6 @@ impl Set {
                 ptr = unsafe { entry.next_in_bucket.get().read() };
             }
         }
-        debug_assert!(mem::align_of::<Entry>() >= ENTRY_ALIGNMENT);
         let string = string.into_owned();
         let entry = Box::new(Entry {
             next_in_bucket: UnsafeCell::new(linked_list.take()),

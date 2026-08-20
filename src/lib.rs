@@ -114,13 +114,5 @@ pub use static_sets::{EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 /// Use this if you don’t care about static atoms.
 pub type DefaultAtom = Atom<EmptyStaticAtomSet>;
 
-// Some minor tests of internal layout here.
-// See ../integration-tests for much more.
-
-/// Guard against accidental changes to the sizes of things.
-#[test]
-fn assert_sizes() {
-    use std::mem::size_of;
-    assert_eq!(size_of::<DefaultAtom>(), 8);
-    assert_eq!(size_of::<Option<DefaultAtom>>(), size_of::<DefaultAtom>(),);
-}
+const _: () = assert!(std::mem::size_of::<DefaultAtom>() == 8);
+const _: () = assert!(std::mem::size_of::<Option<DefaultAtom>>() == 8);
