@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::dynamic_set::{dynamic_set, Entry};
+use crate::dynamic_set::{Entry, dynamic_set};
 use crate::static_sets::StaticAtomSet;
 use debug_unreachable::debug_unreachable;
 
@@ -27,10 +27,9 @@ const DYNAMIC_TAG: u8 = 0b_00;
 const INLINE_TAG: u8 = 0b_01; // len in upper nybble
 const STATIC_TAG: u8 = 0b_10;
 const TAG_MASK: u64 = 0b_11;
-const TAG_BITS: usize = 2;
 
 /// With alignment, a `*const Entry` pointer always has zeroes in its lowest `TAG_BITS` bits
-const _: () = assert!(mem::align_of::<Entry>() >= 1 << TAG_BITS);
+const _: () = assert!(mem::align_of::<Entry>() >= TAG_MASK.next_power_of_two() as usize);
 
 const LEN_OFFSET: u64 = 4;
 const LEN_MASK: u64 = 0xF0;
