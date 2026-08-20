@@ -37,7 +37,7 @@ pub struct PhfStrSet {
     #[doc(hidden)]
     pub atoms: &'static [&'static str],
     #[doc(hidden)]
-    pub hashes: &'static [u32],
+    pub hashes: &'static [u64],
 }
 
 /// An empty static atom set for when only dynamic strings will be added

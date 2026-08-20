@@ -248,11 +248,13 @@ impl AtomType {
             .collect();
         let istr_idents: Vec<Ident> = istrs_for_idents.iter().map(|atom| new_term(atom)).collect();
 
-        let hashes: Vec<u32> = atoms
+        let hashes: Vec<u64> = atoms
             .iter()
             .map(|string| {
                 let hash = phf_shared::hash(string, &key);
-                (hash.g ^ hash.f1) as u32
+                // Reconstitute 64-bit `Hash128::h1`
+                // https://docs.rs/phf_shared/0.14.0/src/phf_shared/lib.rs.html#45-54
+                (hash.g as u64) << 32 | (hash.f1 as u64)
             })
             .collect();
 

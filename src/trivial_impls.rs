@@ -15,7 +15,8 @@ use std::fmt;
 
 impl<Static: StaticAtomSet> ::precomputed_hash::PrecomputedHash for Atom<Static> {
     fn precomputed_hash(&self) -> u32 {
-        self.get_hash()
+        let hash64 = self.get_hash();
+        (hash64 >> 32) as u32 ^ hash64 as u32
     }
 }
 

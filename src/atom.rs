@@ -167,18 +167,14 @@ impl<Static: StaticAtomSet> Atom<Static> {
     }
 
     /// Get the hash of the string as it is stored in the set.
-    pub fn get_hash(&self) -> u32 {
+    pub fn get_hash(&self) -> u64 {
         match self.tag() {
             DYNAMIC_TAG => {
                 let entry = self.dynamic_ptr();
                 unsafe { (*entry).hash }
             }
             STATIC_TAG => Static::get().hashes[self.static_index() as usize],
-            INLINE_TAG => {
-                let data = self.unsafe_data.get();
-                // This may or may not be great...
-                ((data >> 32) ^ data) as u32
-            }
+            INLINE_TAG => self.unsafe_data.get(),
             _ => unsafe { debug_unreachable!() },
         }
     }
@@ -225,7 +221,7 @@ impl<Static: StaticAtomSet> Hash for Atom<Static> {
     where
         H: Hasher,
     {
-        state.write_u32(self.get_hash())
+        state.write_u64(self.get_hash())
     }
 }
 
@@ -247,7 +243,10 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
             }
         } else {
             Self::try_static_internal(&string_to_add).unwrap_or_else(|hash| {
-                let ptr: std::ptr::NonNull<Entry> = dynamic_set().insert(string_to_add, hash.g);
+                // Reconstitute 64-bit `Hash128::h1`
+                // https://docs.rs/phf_shared/0.14.0/src/phf_shared/lib.rs.html#45-54
+                let hash = (hash.g as u64) << 32 | (hash.f1 as u64);
+                let ptr: std::ptr::NonNull<Entry> = dynamic_set().insert(string_to_add, hash);
                 let data = ptr.as_ptr().expose_provenance() as u64;
                 debug_assert!(0 == data & TAG_MASK);
                 Atom {

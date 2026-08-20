@@ -17,7 +17,7 @@ use std::sync::atomic::Ordering::SeqCst;
 use std::sync::OnceLock;
 
 const NB_BUCKETS: usize = 1 << 12; // 4096
-const BUCKET_MASK: u32 = (1 << 12) - 1;
+const BUCKET_MASK: u64 = (1 << 12) - 1;
 
 pub(crate) struct Set {
     buckets: Box<[Mutex<Option<NonNull<Entry>>>]>,
@@ -26,7 +26,7 @@ pub(crate) struct Set {
 pub(crate) struct Entry {
     // These fields can be accessed freely by `Atom` methods
     pub(crate) string: Box<str>,
-    pub(crate) hash: u32,
+    pub(crate) hash: u64,
     pub(crate) ref_count: AtomicIsize,
     // This field is protected by a `Mutex` in `Set`
     next_in_bucket: UnsafeCell<Option<NonNull<Entry>>>,
@@ -61,7 +61,7 @@ pub(crate) fn dynamic_set() -> &'static Set {
 }
 
 impl Set {
-    pub(crate) fn insert(&self, string: Cow<str>, hash: u32) -> NonNull<Entry> {
+    pub(crate) fn insert(&self, string: Cow<str>, hash: u64) -> NonNull<Entry> {
         let bucket_index = (hash & BUCKET_MASK) as usize;
         let mut linked_list = self.buckets[bucket_index].lock();
 
