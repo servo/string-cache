@@ -7,15 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg(test)]
 #![deny(warnings)]
 #![allow(non_upper_case_globals)]
-#![cfg_attr(feature = "unstable", feature(test))]
 
-#[cfg(feature = "unstable")]
-extern crate test;
-
+#[cfg(test)]
 use std::thread;
+#[cfg(test)]
 use string_cache::StaticAtomSet;
 
 include!(concat!(env!("OUT_DIR"), "/test_atom.rs"));
@@ -208,6 +205,7 @@ fn clone() {
     assert!(i0 != d0);
 }
 
+#[cfg(test)]
 macro_rules! assert_eq_fmt (($fmt:expr, $x:expr, $y:expr) => ({
     let x = $x;
     let y = $y;
@@ -358,14 +356,18 @@ fn test_eq_ignore_ascii_case() {
     assert!(Atom::from("").eq_ignore_ascii_case(&Atom::from("")));
     assert!(Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("aZ9")));
     assert!(Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("Az9")));
-    assert!(Atom::from("The Quick Brown Fox!")
-        .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!")));
+    assert!(
+        Atom::from("The Quick Brown Fox!")
+            .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!"))
+    );
     assert!(Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("je VAIS à PARIS")));
     assert!(!Atom::from("").eq_ignore_ascii_case(&Atom::from("az9")));
     assert!(!Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("")));
     assert!(!Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("9Za")));
-    assert!(!Atom::from("The Quick Brown Fox!")
-        .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!!")));
+    assert!(
+        !Atom::from("The Quick Brown Fox!")
+            .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!!"))
+    );
     assert!(!Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("JE vais À paris")));
 }
 
@@ -385,7 +387,3 @@ fn test_try_static() {
 #[cfg(test)]
 #[path = "common-usage.rs"]
 mod common_usage;
-
-#[cfg(all(test, feature = "unstable"))]
-#[path = "bench.rs"]
-mod bench;

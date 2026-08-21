@@ -10,15 +10,15 @@ edition = "2024"
 doctest = false
 test = true
 
-[features]
-
-# Use unstable features to optimize space and time (memory and CPU usage).
-unstable = []
+[[bench]]
+name = "micro"
+harness = false
 
 [dependencies]
 string_cache = { path = ".." }
 
 [dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
 rand = { version = "0.8", features = ["small_rng"] }
 string_cache_codegen = { path = "../string-cache-codegen" }
 
