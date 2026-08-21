@@ -106,8 +106,8 @@ pub struct Atom<Static> {
     phantom: PhantomData<Static>,
 }
 
-// This isn't really correct as the Atoms can technically take up space. But I guess it's ok
-// as it is possible to measure the size of the atom set separately/
+/// Static and inline atoms don’t have any allocated space. Dynamic atoms do but
+/// are accounted for by [`malloc_size_of_dynamic_set`][crate::malloc_size_of_dynamic_set].
 #[cfg(feature = "malloc_size_of")]
 impl<Static: StaticAtomSet> malloc_size_of::MallocSizeOf for Atom<Static> {
     fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {

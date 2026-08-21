@@ -104,6 +104,8 @@ mod static_sets;
 mod trivial_impls;
 
 pub use atom::Atom;
+#[cfg(feature = "malloc_size_of")]
+pub use dynamic_set::malloc_size_of_dynamic_set;
 pub use static_sets::{EmptyStaticAtomSet, PhfStrSet, StaticAtomSet};
 
 /// Use this if you don’t care about static atoms.
