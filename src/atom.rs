@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::dynamic_set::{dynamic_set, Entry};
+use crate::dynamic_set::{Entry, dynamic_set};
 use crate::static_sets::StaticAtomSet;
 use debug_unreachable::debug_unreachable;
 
@@ -27,6 +27,10 @@ const DYNAMIC_TAG: u8 = 0b_00;
 const INLINE_TAG: u8 = 0b_01; // len in upper nybble
 const STATIC_TAG: u8 = 0b_10;
 const TAG_MASK: u64 = 0b_11;
+
+/// With alignment, a `*const Entry` pointer always has zeroes in its lowest `TAG_BITS` bits
+const _: () = assert!(mem::align_of::<Entry>() >= TAG_MASK.next_power_of_two() as usize);
+
 const LEN_OFFSET: u64 = 4;
 const LEN_MASK: u64 = 0xF0;
 
@@ -75,6 +79,26 @@ const STATIC_SHIFT_BITS: usize = 32;
 ///     }
 /// } // atom is dropped here, so it is not kept around in memory
 /// ```
+///
+/// ## Internal representation
+///
+/// An `Atom` is always 64 bits / 8 bytes.
+/// The least-significant two bits form a tag to distinguish three different representations:
+///
+/// * `0b01`: A short string up to 7 bytes, stored inline in most-significant 56 bits.
+///   Bits #4 to #7 (the upper nibble of the lower byte) are the length of the string.
+/// * `0b10`: A string part of a statically-known indexed set with [perfect hashing].
+///   The most-significant 32 bits are the index in the set.
+/// * `0b00`: For other cases, the entire 64 bits are a heap-allocated pointer
+///   to an entry in a global hash map.
+///   Alignment of the allocation ensures the tag bits are indeed zero.
+///   The entry is atomically reference-counted.
+///   It is removed from the map and deallocated when its last `Atom` is dropped.
+///   The map exists so that interning the same string again gives another pointer to the same entry.
+///
+/// In all cases, shallow 64-bit equality is equivalent to string equality.
+///
+/// [perfect hashing]: https://docs.rs/phf/latest/phf/
 #[derive(PartialEq, Eq)]
 // NOTE: Deriving PartialEq requires that a given string must always be interned the same way.
 pub struct Atom<Static> {
@@ -166,19 +190,22 @@ impl<Static: StaticAtomSet> Atom<Static> {
         self.unsafe_data.get() >> STATIC_SHIFT_BITS
     }
 
-    /// Get the hash of the string as it is stored in the set.
-    pub fn get_hash(&self) -> u32 {
+    /// Returns a hash of the string
+    ///
+    /// For static or dynamic atoms, it is a pre-computed high-quality hash.
+    ///
+    /// For inline atoms however (short strings 7 bytes or less),
+    /// the returned value is the literal inline representation
+    /// with string bytes packed directly in the `u64` value,
+    /// which makes it a relatively poor-quality hash if used directly.
+    pub fn get_hash(&self) -> u64 {
         match self.tag() {
             DYNAMIC_TAG => {
                 let entry = self.dynamic_ptr();
                 unsafe { (*entry).hash }
             }
             STATIC_TAG => Static::get().hashes[self.static_index() as usize],
-            INLINE_TAG => {
-                let data = self.unsafe_data.get();
-                // This may or may not be great...
-                ((data >> 32) ^ data) as u32
-            }
+            INLINE_TAG => self.unsafe_data.get(),
             _ => unsafe { debug_unreachable!() },
         }
     }
@@ -215,7 +242,7 @@ impl<Static: StaticAtomSet> Atom<Static> {
 impl<Static: StaticAtomSet> Default for Atom<Static> {
     #[inline]
     fn default() -> Self {
-        Atom::pack_static(Static::empty_string_index())
+        Atom::pack_inline(0, 0)
     }
 }
 
@@ -225,16 +252,14 @@ impl<Static: StaticAtomSet> Hash for Atom<Static> {
     where
         H: Hasher,
     {
-        state.write_u32(self.get_hash())
+        state.write_u64(self.get_hash())
     }
 }
 
 impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
     fn from(string_to_add: Cow<'a, str>) -> Self {
         let len = string_to_add.len();
-        if len == 0 {
-            Self::pack_static(Static::empty_string_index())
-        } else if len <= MAX_INLINE_LEN {
+        if len <= MAX_INLINE_LEN {
             let mut data: u64 = (INLINE_TAG as u64) | ((len as u64) << LEN_OFFSET);
             {
                 let dest = inline_atom_slice_mut(&mut data);
@@ -247,7 +272,10 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
             }
         } else {
             Self::try_static_internal(&string_to_add).unwrap_or_else(|hash| {
-                let ptr: std::ptr::NonNull<Entry> = dynamic_set().insert(string_to_add, hash.g);
+                // Reconstitute 64-bit `Hash128::h1`
+                // https://docs.rs/phf_shared/0.14.0/src/phf_shared/lib.rs.html#45-54
+                let hash = (hash.g as u64) << 32 | (hash.f1 as u64);
+                let ptr: std::ptr::NonNull<Entry> = dynamic_set().insert(string_to_add, hash);
                 let data = ptr.as_ptr().expose_provenance() as u64;
                 debug_assert!(0 == data & TAG_MASK);
                 Atom {

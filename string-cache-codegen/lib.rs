@@ -28,8 +28,6 @@
 //! In `build.rs`:
 //!
 //! ```no_run
-//! extern crate string_cache_codegen;
-//!
 //! use std::env;
 //! use std::path::Path;
 //!
@@ -44,8 +42,6 @@
 //! In `lib.rs`:
 //!
 //! ```ignore
-//! extern crate string_cache;
-//!
 //! mod foo {
 //!     include!(concat!(env!("OUT_DIR"), "/foo_atom.rs"));
 //! }
@@ -203,25 +199,22 @@ impl AtomType {
 
     #[expect(clippy::wrong_self_convention)] // Doesn’t matter on a private method
     fn to_tokens(&mut self) -> proc_macro2::TokenStream {
-        // `impl Default for Atom` requires the empty string to be in the static set.
-        // This also makes sure the set in non-empty,
-        // which would cause divisions by zero in rust-phf.
+        // Make `atom!("")` always work, and ensure the set is non-empty
+        // to avoid divisions by zero in rust-phf.
         self.atoms.insert(String::new());
 
-        // Strings over 7 bytes + empty string added to static set.
-        // Otherwise stored inline.
+        // Strings over 7 bytes added to static set, otherwise stored inline.
         let (static_strs, inline_strs): (Vec<_>, Vec<_>) = self
             .atoms
             .iter()
             .map(String::as_str)
-            .partition(|s| s.len() > 7 || s.is_empty());
+            .partition(|s| s.len() > 7);
 
         // Static strings
         let hash_state = phf_generator::generate_hash(&static_strs);
         let phf_generator::HashState { key, disps, map } = hash_state;
         let (disps0, disps1): (Vec<_>, Vec<_>) = disps.into_iter().unzip();
         let atoms: Vec<&str> = map.iter().map(|&idx| static_strs[idx]).collect();
-        let empty_string_index = atoms.iter().position(|s| s.is_empty()).unwrap() as u32;
         let indices = 0..atoms.len() as u32;
 
         fn is_valid_ident(name: &str) -> bool {
@@ -248,11 +241,13 @@ impl AtomType {
             .collect();
         let istr_idents: Vec<Ident> = istrs_for_idents.iter().map(|atom| new_term(atom)).collect();
 
-        let hashes: Vec<u32> = atoms
+        let hashes: Vec<u64> = atoms
             .iter()
             .map(|string| {
                 let hash = phf_shared::hash(string, &key);
-                (hash.g ^ hash.f1) as u32
+                // Reconstitute 64-bit `Hash128::h1`
+                // https://docs.rs/phf_shared/0.14.0/src/phf_shared/lib.rs.html#45-54
+                (hash.g as u64) << 32 | (hash.f1 as u64)
             })
             .collect();
 
@@ -337,9 +332,6 @@ impl AtomType {
                         hashes: &[#(#hashes),*]
                     };
                     &SET
-                }
-                fn empty_string_index() -> u32 {
-                    #empty_string_index
                 }
             }
 

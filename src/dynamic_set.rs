@@ -10,14 +10,13 @@
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
-use std::mem;
 use std::ptr::NonNull;
+use std::sync::OnceLock;
 use std::sync::atomic::AtomicIsize;
 use std::sync::atomic::Ordering::SeqCst;
-use std::sync::OnceLock;
 
 const NB_BUCKETS: usize = 1 << 12; // 4096
-const BUCKET_MASK: u32 = (1 << 12) - 1;
+const BUCKET_MASK: u64 = (1 << 12) - 1;
 
 pub(crate) struct Set {
     buckets: Box<[Mutex<Option<NonNull<Entry>>>]>,
@@ -26,7 +25,7 @@ pub(crate) struct Set {
 pub(crate) struct Entry {
     // These fields can be accessed freely by `Atom` methods
     pub(crate) string: Box<str>,
-    pub(crate) hash: u32,
+    pub(crate) hash: u64,
     pub(crate) ref_count: AtomicIsize,
     // This field is protected by a `Mutex` in `Set`
     next_in_bucket: UnsafeCell<Option<NonNull<Entry>>>,
@@ -41,15 +40,6 @@ unsafe impl Sync for Entry {}
 unsafe impl Send for Set {}
 unsafe impl Sync for Set {}
 
-// Addresses are a multiples of this,
-// and therefore have have TAG_MASK bits unset, available for tagging.
-pub(crate) const ENTRY_ALIGNMENT: usize = 4;
-
-#[test]
-fn entry_alignment_is_sufficient() {
-    assert!(mem::align_of::<Entry>() >= ENTRY_ALIGNMENT);
-}
-
 pub(crate) fn dynamic_set() -> &'static Set {
     // NOTE: Using const initialization for buckets breaks the small-stack test.
     static DYNAMIC_SET: OnceLock<Set> = OnceLock::new();
@@ -61,7 +51,7 @@ pub(crate) fn dynamic_set() -> &'static Set {
 }
 
 impl Set {
-    pub(crate) fn insert(&self, string: Cow<str>, hash: u32) -> NonNull<Entry> {
+    pub(crate) fn insert(&self, string: Cow<str>, hash: u64) -> NonNull<Entry> {
         let bucket_index = (hash & BUCKET_MASK) as usize;
         let mut linked_list = self.buckets[bucket_index].lock();
 
@@ -93,7 +83,6 @@ impl Set {
                 ptr = unsafe { entry.next_in_bucket.get().read() };
             }
         }
-        debug_assert!(mem::align_of::<Entry>() >= ENTRY_ALIGNMENT);
         let string = string.into_owned();
         let entry = Box::new(Entry {
             next_in_bucket: UnsafeCell::new(linked_list.take()),
@@ -101,10 +90,7 @@ impl Set {
             ref_count: AtomicIsize::new(1),
             string: string.into_boxed_str(),
         });
-        // TODO: use `Box::into_non_null` when MSRV has it:
-        // https://github.com/rust-lang/rust/issues/130364
-        // SAFETY: `Box::into_raw` always returns a non-null pointer
-        let ptr = unsafe { NonNull::new_unchecked(Box::into_raw(entry)) };
+        let ptr = NonNull::from(Box::leak(entry));
         *linked_list = Some(ptr);
         ptr
     }

@@ -108,7 +108,7 @@ fn test_as_ref_bytes() {
 
 #[test]
 fn test_types() {
-    assert!(Atom::from("").is_static());
+    assert!(Atom::from("").is_inline());
     assert!(Atom::from("defaults").is_static());
     assert!(Atom::from("font-weight").is_static());
     assert!(Atom::from("id").is_inline());

@@ -12,36 +12,33 @@ In `Cargo.toml`:
 
 ```toml
 [dependencies]
-string_cache = "0.10"
+string_cache = "0.11"
 ```
 
 In `lib.rs`:
 
 ```rust
-extern crate string_cache;
 use string_cache::DefaultAtom as Atom;
 ```
 
 ## With static atoms
 
-In `Cargo.toml`:
+In `Cargo.toml`, corresponding versions of the two crates must be used:
 
 ```toml
 [package]
 build = "build.rs"
 
 [dependencies]
-string_cache = "0.10"
+string_cache = "0.11"
 
 [build-dependencies]
-string_cache_codegen = "0.7"
+string_cache_codegen = "0.11"
 ```
 
 In `build.rs`:
 
 ```rust
-extern crate string_cache_codegen;
-
 use std::env;
 use std::path::Path;
 
@@ -56,8 +53,6 @@ fn main() {
 In `lib.rs`:
 
 ```rust
-extern crate string_cache;
-
 mod foo {
     include!(concat!(env!("OUT_DIR"), "/foo_atom.rs"));
 }

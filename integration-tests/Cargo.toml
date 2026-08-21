@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = [ "The Servo Project Developers" ]
 build = "build.rs"
 publish = false
-edition = "2018"
+edition = "2024"
 
 [lib]
 doctest = false
@@ -16,11 +16,11 @@ test = true
 unstable = []
 
 [dependencies]
-string_cache = { version = "0.10", path = ".." }
+string_cache = { path = ".." }
 
 [dev-dependencies]
 rand = { version = "0.8", features = ["small_rng"] }
-string_cache_codegen = { version = "0.7", path = "../string-cache-codegen" }
+string_cache_codegen = { path = "../string-cache-codegen" }
 
 [build-dependencies]
-string_cache_codegen = { version = "0.7", path = "../string-cache-codegen" }
+string_cache_codegen = { path = "../string-cache-codegen" }
