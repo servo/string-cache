@@ -34,8 +34,6 @@
 //! In `build.rs`:
 //!
 //! ```ignore
-//! extern crate string_cache_codegen;
-//!
 //! use std::env;
 //! use std::path::Path;
 //!
@@ -50,8 +48,6 @@
 //! In `lib.rs`:
 //!
 //! ```ignore
-//! extern crate string_cache;
-//!
 //! mod foo {
 //!     include!(concat!(env!("OUT_DIR"), "/foo_atom.rs"));
 //! }
@@ -73,7 +69,6 @@
 //! ## No compile-time atoms
 //!
 //! ```
-//! # extern crate string_cache;
 //! use string_cache::DefaultAtom;
 //!
 //! # fn main() {

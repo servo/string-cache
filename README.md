@@ -18,7 +18,6 @@ string_cache = "0.11"
 In `lib.rs`:
 
 ```rust
-extern crate string_cache;
 use string_cache::DefaultAtom as Atom;
 ```
 
@@ -40,8 +39,6 @@ string_cache_codegen = "0.11"
 In `build.rs`:
 
 ```rust
-extern crate string_cache_codegen;
-
 use std::env;
 use std::path::Path;
 
@@ -56,8 +53,6 @@ fn main() {
 In `lib.rs`:
 
 ```rust
-extern crate string_cache;
-
 mod foo {
     include!(concat!(env!("OUT_DIR"), "/foo_atom.rs"));
 }

@@ -28,8 +28,6 @@
 //! In `build.rs`:
 //!
 //! ```no_run
-//! extern crate string_cache_codegen;
-//!
 //! use std::env;
 //! use std::path::Path;
 //!
@@ -44,8 +42,6 @@
 //! In `lib.rs`:
 //!
 //! ```ignore
-//! extern crate string_cache;
-//!
 //! mod foo {
 //!     include!(concat!(env!("OUT_DIR"), "/foo_atom.rs"));
 //! }
