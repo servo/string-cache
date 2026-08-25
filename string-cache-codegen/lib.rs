@@ -199,16 +199,25 @@ impl AtomType {
 
     #[expect(clippy::wrong_self_convention)] // Doesn’t matter on a private method
     fn to_tokens(&mut self) -> proc_macro2::TokenStream {
-        // Make `atom!("")` always work, and ensure the set is non-empty
-        // to avoid divisions by zero in rust-phf.
+        // Make `atom!("")` always work
         self.atoms.insert(String::new());
 
+        const MAX_INLINE_LEN: usize = 7;
+
         // Strings over 7 bytes added to static set, otherwise stored inline.
-        let (static_strs, inline_strs): (Vec<_>, Vec<_>) = self
+        let (mut static_strs, inline_strs): (Vec<_>, Vec<_>) = self
             .atoms
             .iter()
             .map(String::as_str)
-            .partition(|s| s.len() > 7);
+            .partition(|s| s.len() > MAX_INLINE_LEN);
+
+        let dummy;
+        if static_strs.is_empty() {
+            // Some arbitrary string that `Atom::from(&str)` won’t represent inline
+            dummy = " ".repeat(MAX_INLINE_LEN + 1);
+            // Make the static set non-empty to avoid divisions by zero in rust-phf
+            static_strs.push(&dummy);
+        }
 
         // Static strings
         let hash_state = phf_generator::generate_hash(&static_strs);

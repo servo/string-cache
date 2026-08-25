@@ -19,6 +19,7 @@ use std::thread;
 use string_cache::StaticAtomSet;
 
 include!(concat!(env!("OUT_DIR"), "/test_atom.rs"));
+include!(concat!(env!("OUT_DIR"), "/test_atom2.rs"));
 pub type Atom = TestAtom;
 
 #[test]
@@ -358,14 +359,18 @@ fn test_eq_ignore_ascii_case() {
     assert!(Atom::from("").eq_ignore_ascii_case(&Atom::from("")));
     assert!(Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("aZ9")));
     assert!(Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("Az9")));
-    assert!(Atom::from("The Quick Brown Fox!")
-        .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!")));
+    assert!(
+        Atom::from("The Quick Brown Fox!")
+            .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!"))
+    );
     assert!(Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("je VAIS à PARIS")));
     assert!(!Atom::from("").eq_ignore_ascii_case(&Atom::from("az9")));
     assert!(!Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("")));
     assert!(!Atom::from("aZ9").eq_ignore_ascii_case(&Atom::from("9Za")));
-    assert!(!Atom::from("The Quick Brown Fox!")
-        .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!!")));
+    assert!(
+        !Atom::from("The Quick Brown Fox!")
+            .eq_ignore_ascii_case(&Atom::from("THE quick BROWN fox!!"))
+    );
     assert!(!Atom::from("Je vais à Paris").eq_ignore_ascii_case(&Atom::from("JE vais À paris")));
 }
 
@@ -380,6 +385,22 @@ fn test_try_static() {
     assert!(Atom::try_static("defaults").is_some());
     assert!(Atom::try_static("head").is_none());
     assert!(Atom::try_static("not in the static table").is_none());
+}
+
+#[test]
+fn test_with_empty_static_set() {
+    assert_eq!(TestAtom2::from("a").as_str(), "a");
+    assert_eq!(
+        TestAtom2::from("longer-than-inline").as_str(),
+        "longer-than-inline"
+    );
+
+    // the dummy string used in `string_cache_codegen::AtomType::to_tokens`
+    // to make the static set non-empty
+    let dummy = " ".repeat(8);
+    let atom = TestAtom2::from(dummy);
+    assert!(atom.is_static());
+    assert_eq!(atom, test_atom2!("        "));
 }
 
 #[cfg(test)]
