@@ -220,9 +220,13 @@ impl AtomType {
         }
 
         // Static strings
-        let hash_state = phf_generator::generate_hash(&static_strs);
-        let phf_generator::HashState { key, disps, map } = hash_state;
-        let (disps0, disps1): (Vec<_>, Vec<_>) = disps.into_iter().unzip();
+        let hash_state = phf_generator::ptrhash::generate_hash(&static_strs);
+        let phf_generator::ptrhash::HashState {
+            seed,
+            pilots,
+            remap,
+            map,
+        } = hash_state;
         let atoms: Vec<&str> = map.iter().map(|&idx| static_strs[idx]).collect();
         let indices = 0..atoms.len() as u32;
 
@@ -252,12 +256,7 @@ impl AtomType {
 
         let hashes: Vec<u64> = atoms
             .iter()
-            .map(|string| {
-                let hash = phf_shared::hash(string, &key);
-                // Reconstitute 64-bit `Hash128::h1`
-                // https://docs.rs/phf_shared/0.14.0/src/phf_shared/lib.rs.html#45-54
-                (hash.g as u64) << 32 | (hash.f1 as u64)
-            })
+            .map(|string| phf_shared::ptrhash::hash(string, &seed))
             .collect();
 
         let mut path_parts = self.path.rsplitn(2, "::");
@@ -335,8 +334,9 @@ impl AtomType {
             impl ::string_cache::StaticAtomSet for #static_set_name {
                 fn get() -> &'static ::string_cache::PhfStrSet {
                     static SET: ::string_cache::PhfStrSet = ::string_cache::PhfStrSet {
-                        key: #key,
-                        disps: &[#((#disps0, #disps1)),*],
+                        seed: #seed,
+                        pilots: &[#(#pilots),*],
+                        remap: &[#(#remap),*],
                         atoms: &[#(#atoms),*],
                         hashes: &[#(#hashes),*]
                     };

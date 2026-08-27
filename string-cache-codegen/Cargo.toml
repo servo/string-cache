@@ -13,7 +13,7 @@ name = "string_cache_codegen"
 path = "lib.rs"
 
 [dependencies]
-phf_generator = "0.14"
-phf_shared = "0.14"
+phf_generator = { version = "0.14", features = ["ptrhash"] }
+phf_shared = { version = "0.14", features = ["ptrhash"] }
 proc-macro2 = "1"
 quote = "1"
