@@ -36,12 +36,12 @@ jobs:
         run: |
           cargo build --no-default-features
           cargo build
-          cargo build --features malloc_size_of
+          cargo build --workspace
+          cargo build --workspace --features malloc_size_of
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace
+        run: |
+          cargo test --workspace
+          cargo test --workspace --benches
       - name: Run Clippy
         if: ${{ matrix.rust == 'stable' }}
         run: cargo clippy --workspace --all-targets
@@ -62,13 +62,6 @@ jobs:
       - name: Run Miri on big-endian
         if: ${{ matrix.rust == 'nightly' }}
         run: MIRIFLAGS=-Zmiri-permissive-provenance cargo miri test --workspace --target s390x-unknown-linux-gnu
-      - name: Build codegen
-        run: |
-          cd string-cache-codegen && cargo build && cd ..
-
-          if [ ${{ matrix.rust }} = nightly ]; then
-            cd integration-tests && cargo test --features unstable && cd ..;
-          fi
 
   build_result:
     name: Result
