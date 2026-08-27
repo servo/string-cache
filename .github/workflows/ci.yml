@@ -63,16 +63,17 @@ jobs:
         if: ${{ matrix.rust == 'nightly' }}
         run: MIRIFLAGS=-Zmiri-permissive-provenance cargo miri test --workspace --target s390x-unknown-linux-gnu
 
-  build_result:
+  build-result:
     name: Result
     runs-on: ubuntu-latest
+    if: always()
+    # needs all build to detect cancellation
     needs:
-      - "ci"
-
+      - ci
     steps:
-      - name: Mark the job as successful
+      - name: Success
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
         run: exit 0
-        if: success()
-      - name: Mark the job as unsuccessful
+      - name: Failure
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
-        if: "!success()"
