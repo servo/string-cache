@@ -188,7 +188,7 @@ fn bench_rand<const LEN: usize>(bencher: &mut criterion::Bencher) {
             // shift into printable ASCII
             *n = (*n % 0x40) + 0x20;
         }
-        let s = str::from_utf8(&buf[..]).unwrap();
+        let s = std::str::from_utf8(&buf[..]).unwrap();
         black_box(TestAtom::from(s));
     })
 }
