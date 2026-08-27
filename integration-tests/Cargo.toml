@@ -18,7 +18,7 @@ harness = false
 string_cache = { path = ".." }
 
 [dev-dependencies]
-criterion = { version = "0.8.2", features = ["html_reports"] }
+criterion = { version = "0.7.0", features = ["html_reports"] }
 rand = { version = "0.8", features = ["small_rng"] }
 string_cache_codegen = { path = "../string-cache-codegen" }
 
