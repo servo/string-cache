@@ -169,11 +169,6 @@ impl AtomType {
         destination.write_all(
             self.to_tokens()
                 .to_string()
-                // Insert some newlines to make the generated code slightly easier to read.
-                .replace(" [ \"", "[\n\"")
-                .replace("\" , ", "\",\n")
-                .replace(" ( \"", "\n( \"")
-                .replace("; ", ";\n")
                 .as_bytes(),
         )
     }
@@ -186,11 +181,6 @@ impl AtomType {
         destination.write_all(
             self.to_tokens()
                 .to_string()
-                // Insert some newlines to make the generated code slightly easier to read.
-                .replace(" [ \"", "[\n\"")
-                .replace("\" , ", "\",\n")
-                .replace(" ( \"", "\n( \"")
-                .replace("; ", ";\n")
                 .as_bytes(),
         )?;
         let str = String::from_utf8(destination).unwrap();
