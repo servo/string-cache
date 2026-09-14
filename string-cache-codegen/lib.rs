@@ -68,7 +68,7 @@ use proc_macro2::Ident;
 use quote::quote;
 use std::collections::BTreeSet;
 use std::fs::File;
-use std::io::{self, BufWriter, Write};
+use std::io::{self, BufWriter, Read, Write};
 use std::path::Path;
 
 /// A builder for a static atom set and relevant macros
@@ -166,16 +166,41 @@ impl AtomType {
     where
         W: Write,
     {
-        destination.write_all(
-            self.to_tokens()
-                .to_string()
-                // Insert some newlines to make the generated code slightly easier to read.
-                .replace(" [ \"", "[\n\"")
-                .replace("\" , ", "\",\n")
-                .replace(" ( \"", "\n( \"")
-                .replace("; ", ";\n")
-                .as_bytes(),
-        )
+        let unformatted = self.to_tokens().to_string();
+        if let Ok(formatted) = Self::rustfmt(&unformatted) {
+            destination.write_all(&formatted)
+        } else {
+            // Maybe rustfmt isn’t installed
+            destination.write_all(unformatted.as_bytes())
+        }
+    }
+
+    fn rustfmt(unformatted: &str) -> Result<Vec<u8>, std::io::Error> {
+        if cfg!(miri) {
+            // Miri does’t support `Command::spawn` as of rustc 1.100.0-nightly (4b6d04e70 2026-09-13):
+            // ```
+            // error: unsupported operation: can't call foreign function `posix_spawnattr_init` on OS `linux`
+            // ```
+            return Err(std::io::Error::other("rustfmt skipped for miri"));
+        }
+        let mut process = std::process::Command::new("rustfmt")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()?;
+        let mut child_stdin = process.stdin.take().unwrap();
+        child_stdin.write_all(unformatted.as_bytes())?;
+        child_stdin.flush()?;
+        drop(child_stdin);
+        let mut formatted = Vec::new();
+        process.stdout.take().unwrap().read_to_end(&mut formatted)?;
+        let status = process.wait()?;
+        if status.success() {
+            Ok(formatted)
+        } else {
+            Err(std::io::Error::other(format!(
+                "rustfmt exited with status {status:?}"
+            )))
+        }
     }
 
     #[cfg(test)]
@@ -183,16 +208,7 @@ impl AtomType {
     ///
     /// Used mostly for testing or displaying a value.
     pub fn write_to_string(&mut self, mut destination: Vec<u8>) -> io::Result<String> {
-        destination.write_all(
-            self.to_tokens()
-                .to_string()
-                // Insert some newlines to make the generated code slightly easier to read.
-                .replace(" [ \"", "[\n\"")
-                .replace("\" , ", "\",\n")
-                .replace(" ( \"", "\n( \"")
-                .replace("; ", ";\n")
-                .as_bytes(),
-        )?;
+        self.write_to(&mut destination)?;
         let str = String::from_utf8(destination).unwrap();
         Ok(str)
     }
