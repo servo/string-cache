@@ -176,6 +176,13 @@ impl AtomType {
     }
 
     fn rustfmt(unformatted: &str) -> Result<Vec<u8>, std::io::Error> {
+        if cfg!(miri) {
+            // Miri does’t support `Command::spawn` as of rustc 1.100.0-nightly (4b6d04e70 2026-09-13):
+            // ```
+            // error: unsupported operation: can't call foreign function `posix_spawnattr_init` on OS `linux`
+            // ```
+            return Err(std::io::Error::other("rustfmt skipped for miri"));
+        }
         let mut process = std::process::Command::new("rustfmt")
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
@@ -190,7 +197,9 @@ impl AtomType {
         if status.success() {
             Ok(formatted)
         } else {
-            Err(std::io::Error::other(format!("rustfmt exited with status {status:?}")))
+            Err(std::io::Error::other(format!(
+                "rustfmt exited with status {status:?}"
+            )))
         }
     }
 
