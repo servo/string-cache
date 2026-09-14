@@ -68,7 +68,7 @@ use proc_macro2::Ident;
 use quote::quote;
 use std::collections::BTreeSet;
 use std::fs::File;
-use std::io::{self, BufWriter, Write};
+use std::io::{self, BufWriter, Read, Write};
 use std::path::Path;
 
 /// A builder for a static atom set and relevant macros
@@ -166,11 +166,24 @@ impl AtomType {
     where
         W: Write,
     {
-        destination.write_all(
-            self.to_tokens()
-                .to_string()
-                .as_bytes(),
-        )
+        let unformatted = self.to_tokens().to_string();
+        if let Ok(formatted) = Self::rustfmt(&unformatted) {
+            destination.write_all(&formatted)
+        } else {
+            // Maybe rustfmt isn’t installed
+            destination.write_all(unformatted.as_bytes())
+        }
+    }
+
+    fn rustfmt(unformatted: &str) -> Result<Vec<u8>, std::io::Error> {
+        let process = std::process::Command::new("rustfmt")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()?;
+        process.stdin.unwrap().write_all(unformatted.as_bytes())?;
+        let mut formatted = Vec::new();
+        process.stdout.unwrap().read_to_end(&mut formatted)?;
+        Ok(formatted)
     }
 
     #[cfg(test)]
@@ -178,11 +191,7 @@ impl AtomType {
     ///
     /// Used mostly for testing or displaying a value.
     pub fn write_to_string(&mut self, mut destination: Vec<u8>) -> io::Result<String> {
-        destination.write_all(
-            self.to_tokens()
-                .to_string()
-                .as_bytes(),
-        )?;
+        self.write_to(&mut destination)?;
         let str = String::from_utf8(destination).unwrap();
         Ok(str)
     }
