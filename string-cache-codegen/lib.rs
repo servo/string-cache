@@ -176,14 +176,22 @@ impl AtomType {
     }
 
     fn rustfmt(unformatted: &str) -> Result<Vec<u8>, std::io::Error> {
-        let process = std::process::Command::new("rustfmt")
+        let mut process = std::process::Command::new("rustfmt")
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .spawn()?;
-        process.stdin.unwrap().write_all(unformatted.as_bytes())?;
+        let mut child_stdin = process.stdin.take().unwrap();
+        child_stdin.write_all(unformatted.as_bytes())?;
+        child_stdin.flush()?;
+        drop(child_stdin);
         let mut formatted = Vec::new();
-        process.stdout.unwrap().read_to_end(&mut formatted)?;
-        Ok(formatted)
+        process.stdout.take().unwrap().read_to_end(&mut formatted)?;
+        let status = process.wait()?;
+        if status.success() {
+            Ok(formatted)
+        } else {
+            Err(std::io::Error::other(format!("rustfmt exited with status {status:?}")))
+        }
     }
 
     #[cfg(test)]
