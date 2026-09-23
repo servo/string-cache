@@ -29,9 +29,11 @@ pub trait StaticAtomSet: Ord {
 /// [Hash, Displace and Compress]: http://cmph.sourceforge.net/papers/esa09.pdf
 pub struct PhfStrSet {
     #[doc(hidden)]
-    pub key: u64,
+    pub seed: u64,
     #[doc(hidden)]
-    pub disps: &'static [(u32, u32)],
+    pub pilots: &'static [u8],
+    #[doc(hidden)]
+    pub remap: &'static [u32],
     #[doc(hidden)]
     pub atoms: &'static [&'static str],
     #[doc(hidden)]
@@ -47,8 +49,9 @@ impl StaticAtomSet for EmptyStaticAtomSet {
         // The name is a lie: this set is not empty (it contains the empty string)
         // but that’s only to avoid divisions by zero in rust-phf.
         static SET: PhfStrSet = PhfStrSet {
-            key: 0,
-            disps: &[(0, 0)],
+            seed: 0,
+            pilots: &[0],
+            remap: &[0],
             atoms: &[""],
             // "" SipHash'd, and xored with u64_hash_to_u32.
             hashes: &[0x3ddddef3],

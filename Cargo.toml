@@ -26,7 +26,7 @@ default = ["serde_support"]
 precomputed-hash = "0.1"
 serde = { version = "1", optional = true }
 malloc_size_of = { version = "0.1", default-features = false, optional = true }
-phf_shared = "0.14"
+phf_shared = { version = "0.14", features = ["ptrhash"] }
 new_debug_unreachable = "1.0.2"
 parking_lot = "0.12"
 
