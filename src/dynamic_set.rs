@@ -10,6 +10,7 @@
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
+use std::hash::{BuildHasher as _, RandomState};
 use std::ptr::NonNull;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicIsize;
@@ -20,6 +21,7 @@ const BUCKET_MASK: u64 = (1 << 12) - 1;
 
 pub(crate) struct Set {
     buckets: Box<[Mutex<Option<NonNull<Entry>>>]>,
+    hasher: RandomState,
 }
 
 pub(crate) struct Entry {
@@ -46,12 +48,19 @@ pub(crate) fn dynamic_set() -> &'static Set {
 
     DYNAMIC_SET.get_or_init(|| {
         let buckets = (0..NB_BUCKETS).map(|_| Mutex::new(None)).collect();
-        Set { buckets }
+        Set {
+            buckets,
+            hasher: RandomState::new(),
+        }
     })
 }
 
 impl Set {
-    pub(crate) fn insert(&self, string: Cow<str>, hash: u64) -> NonNull<Entry> {
+    pub(crate) fn insert(&self, string: Cow<str>) -> NonNull<Entry> {
+        // Don’t reuse the static set hash here:
+        // https://github.com/servo/string-cache/issues/314
+        let hash = self.hasher.hash_one::<&str>(&string);
+
         let bucket_index = (hash & BUCKET_MASK) as usize;
         let mut linked_list = self.buckets[bucket_index].lock();
 

@@ -211,18 +211,14 @@ impl<Static: StaticAtomSet> Atom<Static> {
     }
 
     pub fn try_static(string_to_add: &str) -> Option<Self> {
-        Self::try_static_internal(string_to_add).ok()
-    }
-
-    fn try_static_internal(string_to_add: &str) -> Result<Self, phf_shared::Hashes> {
         let static_set = Static::get();
         let hash = phf_shared::hash(string_to_add, &static_set.key);
         let index = phf_shared::get_index(&hash, static_set.disps, static_set.atoms.len());
 
         if static_set.atoms[index as usize] == string_to_add {
-            Ok(Self::pack_static(index))
+            Some(Self::pack_static(index))
         } else {
-            Err(hash)
+            None
         }
     }
 
@@ -271,11 +267,9 @@ impl<'a, Static: StaticAtomSet> From<Cow<'a, str>> for Atom<Static> {
                 phantom: PhantomData,
             }
         } else {
-            Self::try_static_internal(&string_to_add).unwrap_or_else(|hash| {
-                // Reconstitute 64-bit `Hash128::h1`
-                // https://docs.rs/phf_shared/0.14.0/src/phf_shared/lib.rs.html#45-54
-                let hash = (hash.g as u64) << 32 | (hash.f1 as u64);
-                let ptr: std::ptr::NonNull<Entry> = dynamic_set().insert(string_to_add, hash);
+            Self::try_static(&string_to_add).unwrap_or_else(|| {
+                // This string is not in the static set, add it if needed to the dynamic set.
+                let ptr: std::ptr::NonNull<Entry> = dynamic_set().insert(string_to_add);
                 let data = ptr.as_ptr().expose_provenance() as u64;
                 debug_assert!(0 == data & TAG_MASK);
                 Atom {
